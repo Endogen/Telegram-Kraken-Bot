@@ -33,3 +33,5 @@ Bestätigung von order anfordern?
         evlt. zusätzlich zum fragen ob OK auch diesen Check hinzufügen
     evtl. Passwort anfordern
         Hash in config.json speichern und checken
+User-Check über Telnummer machen auch möglich? Option in die config
+Passworteingabe entweder global machen, also einmal Login und dann darf ich alles machen bis ich wieder einen Logout mache oder aber bei jeder Transaktion Passwort verlangen? Option in die config
