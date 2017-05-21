@@ -1,0 +1,8 @@
+{
+	"allowed_user" : "some_user",
+	"allowed_phone_number" : "some_mobile_phone_number",
+	"bot_token" : "some_bot_token",
+	"password_needed" : "true",
+	"password_hash" : "some_hash",
+	"confirm_action" : "false"
+}
