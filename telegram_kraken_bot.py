@@ -1,9 +1,10 @@
 # TODO: Add logging
 # TODO: Add exception handling
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import krakenex
 import json
+
+import krakenex
+from telegram.ext import Updater, CommandHandler
 
 # Read configuration
 with open("config.json") as configFile:
@@ -127,6 +128,9 @@ def orders(bot, update):
                 order_desc = res_data["result"]["open"][order]["descr"]["order"]
                 bot.send_message(chat_id, text=order + "\n" + order_desc)
             return
+        else:
+            bot.send_message(chat_id, text="No open orders")
+            return
 
     # If parameter is 'close-all' then close all orders
     if msg_params[1] == "close-all":
@@ -183,11 +187,13 @@ def help(bot, update):
         bot.send_message(chat_id, text="Wrong user!")
         return
 
-    bot.send_message(chat_id, text="/balance")
-    bot.send_message(chat_id, text="/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])")
-    bot.send_message(chat_id, text="/orders")
-    bot.send_message(chat_id, text="/orders ['close'] [txid]")
-    bot.send_message(chat_id, text="/orders ['close-all']")
+    syntax_msg = "/balance\n\n"
+    syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])\n\n"
+    syntax_msg += "/orders\n\n"
+    syntax_msg += "/orders ['close'] [txid]\n\n"
+    syntax_msg += "/orders ['close-all']"
+
+    bot.send_message(chat_id, text=syntax_msg)
 
 # Create message and command handlers
 helpHandler = CommandHandler("help", help)
