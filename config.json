@@ -1,4 +1,8 @@
 {
-	"allowed_user" : "username",
-	"bot_token" : "bot_token_from_bot_father"
+	"allowed_user" : "endogen",
+	"allowed_phone_number" : "004917632987192",
+	"bot_token" : "304028949:AAFXs7EbIkRw6oWkZ0O1t6vgMhWL2uQzUfo",
+	"password_needed" : "true",
+	"password_hash" : "some_hash",
+	"confirm_action" : "false"
 }
