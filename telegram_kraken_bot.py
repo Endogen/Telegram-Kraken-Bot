@@ -4,9 +4,12 @@
 # TODO: Always the same behaviour for commands without params?
 # TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
 # TODO: Implement password protection
+# TODO: Show 'XBT' to user instead of 'XXBT'
+# TODO: Implement message if order trade successful
+# TODO: For 'value': do i have to remove the fee?
+# TODO: 'calc' to calculate possible winn if sold for ...
 
 import json
-
 import krakenex
 from telegram.ext import Updater, CommandHandler
 
@@ -21,6 +24,9 @@ kraken.load_key("kraken.key")
 # Set bot token
 updater = Updater(token=config["bot_token"])
 dispatcher = updater.dispatcher
+
+# FIXME: Do we need this variable or do we read it from config?
+euro_str = "EUR"
 
 
 # Check if Telegram user is valid
@@ -74,12 +80,13 @@ def trade(bot, update):
         bot.send_message(chat_id, text=syntax)
         return
 
-    # Check if 'volume' is specified or not
-    if len(msg_params) == 4:
-        if msg_params[4] == "€" or msg_params[4].upper() == "EUR":
-            volume = "{0:.8f}".format(float(msg_params[4]) / float(msg_params[3]))
+    # Volume is specified
+    if len(msg_params) == 5:
+        if msg_params[4].upper().endswith(euro_str):
+            volume = "{0:.8f}".format(float(msg_params[4][:-len(euro_str)]) / float(msg_params[3]))
         else:
             volume = msg_params[4]
+    # Volume is NOT specified
     else:
         # Send request to Kraken to get euro balance to calculate volume
         res_data = kraken.query_private("Balance")
@@ -89,10 +96,16 @@ def trade(bot, update):
             bot.send_message(chat_id, text=res_data["error"][0])
             return
 
-        euros = res_data["result"][config["trade_to_currency"]]
-
-        # Calculate volume depending on full euro balance and round it to 8 digits
-        volume = "{0:.8f}".format(float(euros) / float(msg_params[3]))
+        # Logic for 'buy'
+        if msg_params[0] == "buy":
+            euros = res_data["result"][config["trade_to_currency"]]
+            # Calculate volume depending on full euro balance and round it to 8 digits
+            volume = "{0:.8f}".format(float(euros) / float(msg_params[3]))
+        # Logic for 'sell'
+        else:
+            current_volume = res_data["result"][msg_params[2].upper()]
+            # Get volume from balance and round it to 8 digits
+            volume = "{0:.8f}".format(float(current_volume))
 
     req_data = dict()
     req_data["type"] = msg_params[1]
@@ -321,7 +334,7 @@ def value(bot, update):
     # Show only 2 digits after decimal place
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
-    bot.send_message(chat_id, text=total_value_euro + " EUR")
+    bot.send_message(chat_id, text=total_value_euro + " " + euro_str)
 
 # Create message and command handlers
 helpHandler = CommandHandler("help", help)
