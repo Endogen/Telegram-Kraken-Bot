@@ -7,7 +7,7 @@
 # TODO: Show 'XBT' to user instead of 'XXBT'
 # TODO: Implement message if order trade successful
 # TODO: For 'value': do i have to remove the fee?
-# TODO: 'calc' to calculate possible win if sold for INPUT
+# TODO: 'calc' to calculate possible win if sold for INPUT - or just integrate this into the confirmation of 'trade'
 
 import json
 import krakenex
