@@ -7,7 +7,7 @@
 # TODO: Show 'XBT' to user instead of 'XXBT'
 # TODO: Implement message if order trade successful
 # TODO: For 'value': do i have to remove the fee?
-# TODO: 'calc' to calculate possible winn if sold for ...
+# TODO: 'calc' to calculate possible win if sold for INPUT
 
 import json
 import krakenex
@@ -25,7 +25,7 @@ kraken.load_key("kraken.key")
 updater = Updater(token=config["bot_token"])
 dispatcher = updater.dispatcher
 
-# FIXME: Do we need this variable or do we read it from config?
+# FIXME: Do we need this variable or do we read it from config 'trade_to_currency'?
 euro_str = "EUR"
 
 
@@ -124,6 +124,7 @@ def trade(bot, update):
 
     # If there is a transaction id, order was placed successfully
     if res_data["result"]["txid"]:
+        # FIXME: Don't print 'Order placed' but TXID and description like 'buy 10.86956522 XMREUR @ limit 46.0'
         bot.send_message(chat_id, text="Order placed")
         return
 
