@@ -11,7 +11,13 @@
 
 import json
 import krakenex
+import logging
 from telegram.ext import Updater, CommandHandler
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+# TODO: Usage: logger.debug("CHAT_ID: " + str(chat_id))
 
 # Read configuration
 with open("config.json") as config_file:
