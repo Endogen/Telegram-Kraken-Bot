@@ -4,5 +4,6 @@
 	"bot_token" : "some_bot_token",
 	"password_needed" : "true",
 	"password_hash" : "some_hash",
-	"confirm_action" : "false"
+	"confirm_action" : "false",
+	"trade_to_currency" : "ZEUR"
 }
