@@ -8,11 +8,12 @@
 # TODO: Implement message if order trade successful
 # TODO: For 'value': do i have to remove the fee?
 # TODO: 'calc' to calculate possible win if sold for INPUT - or just integrate this into the confirmation of 'trade'
+# TODO: Create own method that takes an amount and cuts off the trailing zeroes
 
 import json
 import krakenex
 import logging
-from telegram.ext import Updater, CommandHandler
+from telegram.ext import Updater, CommandHandler, Job
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -29,10 +30,23 @@ kraken.load_key("kraken.key")
 
 # Set bot token
 updater = Updater(token=config["bot_token"])
+
+# Get dispatcher and job queue
 dispatcher = updater.dispatcher
+job_queue = updater.job_queue
 
 # FIXME: Do we need this variable or do we read it from config 'trade_to_currency'?
 euro_str = "EUR"
+
+
+# Check for newly closed orders and send message if trade happened
+def check_orders(bot, job):
+    # FIXME: How to get the chat_id from the username? Or better to save this ID in config instead of username?
+    bot.send_message(chat_id="134166731", text="One msg every 30 seconds")
+
+# FIXME: Comment this in
+# job_check_orders = Job(check_orders, config["check_trade_time"])
+# job_queue.put(job_check_orders, next_t=0.0)
 
 
 # Check if Telegram user is valid
@@ -45,6 +59,7 @@ def valid_user(update):
 
 
 # Get balance of all currencies
+# TODO: Should have the option to print EUR that is available to trade (if already order placed): '/balance available'?
 def balance(bot, update):
     chat_id = update.message.chat_id
 
@@ -197,7 +212,7 @@ def orders(bot, update):
             bot.send_message(chat_id, text="No open orders")
             return
 
-    # If parameter is 'close' and txid is provided, close order with specific txid
+    # If parameter is 'close' and TXID is provided, close order with specific TXID
     if msg_params[1] == "close":
         if msg_params[2]:
             req_data = dict()
@@ -246,6 +261,8 @@ def price(bot, update):
         bot.send_message(chat_id, text="Wrong user!")
         return
 
+    # FIXME: Check if there are additional params. If not, show syntax help
+
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
 
@@ -280,6 +297,10 @@ def price(bot, update):
 
         # Remove zeroes at the end
         while last_trade_price.endswith("0") or last_trade_price.endswith("."):
+            if last_trade_price.endswith("."):
+                last_trade_price = last_trade_price[:-1]
+                break
+
             last_trade_price = last_trade_price[:-1]
 
         #  Add currency to price
