@@ -41,12 +41,7 @@ euro_str = "EUR"
 
 # Check for newly closed orders and send message if trade happened
 def check_orders(bot, job):
-    # FIXME: How to get the chat_id from the username? Or better to save this ID in config instead of username?
-    bot.send_message(chat_id="134166731", text="One msg every 30 seconds")
-
-# FIXME: Comment this in
-# job_check_orders = Job(check_orders, config["check_trade_time"])
-# job_queue.put(job_check_orders, next_t=0.0)
+    bot.send_message(chat_id=job.context, text="Not sold yet...")
 
 
 # Check if Telegram user is valid
@@ -118,15 +113,18 @@ def trade(bot, update):
             return
 
         # Logic for 'buy'
-        if msg_params[0] == "buy":
+        if msg_params[1] == "buy":
             euros = res_data["result"][config["trade_to_currency"]]
             # Calculate volume depending on full euro balance and round it to 8 digits
             volume = "{0:.8f}".format(float(euros) / float(msg_params[3]))
         # Logic for 'sell'
-        else:
+        elif msg_params[1] == "sell":
             current_volume = res_data["result"][msg_params[2].upper()]
             # Get volume from balance and round it to 8 digits
             volume = "{0:.8f}".format(float(current_volume))
+        else:
+            # TODO: todo...
+            return
 
     req_data = dict()
     req_data["type"] = msg_params[1]
@@ -147,6 +145,10 @@ def trade(bot, update):
     if res_data["result"]["txid"]:
         # FIXME: Don't print 'Order placed' but TXID and description like 'buy 10.86956522 XMREUR @ limit 46.0'
         bot.send_message(chat_id, text="Order placed")
+
+        if config["check_trade"].lower() == "true":
+            job_check_orders = Job(check_orders, config["check_trade_time"], context=update.message.chat_id)
+            job_queue.put(job_check_orders, next_t=0.0)
         return
 
     bot.send_message(chat_id, text="Undefined state: no error and no txid")
