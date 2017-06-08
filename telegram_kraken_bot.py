@@ -1,12 +1,10 @@
 # TODO: Add logging
-# TODO: Add exception handling
 # TODO: Always the same behaviour for commands without params?
 # TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
 # TODO: Implement password protection
 # TODO: Show 'XBT' to user instead of 'XXBT'
-# TODO: 'calc' to calculate possible win if sold for INPUT - or just integrate this into the confirmation of 'trade'
+# TODO: 'calc' to calculate possible win if sold for INPUT - or integrate into confirmation of 'trade'
 # TODO: If we check for example 'if param[2]:' then change this to 'if len(param) == 3'
-# TODO: Change method 'trim_value' to also accept long strings like 'buy 0.50000000 XMREUR @ limit 40.00000'
 # TODO: Change all 'msg_params[]' into dictionaries
 # TODO: Add watcher-jobs also for orders that where not created in this instance
 
