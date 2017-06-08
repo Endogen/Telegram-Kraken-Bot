@@ -110,7 +110,7 @@ def balance(bot, update):
 
     msg = ""
     for currency_key, currency_value in res_data["result"].items():
-        msg += currency_key + ": " + currency_value + "\n"
+        msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
 
     bot.send_message(chat_id, text=msg)
 
