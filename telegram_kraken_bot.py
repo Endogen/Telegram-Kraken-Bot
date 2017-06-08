@@ -1,11 +1,14 @@
 # TODO: Add logging
 # TODO: Add exception handling
-# TODO: Change value in config from 'ZEUR' to 'EUR'?
 # TODO: Always the same behaviour for commands without params?
 # TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
 # TODO: Implement password protection
 # TODO: Show 'XBT' to user instead of 'XXBT'
 # TODO: 'calc' to calculate possible win if sold for INPUT - or just integrate this into the confirmation of 'trade'
+# TODO: If we check for example 'if param[2]:' then change this to 'if len(param) == 3'
+# TODO: Change method 'trim_value' to also accept long strings like 'buy 0.50000000 XMREUR @ limit 40.00000'
+# TODO: Change all 'msg_params[]' into dictionaries
+# TODO: Add watcher-jobs also for orders that where not created in this instance
 
 import json
 import krakenex
@@ -32,9 +35,6 @@ updater = Updater(token=config["bot_token"])
 dispatcher = updater.dispatcher
 job_queue = updater.job_queue
 
-# FIXME: Do we need this variable or do we read it from config 'trade_to_currency'?
-euro_str = "EUR"
-
 
 # Check for newly closed orders and send message if trade happened
 def check_order(bot, job):
@@ -56,11 +56,13 @@ def check_order(bot, job):
 
     # Check if trade is executed
     if order_info["status"] == "closed":
-        msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + order_info["descr"]["order"]
+        msg = "Trade executed: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
         job.schedule_removal()
     elif order_info["status"] == "canceled":
+        msg = "Trade canceled: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
+        bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
         job.schedule_removal()
 
@@ -75,11 +77,19 @@ def valid_user(update):
 
 
 # Remove trailing zeros to get clean values
-def trim_value(value_to_trim):
+def trim_zeros(value_to_trim):
     if isinstance(value_to_trim, float):
         return ('%.8f' % value_to_trim).rstrip('0').rstrip('.')
     elif isinstance(value_to_trim, str):
-        return ('%.8f' % float(value_to_trim)).rstrip('0').rstrip('.')
+        str_list = value_to_trim.split(" ")
+        for i in range(len(str_list)):
+            old_str = str_list[i]
+            if old_str.replace(".", "").isdigit():
+                new_str = str(('%.8f' % float(old_str)).rstrip('0').rstrip('.'))
+                str_list[i] = new_str
+        return " ".join(str_list)
+    else:
+        return value_to_trim
 
 
 # Get balance of all currencies
@@ -127,8 +137,10 @@ def trade(bot, update):
 
     # Volume is specified
     if len(msg_params) == 5:
-        if msg_params[4].upper().endswith(euro_str):
-            volume = "{0:.8f}".format(float(msg_params[4][:-len(euro_str)]) / float(msg_params[3]))
+        if msg_params[4].upper().endswith(config["trade_to_currency"]):
+            amount = float(msg_params[4][:-len(config["trade_to_currency"])])
+            price_per_unit = float(msg_params[3])
+            volume = "{0:.8f}".format(amount / price_per_unit)
         else:
             volume = msg_params[4]
     # Volume is NOT specified
@@ -141,10 +153,13 @@ def trade(bot, update):
             bot.send_message(chat_id, text=res_data["error"][0])
             return
 
+        buy = "buy"
+        sell = "sell"
+
         # Logic for 'buy'
-        if msg_params[1] == "buy":
+        if msg_params[1] == buy:
             # FIXME: Only get euros that are not blocked by open orders!
-            euros = res_data["result"][config["trade_to_currency"]]
+            euros = res_data["result"]["Z" + config["trade_to_currency"]]
             # Calculate volume depending on full euro balance and round it to 8 digits
             volume = "{0:.8f}".format(float(euros) / float(msg_params[3]))
         # Logic for 'sell'
@@ -153,12 +168,13 @@ def trade(bot, update):
             # Get volume from balance and round it to 8 digits
             volume = "{0:.8f}".format(float(current_volume))
         else:
-            bot.send_message(chat_id, text="Argument should be 'buy' or 'sell' but is '" + msg_params[1] + "'")
+            msg = "Argument should be '" + buy + "' or '" + sell + "' but is '" + msg_params[1] + "'"
+            bot.send_message(chat_id, text=msg)
             return
 
     req_data = dict()
     req_data["type"] = msg_params[1]
-    req_data["pair"] = msg_params[2] + config["trade_to_currency"]
+    req_data["pair"] = msg_params[2] + "Z" + config["trade_to_currency"]
     req_data["price"] = msg_params[3]
     req_data["ordertype"] = "limit"
     req_data["volume"] = volume
@@ -188,7 +204,7 @@ def trade(bot, update):
 
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
-            bot.send_message(chat_id, text="Order placed:\n" + add_order_txid + "\n" + order_desc)
+            bot.send_message(chat_id, text="Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc))
 
             if config["check_trade"].lower() == "true":
                 # Get time in seconds from config
@@ -231,7 +247,7 @@ def orders(bot, update):
 
         if res_data["result"]["open"]:
             for order in res_data["result"]["open"]:
-                order_desc = res_data["result"]["open"][order]["descr"]["order"]
+                order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
                 bot.send_message(chat_id, text=order + "\n" + order_desc)
             return
         else:
@@ -269,6 +285,7 @@ def orders(bot, update):
 
     # If parameter is 'close' and TXID is provided, close order with specific TXID
     if msg_params[1] == "close":
+        # FIXME: 'if msg_params[2]:' doesn't work if parameter 3 is not set! Do it with 'len()'?
         if msg_params[2]:
             req_data = dict()
             req_data["txid"] = msg_params[2]
@@ -330,7 +347,7 @@ def price(bot, update):
         if first:
             first = False
         else:
-            req_data["pair"] += param + config["trade_to_currency"] + ","
+            req_data["pair"] += param + "Z" + config["trade_to_currency"] + ","
 
     # Remove last comma from 'pair' string
     req_data["pair"] = req_data["pair"][:-1]
@@ -346,15 +363,15 @@ def price(bot, update):
     msg = ""
     for currency_key, currency_value in res_data["result"].items():
         # Set currency without 'trade to currency' value (for example 'ZEUR')
-        currency = currency_key[:-len(config["trade_to_currency"])]
+        currency = currency_key[:-len("Z" + config["trade_to_currency"])]
         # Read last trade price
         last_trade_price = currency_value["c"][0]
 
         # Remove zeros at the end
-        last_trade_price = trim_value(last_trade_price)
+        last_trade_price = trim_zeros(last_trade_price)
 
         #  Add currency to price
-        last_trade_price += " " + config["trade_to_currency"][1:]
+        last_trade_price += " " + config["trade_to_currency"]
 
         # Create message
         msg += currency + ": " + last_trade_price + "\n"
@@ -383,10 +400,10 @@ def value(bot, update):
     req_data_price["pair"] = ""
 
     for currency_name, currency_amount in res_data_balance["result"].items():
-        if currency_name == config["trade_to_currency"]:
+        if currency_name.endswith(config["trade_to_currency"]):
             continue
 
-        req_data_price["pair"] += currency_name + config["trade_to_currency"] + ","
+        req_data_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
 
     # Remove last comma from 'pair' string
     req_data_price["pair"] = req_data_price["pair"][:-1]
@@ -403,7 +420,7 @@ def value(bot, update):
 
     for currency_pair_name, currency_price in res_data_price["result"].items():
         # Remove trade-to-currency from currency pair to get the pure currency
-        currency_without_pair = currency_pair_name[:-len(config["trade_to_currency"])]
+        currency_without_pair = currency_pair_name[:-len("Z" + config["trade_to_currency"])]
         currency_balance = res_data_balance["result"][currency_without_pair]
 
         # Calculate total value by multiplying currency asset with last trade price
@@ -412,7 +429,7 @@ def value(bot, update):
     # Show only 2 digits after decimal place
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
-    bot.send_message(chat_id, text=total_value_euro + " " + euro_str)
+    bot.send_message(chat_id, text=total_value_euro + " " + config["trade_to_currency"])
 
 # Create message and command handlers
 helpHandler = CommandHandler("help", help)
