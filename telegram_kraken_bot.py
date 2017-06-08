@@ -40,8 +40,34 @@ euro_str = "EUR"
 
 
 # Check for newly closed orders and send message if trade happened
-def check_orders(bot, job):
-    bot.send_message(chat_id=job.context, text="Not sold yet...")
+def check_order(bot, job):
+    req_data = dict()
+    req_data["txid"] = job.context["order_txid"]
+
+    # Send request to get info on specific order
+    res_data = kraken.query_private("QueryOrders", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        bot.send_message(job.context["chat_id"], text=res_data["error"][0])
+        # TODO: Do i have to stop the job after error?
+        return
+
+    # Save information about order
+    order_info = res_data["result"][job.context["order_txid"]]
+
+    # Check if trade is executed
+    if order_info["status"] == "closed":
+        msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + order_info["descr"]["order"]
+        bot.send_message(chat_id=job.context["chat_id"], text=msg)
+
+        # Stop the job queue
+        # FIXME: Produces an error, need to be outside of this method?
+        job_queue.stop()
+    elif order_info["status"] == "canceled":
+        # Stop the job queue
+        # FIXME: Produces an error, need to be outside of this method?
+        job_queue.stop()
 
 
 # Check if Telegram user is valid
@@ -114,6 +140,7 @@ def trade(bot, update):
 
         # Logic for 'buy'
         if msg_params[1] == "buy":
+            # FIXME: Only get euros that are not blocked by open orders!
             euros = res_data["result"][config["trade_to_currency"]]
             # Calculate volume depending on full euro balance and round it to 8 digits
             volume = "{0:.8f}".format(float(euros) / float(msg_params[3]))
@@ -134,24 +161,47 @@ def trade(bot, update):
     req_data["volume"] = volume
 
     # Send request to create order to Kraken
-    res_data = kraken.query_private("AddOrder", req_data)
+    res_data_add_order = kraken.query_private("AddOrder", req_data)
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        bot.send_message(chat_id, text=res_data["error"][0])
+    if res_data_add_order["error"]:
+        bot.send_message(chat_id, text=res_data_add_order["error"][0])
         return
 
-    # If there is a transaction id, order was placed successfully
-    if res_data["result"]["txid"]:
-        # FIXME: Don't print 'Order placed' but TXID and description like 'buy 10.86956522 XMREUR @ limit 46.0'
-        bot.send_message(chat_id, text="Order placed")
+    # If there is a transaction id then the order was placed successfully
+    if res_data_add_order["result"]["txid"]:
+        add_order_txid = res_data_add_order["result"]["txid"][0]
 
-        if config["check_trade"].lower() == "true":
-            job_check_orders = Job(check_orders, config["check_trade_time"], context=update.message.chat_id)
-            job_queue.put(job_check_orders, next_t=0.0)
-        return
+        req_data = dict()
+        req_data["txid"] = add_order_txid
 
-    bot.send_message(chat_id, text="Undefined state: no error and no txid")
+        # Send request to get info on specific order
+        res_data_query_order = kraken.query_private("QueryOrders", req_data)
+
+        # If Kraken replied with an error, show it
+        if res_data_query_order["error"]:
+            bot.send_message(chat_id, text=res_data["error"][0])
+            return
+
+        if res_data_query_order["result"][add_order_txid]:
+            order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
+            bot.send_message(chat_id, text="Order placed:\n" + add_order_txid + "\n" + order_desc)
+
+            if config["check_trade"].lower() == "true":
+                # Get time in seconds from config
+                check_trade_time = config["check_trade_time"]
+                # Create context object with chat ID and order TXID
+                context_data = dict(chat_id=update.message.chat_id, order_txid=add_order_txid)
+
+                # Create job to check status of newly created order
+                job_check_order = Job(check_order, check_trade_time, context=context_data)
+                job_queue.put(job_check_order, next_t=0.0)
+            return
+        else:
+            bot.send_message(chat_id, text="No open orders")
+            return
+    else:
+        bot.send_message(chat_id, text="Undefined state: no error and no txid")
 
 
 # Show and manage orders
