@@ -5,10 +5,7 @@
 # TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
 # TODO: Implement password protection
 # TODO: Show 'XBT' to user instead of 'XXBT'
-# TODO: Implement message if order trade successful
-# TODO: For 'value': do i have to remove the fee?
 # TODO: 'calc' to calculate possible win if sold for INPUT - or just integrate this into the confirmation of 'trade'
-# TODO: Create own method that takes an amount and cuts off the trailing zeroes
 
 import json
 import krakenex
@@ -75,6 +72,14 @@ def valid_user(update):
         return True
     else:
         return False
+
+
+# Remove trailing zeros to get clean values
+def trim_value(value_to_trim):
+    if isinstance(value_to_trim, float):
+        return ('%.8f' % value_to_trim).rstrip('0').rstrip('.')
+    elif isinstance(value_to_trim, str):
+        return ('%.8f' % float(value_to_trim)).rstrip('0').rstrip('.')
 
 
 # Get balance of all currencies
@@ -148,7 +153,7 @@ def trade(bot, update):
             # Get volume from balance and round it to 8 digits
             volume = "{0:.8f}".format(float(current_volume))
         else:
-            # TODO: todo...
+            bot.send_message(chat_id, text="Argument should be 'buy' or 'sell' but is '" + msg_params[1] + "'")
             return
 
     req_data = dict()
@@ -345,13 +350,8 @@ def price(bot, update):
         # Read last trade price
         last_trade_price = currency_value["c"][0]
 
-        # Remove zeroes at the end
-        while last_trade_price.endswith("0") or last_trade_price.endswith("."):
-            if last_trade_price.endswith("."):
-                last_trade_price = last_trade_price[:-1]
-                break
-
-            last_trade_price = last_trade_price[:-1]
+        # Remove zeros at the end
+        last_trade_price = trim_value(last_trade_price)
 
         #  Add currency to price
         last_trade_price += " " + config["trade_to_currency"][1:]
