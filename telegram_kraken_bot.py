@@ -50,7 +50,8 @@ def check_order(bot, job):
     # If Kraken replied with an error, show it
     if res_data["error"]:
         bot.send_message(job.context["chat_id"], text=res_data["error"][0])
-        # TODO: Do i have to stop the job after error?
+        # Stop this job
+        job.schedule_removal()
         return
 
     # Save information about order
@@ -60,14 +61,11 @@ def check_order(bot, job):
     if order_info["status"] == "closed":
         msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + order_info["descr"]["order"]
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
-
-        # Stop the job queue
-        # FIXME: Produces an error, need to be outside of this method?
-        job_queue.stop()
+        # Stop this job
+        job.schedule_removal()
     elif order_info["status"] == "canceled":
-        # Stop the job queue
-        # FIXME: Produces an error, need to be outside of this method?
-        job_queue.stop()
+        # Stop this job
+        job.schedule_removal()
 
 
 # Check if Telegram user is valid
