@@ -410,8 +410,8 @@ def value(bot, update):
     res_data_price = kraken.query_public("Ticker", req_data_price)
 
     # If Kraken replied with an error, show it
-    if res_data_balance["error"]:
-        bot.send_message(chat_id, text=res_data_balance["error"][0])
+    if res_data_price["error"]:
+        bot.send_message(chat_id, text=res_data_price["error"][0])
         return
 
     total_value_euro = float(0)
