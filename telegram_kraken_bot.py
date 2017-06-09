@@ -7,6 +7,11 @@
 # TODO: If we check for example 'if param[2]:' then change this to 'if len(param) == 3'
 # TODO: Change all 'msg_params[]' into dictionaries
 # TODO: Add watcher-jobs also for orders that where not created in this instance
+# TODO: Always check if argument from message is set before checking its value
+# TODO: When using chat after long time, first message doesn't work
+# TODO: Add 'all' to '/value' otherwise expect currency as parameter
+# TODO: Add possibility to start job for every command so that command gets executed periodically
+# TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 
 import json
 import krakenex
@@ -34,8 +39,9 @@ dispatcher = updater.dispatcher
 job_queue = updater.job_queue
 
 
-# Check for newly closed orders and send message if trade happened
-def check_order(bot, job):
+# Check order status and send message if changed
+def monitor_order(bot, job):
+    # TODO: Do all this in a 'for' loop to do it for all the txids in a list
     req_data = dict()
     req_data["txid"] = job.context["order_txid"]
 
@@ -52,17 +58,46 @@ def check_order(bot, job):
     # Save information about order
     order_info = res_data["result"][job.context["order_txid"]]
 
-    # Check if trade is executed
+    # Check if trade was executed
     if order_info["status"] == "closed":
         msg = "Trade executed: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
         job.schedule_removal()
+    # Check if trade was manually canceled
     elif order_info["status"] == "canceled":
         msg = "Trade canceled: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
         job.schedule_removal()
+
+
+# Monitor status changes of open orders
+def monitor_open_orders():
+    if config["check_trade"].lower() == "true":
+        # Send request for open orders to Kraken
+        res_data = kraken.query_private("OpenOrders")
+
+        # If Kraken replied with an error, show it
+        if res_data["error"]:
+            # FIXME: How do i get 'chat_id'?
+            updater.bot.send_message(chat_id="134166731", text=res_data["error"][0])
+            return
+
+        # Get time in seconds from config
+        check_trade_time = config["check_trade_time"]
+
+        if res_data["result"]["open"]:
+            for order in res_data["result"]["open"]:
+                order_txid = str(order)
+
+                # FIXME: How do i get 'chat_id'?
+                # Create context object with chat ID and order TXID
+                context_data = dict(chat_id="134166731", order_txid=order_txid)
+
+                # Create job to check status of order
+                job_check_order = Job(monitor_order, check_trade_time, context=context_data)
+                job_queue.put(job_check_order, next_t=0.0)
 
 
 # Check if Telegram user is valid
@@ -211,7 +246,7 @@ def trade(bot, update):
                 context_data = dict(chat_id=update.message.chat_id, order_txid=add_order_txid)
 
                 # Create job to check status of newly created order
-                job_check_order = Job(check_order, check_trade_time, context=context_data)
+                job_check_order = Job(monitor_order, check_trade_time, context=context_data)
                 job_queue.put(job_check_order, next_t=0.0)
             return
         else:
@@ -445,4 +480,8 @@ dispatcher.add_handler(ordersHandler)
 dispatcher.add_handler(priceHandler)
 dispatcher.add_handler(valueHandler)
 
+# Start the bot
 updater.start_polling()
+
+# Monitor status changes of open orders
+monitor_open_orders()
