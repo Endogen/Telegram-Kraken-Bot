@@ -9,6 +9,8 @@
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 # TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
 # TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
+# TODO: Rename all command-methods to something like 'cmd_update'?
+# TODO: For update: Save old py-file and set it again if new version not up and running
 
 import json
 import krakenex
@@ -536,6 +538,7 @@ tradeHandler = CommandHandler("trade", trade)
 ordersHandler = CommandHandler("orders", orders)
 priceHandler = CommandHandler("price", price)
 valueHandler = CommandHandler("value", value)
+restartHandler = CommandHandler("restart", restart)
 updateHandler = CommandHandler("update", update)
 
 # Add handlers to dispatcher
@@ -545,6 +548,7 @@ dispatcher.add_handler(tradeHandler)
 dispatcher.add_handler(ordersHandler)
 dispatcher.add_handler(priceHandler)
 dispatcher.add_handler(valueHandler)
+dispatcher.add_handler(restartHandler)
 dispatcher.add_handler(updateHandler)
 
 # Start the bot
