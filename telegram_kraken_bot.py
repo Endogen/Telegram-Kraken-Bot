@@ -16,6 +16,7 @@ import logging
 import os
 import time
 import sys
+import requests
 from telegram.ext import Updater, CommandHandler, Job
 
 # Set up logging
@@ -500,7 +501,22 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
-# TODO: Test this out
+# TODO: Test this
+# TODO: Add version information
+def update(bot, update):
+    # Get newest version of this file from GitHub
+    python_file = requests.get(config["update_url"])
+    content = python_file.text
+
+    # Save the content of the update
+    with open("telegram_kraken_bot.py", "w") as file:
+        file.write(content)
+
+    # Restart the bot
+    restart(bot, update)
+
+
+# Restart this python script
 def restart(bot, update):
     chat_id = update.message.chat_id
 
@@ -520,6 +536,7 @@ tradeHandler = CommandHandler("trade", trade)
 ordersHandler = CommandHandler("orders", orders)
 priceHandler = CommandHandler("price", price)
 valueHandler = CommandHandler("value", value)
+updateHandler = CommandHandler("update", update)
 
 # Add handlers to dispatcher
 dispatcher.add_handler(helpHandler)
@@ -528,6 +545,7 @@ dispatcher.add_handler(tradeHandler)
 dispatcher.add_handler(ordersHandler)
 dispatcher.add_handler(priceHandler)
 dispatcher.add_handler(valueHandler)
+dispatcher.add_handler(updateHandler)
 
 # Start the bot
 updater.start_polling()
