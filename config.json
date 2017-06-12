@@ -6,5 +6,6 @@
 	"confirm_action" : "false",
 	"trade_to_currency" : "EUR",
 	"check_trade" : "true",
-	"check_trade_time" : 30
+	"check_trade_time" : 30,
+	"update_url" : "https://raw.githubusercontent.com/endogen/Telegram-Kraken-Bot/master/telegram_kraken_bot.py"
 }
