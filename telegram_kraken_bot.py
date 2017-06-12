@@ -1,15 +1,11 @@
 # TODO: Add logging
-# TODO: Always the same behaviour for commands without params?
 # TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
 # TODO: Implement password protection
 # TODO: Show 'XBT' to user instead of 'XXBT'
 # TODO: 'calc' to calculate possible win if sold for INPUT - or integrate into confirmation of 'trade'
-# TODO: If we check for example 'if param[2]:' then change this to 'if len(param) == 3'
-# TODO: Change all 'msg_params[]' into dictionaries
-# TODO: Add watcher-jobs also for orders that where not created in this instance
+# TODO: Change 'msg_params[]' into dictionaries
 # TODO: Always check if argument from message is set before checking its value
 # TODO: When using chat after long time, first message doesn't work
-# TODO: Add 'all' to '/value' otherwise expect currency as parameter
 # TODO: Add possibility to start job for every command so that command gets executed periodically
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 
@@ -41,7 +37,6 @@ job_queue = updater.job_queue
 
 # Check order status and send message if changed
 def monitor_order(bot, job):
-    # TODO: Do all this in a 'for' loop to do it for all the txids in a list
     req_data = dict()
     req_data["txid"] = job.context["order_txid"]
 
@@ -61,12 +56,6 @@ def monitor_order(bot, job):
     # Check if trade was executed
     if order_info["status"] == "closed":
         msg = "Trade executed: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
-        bot.send_message(chat_id=job.context["chat_id"], text=msg)
-        # Stop this job
-        job.schedule_removal()
-    # Check if trade was manually canceled
-    elif order_info["status"] == "canceled":
-        msg = "Trade canceled: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
         job.schedule_removal()
@@ -126,7 +115,6 @@ def trim_zeros(value_to_trim):
 
 
 # Get balance of all currencies
-# TODO: Should have the option to print EUR that is available to trade (if already order placed): '/balance available'?
 def balance(bot, update):
     chat_id = update.message.chat_id
 
@@ -135,8 +123,21 @@ def balance(bot, update):
         bot.send_message(chat_id, text="Wrong user!")
         return
 
-    # Send request to Kraken to get current balance of all currencies
-    res_data = kraken.query_private("Balance")
+    # Save message parameters in list
+    msg_params = update.message.text.split(" ")
+
+    # Command without arguments
+    if len(msg_params) == 1:
+        # Send request to Kraken to get current balance of all currencies
+        res_data = kraken.query_private("Balance")
+
+    # Command with argument 'available'
+    elif len(msg_params) == 2 and msg_params[1] == "available":
+        req_data = dict()
+        req_data["asset"] = "Z" + config["trade_to_currency"]
+
+        # Send request to Kraken to get current trade balance of all currencies
+        res_data = kraken.query_private("TradeBalance", req_data)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -144,8 +145,14 @@ def balance(bot, update):
         return
 
     msg = ""
-    for currency_key, currency_value in res_data["result"].items():
-        msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
+
+    # Check for '/trade available'
+    if "tb" in res_data["result"]:
+        # tb = trade balance (combined balance of all equity currencies)
+        msg = config["trade_to_currency"] + ": " + trim_zeros(res_data["result"]["tb"])
+    else:
+        for currency_key, currency_value in res_data["result"].items():
+            msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
 
     bot.send_message(chat_id, text=msg)
 
@@ -177,26 +184,37 @@ def trade(bot, update):
         else:
             volume = msg_params[4]
     # Volume is NOT specified
-    else:
-        # Send request to Kraken to get euro balance to calculate volume
-        res_data = kraken.query_private("Balance")
-
-        # If Kraken replied with an error, show it
-        if res_data["error"]:
-            bot.send_message(chat_id, text=res_data["error"][0])
-            return
-
+    elif len(msg_params) == 4:
         buy = "buy"
         sell = "sell"
 
         # Logic for 'buy'
         if msg_params[1] == buy:
-            # FIXME: Only get euros that are not blocked by open orders!
-            euros = res_data["result"]["Z" + config["trade_to_currency"]]
+            req_data = dict()
+            req_data["asset"] = "Z" + config["trade_to_currency"]
+
+            # Send request to Kraken to get current trade balance of all currencies
+            res_data = kraken.query_private("TradeBalance", req_data)
+
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                bot.send_message(chat_id, text=res_data["error"][0])
+                return
+
+            euros = res_data["result"]["tb"]
             # Calculate volume depending on full euro balance and round it to 8 digits
             volume = "{0:.8f}".format(float(euros) / float(msg_params[3]))
         # Logic for 'sell'
         elif msg_params[1] == "sell":
+
+            # Send request to Kraken to get euro balance to calculate volume
+            res_data = kraken.query_private("Balance")
+
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                bot.send_message(chat_id, text=res_data["error"][0])
+                return
+
             current_volume = res_data["result"][msg_params[2].upper()]
             # Get volume from balance and round it to 8 digits
             volume = "{0:.8f}".format(float(current_volume))
@@ -204,6 +222,10 @@ def trade(bot, update):
             msg = "Argument should be '" + buy + "' or '" + sell + "' but is '" + msg_params[1] + "'"
             bot.send_message(chat_id, text=msg)
             return
+    else:
+        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])"
+        bot.send_message(chat_id, text=syntax)
+        return
 
     req_data = dict()
     req_data["type"] = msg_params[1]
@@ -286,21 +308,44 @@ def orders(bot, update):
         else:
             bot.send_message(chat_id, text="No open orders")
             return
+    elif len(msg_params) == 2:
+        # If parameter is 'close-all' then close all orders
+        if msg_params[1] == "close-all":
+            # Send request for open orders to Kraken
+            res_data = kraken.query_private("OpenOrders")
 
-    # If parameter is 'close-all' then close all orders
-    if msg_params[1] == "close-all":
-        # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                bot.send_message(chat_id, text=res_data["error"][0])
+                return
 
-        # If Kraken replied with an error, show it
-        if res_data["error"]:
-            bot.send_message(chat_id, text=res_data["error"][0])
+            if res_data["result"]["open"]:
+                for order in res_data["result"]["open"]:
+                    req_data = dict()
+                    req_data["txid"] = order
+
+                    # Send request to Kraken to cancel orders
+                    res_data = kraken.query_private("CancelOrder", req_data)
+
+                    # If Kraken replied with an error, show it
+                    if res_data["error"]:
+                        bot.send_message(chat_id, text=res_data["error"][0])
+                        return
+
+                    bot.send_message(chat_id, text="Order closed:\n" + order)
+                return
+            else:
+                bot.send_message(chat_id, text="No open orders")
+                return
+        else:
+            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / 'close-all'])")
             return
-
-        if res_data["result"]["open"]:
-            for order in res_data["result"]["open"]:
+    elif len(msg_params) == 3:
+        # If parameter is 'close' and TXID is provided, close order with specific TXID
+        if msg_params[1] == "close":
+            if len(msg_params) == 3:
                 req_data = dict()
-                req_data["txid"] = order
+                req_data["txid"] = msg_params[2]
 
                 # Send request to Kraken to cancel orders
                 res_data = kraken.query_private("CancelOrder", req_data)
@@ -310,31 +355,10 @@ def orders(bot, update):
                     bot.send_message(chat_id, text=res_data["error"][0])
                     return
 
-                bot.send_message(chat_id, text="Order closed:\n" + order)
-            return
-        else:
-            bot.send_message(chat_id, text="No open orders")
-            return
-
-    # If parameter is 'close' and TXID is provided, close order with specific TXID
-    if msg_params[1] == "close":
-        # FIXME: 'if msg_params[2]:' doesn't work if parameter 3 is not set! Do it with 'len()'?
-        if msg_params[2]:
-            req_data = dict()
-            req_data["txid"] = msg_params[2]
-
-            # Send request to Kraken to cancel orders
-            res_data = kraken.query_private("CancelOrder", req_data)
-
-            # If Kraken replied with an error, show it
-            if res_data["error"]:
-                bot.send_message(chat_id, text=res_data["error"][0])
+                bot.send_message(chat_id, text="Order closed:\n" + msg_params[2])
                 return
-
-            bot.send_message(chat_id, text="Order closed:\n" + msg_params[2])
-            return
         else:
-            bot.send_message(chat_id, text="Syntax: /orders ['close'] [txid]")
+            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / 'close-all'])")
             return
 
 
@@ -347,12 +371,11 @@ def help(bot, update):
         bot.send_message(chat_id, text="Wrong user!")
         return
 
-    syntax_msg = "/balance\n\n"
-    syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])\n\n"
-    syntax_msg += "/orders\n\n"
-    syntax_msg += "/orders ['close'] [txid]\n\n"
-    syntax_msg += "/orders ['close-all']\n\n"
-    syntax_msg += "/price [currency] ([currency] ...)"
+    syntax_msg = "/balance (['available'])\n\n"
+    syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n\n"
+    syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n\n"
+    syntax_msg += "/price [currency] ([currency] ...)\n\n"
+    syntax_msg += "/value ([currency])"
 
     bot.send_message(chat_id, text=syntax_msg)
 
@@ -366,10 +389,12 @@ def price(bot, update):
         bot.send_message(chat_id, text="Wrong user!")
         return
 
-    # FIXME: Check if there are additional params. If not, show syntax help
-
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
+
+    if len(msg_params) == 1:
+        bot.send_message(chat_id, text="Syntax: /price [currency] ([currency] ...)")
+        return
 
     req_data = dict()
     req_data["pair"] = ""
@@ -421,6 +446,9 @@ def value(bot, update):
         bot.send_message(chat_id, text="Wrong user!")
         return
 
+    # Save message parameters in list
+    msg_params = update.message.text.split(" ")
+
     # Send request to Kraken to get current balance of all currencies
     res_data_balance = kraken.query_private("Balance")
 
@@ -429,12 +457,19 @@ def value(bot, update):
         bot.send_message(chat_id, text=res_data_balance["error"][0])
         return
 
+    curr_str = "Overall: "
+
     req_data_price = dict()
     req_data_price["pair"] = ""
 
     for currency_name, currency_amount in res_data_balance["result"].items():
         if currency_name.endswith(config["trade_to_currency"]):
             continue
+
+        if (len(msg_params) == 2) and (currency_name == msg_params[1].upper()):
+            req_data_price["pair"] = currency_name + "Z" + config["trade_to_currency"] + ","
+            curr_str = msg_params[1].upper() + ": "
+            break
 
         req_data_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
 
@@ -462,7 +497,7 @@ def value(bot, update):
     # Show only 2 digits after decimal place
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
-    bot.send_message(chat_id, text=total_value_euro + " " + config["trade_to_currency"])
+    bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 # Create message and command handlers
 helpHandler = CommandHandler("help", help)
