@@ -4,7 +4,6 @@
 # TODO: Show 'XBT' to user instead of 'XXBT'
 # TODO: 'calc' to calculate possible win if sold for INPUT - or integrate into confirmation of 'trade'
 # TODO: Change 'msg_params[]' into dictionaries
-# TODO: Always check if argument from message is set before checking its value
 # TODO: When using chat after long time, first message doesn't work
 # TODO: Add possibility to start job for every command so that command gets executed periodically
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
@@ -53,8 +52,13 @@ def monitor_order(bot, job):
     # Save information about order
     order_info = res_data["result"][job.context["order_txid"]]
 
-    # Check if trade was executed
-    if order_info["status"] == "closed":
+    # Check if order was canceled. If so, stop monitoring
+    if order_info["status"] == "canceled":
+        # Stop this job
+        job.schedule_removal()
+
+    # Check if trade was executed. If so, stop monitoring and send message
+    elif order_info["status"] == "closed":
         msg = "Trade executed: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
@@ -243,6 +247,7 @@ def trade(bot, update):
         return
 
     # If there is a transaction id then the order was placed successfully
+    # FIXME: Am i sure that this check is working?
     if res_data_add_order["result"]["txid"]:
         add_order_txid = res_data_add_order["result"]["txid"][0]
 
@@ -253,10 +258,11 @@ def trade(bot, update):
         res_data_query_order = kraken.query_private("QueryOrders", req_data)
 
         # If Kraken replied with an error, show it
+        # FIXME: Am i sure that this check is working?
         if res_data_query_order["error"]:
             bot.send_message(chat_id, text=res_data["error"][0])
             return
-
+        # FIXME: Am i sure that this check is working?
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
             bot.send_message(chat_id, text="Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc))
@@ -272,10 +278,10 @@ def trade(bot, update):
                 job_queue.put(job_check_order, next_t=0.0)
             return
         else:
-            bot.send_message(chat_id, text="No open orders")
+            bot.send_message(chat_id, text="No order with TXID: " + add_order_txid)
             return
     else:
-        bot.send_message(chat_id, text="Undefined state: no error and no txid")
+        bot.send_message(chat_id, text="Undefined state: no error and no TXID")
 
 
 # Show and manage orders
