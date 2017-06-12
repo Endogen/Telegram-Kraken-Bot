@@ -1,5 +1,0 @@
-# kraken.key file that holds the api key and secret
-*.key
-
-# Config file that holds some private settings
-config.json
