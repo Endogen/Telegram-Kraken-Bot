@@ -11,6 +11,7 @@
 # TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
 # TODO: Rename all command-methods to something like 'cmd_update'?
 # TODO: For update: Save old py-file and set it again if new version not up and running
+# INFO: https://goo.gl/GG12RR
 
 import json
 import krakenex
