@@ -273,7 +273,7 @@ def trade(bot, update):
                 job_queue.put(job_check_order, next_t=0.0)
             return
         else:
-            bot.send_message(chat_id, text="No order with TXID: " + add_order_txid)
+            bot.send_message(chat_id, text="No order with TXID " + add_order_txid)
             return
     else:
         bot.send_message(chat_id, text="Undefined state: no error and no TXID")
@@ -364,7 +364,7 @@ def orders(bot, update):
 
 
 # Show syntax for all available commands
-def help(bot, update):
+def syntax(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
@@ -376,7 +376,8 @@ def help(bot, update):
     syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n\n"
     syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n\n"
     syntax_msg += "/price [currency] ([currency] ...)\n\n"
-    syntax_msg += "/value ([currency])"
+    syntax_msg += "/value ([currency])\n\n"
+    syntax_msg += "/update"
 
     bot.send_message(chat_id, text=syntax_msg)
 
@@ -503,7 +504,7 @@ def value(bot, update):
 
 # TODO: Test this
 # TODO: Add version information
-def update(bot, update):
+def update_bot(bot, update):
     # Get newest version of this file from GitHub
     python_file = requests.get(config["update_url"])
     content = python_file.text
@@ -530,13 +531,13 @@ def restart(bot, update):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 # Create message and command handlers
-helpHandler = CommandHandler("help", help)
+helpHandler = CommandHandler("help", syntax)
 balanceHandler = CommandHandler("balance", balance)
 tradeHandler = CommandHandler("trade", trade)
 ordersHandler = CommandHandler("orders", orders)
 priceHandler = CommandHandler("price", price)
 valueHandler = CommandHandler("value", value)
-updateHandler = CommandHandler("update", update)
+updateHandler = CommandHandler("update", update_bot)
 
 # Add handlers to dispatcher
 dispatcher.add_handler(helpHandler)
