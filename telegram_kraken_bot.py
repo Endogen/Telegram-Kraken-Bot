@@ -7,10 +7,15 @@
 # TODO: When using chat after long time, first message doesn't work
 # TODO: Add possibility to start job for every command so that command gets executed periodically
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
+# TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
+# TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
 
 import json
 import krakenex
 import logging
+import os
+import time
+import sys
 from telegram.ext import Updater, CommandHandler, Job
 
 # Set up logging
@@ -73,8 +78,7 @@ def monitor_open_orders():
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            # FIXME: How do i get 'chat_id'?
-            updater.bot.send_message(chat_id="134166731", text=res_data["error"][0])
+            updater.bot.send_message(chat_id=config["user_id"], text=res_data["error"][0])
             return
 
         # Get time in seconds from config
@@ -84,22 +88,12 @@ def monitor_open_orders():
             for order in res_data["result"]["open"]:
                 order_txid = str(order)
 
-                # FIXME: How do i get 'chat_id'?
                 # Create context object with chat ID and order TXID
-                context_data = dict(chat_id="134166731", order_txid=order_txid)
+                context_data = dict(chat_id=config["user_id"], order_txid=order_txid)
 
                 # Create job to check status of order
                 job_check_order = Job(monitor_order, check_trade_time, context=context_data)
                 job_queue.put(job_check_order, next_t=0.0)
-
-
-# Check if Telegram user is valid
-def valid_user(update):
-    user_name = update.message.from_user.username
-    if user_name == config["allowed_user"]:
-        return True
-    else:
-        return False
 
 
 # Remove trailing zeros to get clean values
@@ -122,9 +116,9 @@ def trim_zeros(value_to_trim):
 def balance(bot, update):
     chat_id = update.message.chat_id
 
-    # Check if user is valid for this action
-    if not valid_user(update):
-        bot.send_message(chat_id, text="Wrong user!")
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
         return
 
     # Save message parameters in list
@@ -166,8 +160,8 @@ def trade(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
-    if not valid_user(update):
-        bot.send_message(chat_id, text="Wrong user!")
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
         return
 
     # Save message parameters in list
@@ -289,8 +283,8 @@ def orders(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
-    if not valid_user(update):
-        bot.send_message(chat_id, text="Wrong user!")
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
         return
 
     # Save message parameters in list
@@ -373,8 +367,8 @@ def help(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
-    if not valid_user(update):
-        bot.send_message(chat_id, text="Wrong user!")
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
         return
 
     syntax_msg = "/balance (['available'])\n\n"
@@ -391,8 +385,8 @@ def price(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
-    if not valid_user(update):
-        bot.send_message(chat_id, text="Wrong user!")
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
         return
 
     # Save message parameters in list
@@ -448,8 +442,8 @@ def value(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
-    if not valid_user(update):
-        bot.send_message(chat_id, text="Wrong user!")
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
         return
 
     # Save message parameters in list
@@ -504,6 +498,20 @@ def value(bot, update):
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
+
+
+# TODO: Test this out
+def restart(bot, update):
+    chat_id = update.message.chat_id
+
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        return
+
+    bot.send_message(chat_id, "Bot is restarting...")
+    time.sleep(0.2)
+    os.execl(sys.executable, sys.executable, *sys.argv)
 
 # Create message and command handlers
 helpHandler = CommandHandler("help", help)
