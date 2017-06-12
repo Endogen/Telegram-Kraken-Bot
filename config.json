@@ -1,7 +1,6 @@
 {
-	"allowed_user" : "some_user",
-	"allowed_phone_number" : "some_mobile_phone_number",
-	"bot_token" : "some_bot_token",
+	"user_id" : "134166731",
+	"bot_token" : "304028949:AAFXs7EbIkRw6oWkZ0O1t6vgMhWL2uQzUfo",
 	"password_needed" : "true",
 	"password_hash" : "some_hash",
 	"confirm_action" : "false",
