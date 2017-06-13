@@ -9,6 +9,10 @@
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 # TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
 # TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
+# TODO: - Add password protections for actions:
+# TODO:     - Possibility 1 - Login, do whatever you like as often as you like, logout
+# TODO:     - Possibility 2 - execute command, bot shows "Enter password", user enters password, command is executed
+# TODO: - Add confirmation for order creation / cancel: Ask if data is correct, if user enters 'y', command is executed
 
 import json
 import krakenex
@@ -170,7 +174,7 @@ def trade(bot, update):
 
     # No arguments entered, just the '/trade' command
     if len(msg_params) == 1:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])"
+        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
         bot.send_message(chat_id, text=syntax)
         return
 
@@ -222,7 +226,7 @@ def trade(bot, update):
             bot.send_message(chat_id, text=msg)
             return
     else:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])"
+        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
         bot.send_message(chat_id, text=syntax)
         return
 
@@ -502,7 +506,21 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
-# TODO: Test this
+# FIXME: Do not compare the content but hash or date from github meta-data
+# See here: https://stackoverflow.com/questions/14120502/how-to-download-and-write-a-file-from-github-using-requests
+def check_version():
+    # Get newest version of this script from GitHub
+    github_file = requests.get(config["update_url"])
+    github_content = github_file.text
+
+    # Get newest version of this script from GitHub
+    with open("telegram_kraken_bot.py", "r") as file:
+        local_content = file.read()
+
+    if github_content != local_content:
+        updater.bot.send_message(chat_id=config["user_id"], text="New version available. Update with /update")
+
+
 # TODO: Add version information
 def update_bot(bot, update):
     # Get newest version of this file from GitHub
@@ -538,6 +556,7 @@ ordersHandler = CommandHandler("orders", orders)
 priceHandler = CommandHandler("price", price)
 valueHandler = CommandHandler("value", value)
 updateHandler = CommandHandler("update", update_bot)
+restartHandler = CommandHandler("restart", restart)
 
 # Add handlers to dispatcher
 dispatcher.add_handler(helpHandler)
@@ -547,9 +566,11 @@ dispatcher.add_handler(ordersHandler)
 dispatcher.add_handler(priceHandler)
 dispatcher.add_handler(valueHandler)
 dispatcher.add_handler(updateHandler)
+dispatcher.add_handler(restartHandler)
 
 # Start the bot
 updater.start_polling()
 
 # Monitor status changes of open orders
+check_version()
 monitor_open_orders()
