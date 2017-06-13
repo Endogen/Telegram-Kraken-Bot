@@ -505,9 +505,24 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
+# FIXME: Do not compare the content but hash or date from github meta-data
+# See here: https://stackoverflow.com/questions/14120502/how-to-download-and-write-a-file-from-github-using-requests
+def check_version():
+    # Get newest version of this script from GitHub
+    github_file = requests.get(config["update_url"])
+    github_content = github_file.text
+
+    # Get newest version of this script from GitHub
+    with open("telegram_kraken_bot.py", "r") as file:
+        local_content = file.read()
+
+    if github_content != local_content:
+        updater.bot.send_message(chat_id=config["user_id"], text="New version available. Update with /update")
+
+
 # TODO: Add version information
 def update_bot(bot, update):
-    # Get newest version of this file from GitHub
+    # Get newest version of this script from GitHub
     python_file = requests.get(config["update_url"])
     content = python_file.text
 
@@ -556,4 +571,5 @@ dispatcher.add_handler(restartHandler)
 updater.start_polling()
 
 # Monitor status changes of open orders
+check_version()
 monitor_open_orders()
