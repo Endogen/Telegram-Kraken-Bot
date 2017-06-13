@@ -246,7 +246,7 @@ def trade(bot, update):
         return
 
     # If there is a transaction id then the order was placed successfully
-    # FIXME: Am i sure that this check is working?
+    # FIXME: Am i sure that this check is working? Try 'if es_data_add_order["result"]["txid"] is not None:'
     if res_data_add_order["result"]["txid"]:
         add_order_txid = res_data_add_order["result"]["txid"][0]
 
@@ -506,37 +506,34 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
-# FIXME: Do not compare the content but hash or date from github meta-data
-# See here: https://stackoverflow.com/questions/14120502/how-to-download-and-write-a-file-from-github-using-requests
 def check_version():
-    # Get newest version of this script from GitHub
+    # Get current version of this script from GitHub
     github_file = requests.get(config["update_url"])
     github_content = github_file.text
 
     # Get newest version of this script from GitHub
-    with open("telegram_kraken_bot.py", "r") as file:
+    with open(os.path.basename(__file__), "r") as file:
         local_content = file.read()
 
     if github_content != local_content:
-        updater.bot.send_message(chat_id=config["user_id"], text="New version available. Update with /update")
+        updater.bot.send_message(chat_id=config["user_id"], text="New version available. Get it with /update")
 
 
-# TODO: Add version information
 def update_bot(bot, update):
-    # Get newest version of this file from GitHub
-    python_file = requests.get(config["update_url"])
-    content = python_file.text
+    # Get current version of this script from GitHub
+    github_file = requests.get(config["update_url"])
+    github_content = github_file.text
 
     # Save the content of the update
-    with open("telegram_kraken_bot.py", "w") as file:
-        file.write(content)
+    with open(os.path.basename(__file__), "w") as file:
+        file.write(github_content)
 
     # Restart the bot
-    restart(bot, update)
+    restart_bot(bot, update)
 
 
 # Restart this python script
-def restart(bot, update):
+def restart_bot(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
@@ -556,7 +553,7 @@ ordersHandler = CommandHandler("orders", orders)
 priceHandler = CommandHandler("price", price)
 valueHandler = CommandHandler("value", value)
 updateHandler = CommandHandler("update", update_bot)
-restartHandler = CommandHandler("restart", restart)
+restartHandler = CommandHandler("restart", restart_bot)
 
 # Add handlers to dispatcher
 dispatcher.add_handler(helpHandler)
