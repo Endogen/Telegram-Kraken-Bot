@@ -9,9 +9,6 @@
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 # TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
 # TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
-# TODO: Rename all command-methods to something like 'cmd_update'?
-# TODO: For update: Save old py-file and set it again if new version not up and running
-# INFO: https://goo.gl/GG12RR
 
 import json
 import krakenex
@@ -173,7 +170,7 @@ def trade(bot, update):
 
     # No arguments entered, just the '/trade' command
     if len(msg_params) == 1:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])"
+        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
         bot.send_message(chat_id, text=syntax)
         return
 
@@ -225,7 +222,7 @@ def trade(bot, update):
             bot.send_message(chat_id, text=msg)
             return
     else:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])"
+        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
         bot.send_message(chat_id, text=syntax)
         return
 
@@ -367,7 +364,7 @@ def orders(bot, update):
 
 
 # Show syntax for all available commands
-def help(bot, update):
+def syntax(bot, update):
     chat_id = update.message.chat_id
 
     # Check if user is valid
@@ -506,7 +503,7 @@ def value(bot, update):
 
 # TODO: Test this
 # TODO: Add version information
-def update(bot, update):
+def update_bot(bot, update):
     # Get newest version of this file from GitHub
     python_file = requests.get(config["update_url"])
     content = python_file.text
@@ -533,14 +530,14 @@ def restart(bot, update):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 # Create message and command handlers
-helpHandler = CommandHandler("help", help)
+helpHandler = CommandHandler("help", syntax)
 balanceHandler = CommandHandler("balance", balance)
 tradeHandler = CommandHandler("trade", trade)
 ordersHandler = CommandHandler("orders", orders)
 priceHandler = CommandHandler("price", price)
 valueHandler = CommandHandler("value", value)
+updateHandler = CommandHandler("update", update_bot)
 restartHandler = CommandHandler("restart", restart)
-updateHandler = CommandHandler("update", update)
 
 # Add handlers to dispatcher
 dispatcher.add_handler(helpHandler)
@@ -549,8 +546,8 @@ dispatcher.add_handler(tradeHandler)
 dispatcher.add_handler(ordersHandler)
 dispatcher.add_handler(priceHandler)
 dispatcher.add_handler(valueHandler)
-dispatcher.add_handler(restartHandler)
 dispatcher.add_handler(updateHandler)
+dispatcher.add_handler(restartHandler)
 
 # Start the bot
 updater.start_polling()
