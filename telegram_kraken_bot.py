@@ -170,7 +170,7 @@ def trade(bot, update):
 
     # No arguments entered, just the '/trade' command
     if len(msg_params) == 1:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'€'])"
+        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
         bot.send_message(chat_id, text=syntax)
         return
 
