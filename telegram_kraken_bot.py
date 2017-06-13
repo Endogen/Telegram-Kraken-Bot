@@ -153,7 +153,7 @@ def balance(bot, update):
         for currency_key, currency_value in res_data["result"].items():
             msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
 
-    bot.send_message(chat_id, text=msg + "\nIT WORKS!!")
+    bot.send_message(chat_id, text=msg)
 
 
 # Create orders to buy or sell currencies with price limit
