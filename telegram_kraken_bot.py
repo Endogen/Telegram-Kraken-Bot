@@ -505,7 +505,6 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
-# TODO: Test this
 # TODO: Add version information
 def update_bot(bot, update):
     # Get newest version of this file from GitHub

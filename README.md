@@ -5,7 +5,7 @@ Python script to trade on Kraken via Telegram
 Install python packages
 
 `pip install python-telegram-bot --upgrade`  
-`pip install krakenex --upgrade`
+`pip install krakenex --upgrade`  
 `pip install requests --upgrade`
 
 ## Configuration
