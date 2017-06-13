@@ -45,3 +45,5 @@ Hash of the current version of the bot. **Please don't change this**. Will be se
 Run the script with
 
 `python telegram_kraken_bot.py`
+
+TEST
