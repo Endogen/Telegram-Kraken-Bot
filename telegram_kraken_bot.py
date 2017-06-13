@@ -9,6 +9,10 @@
 # TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 # TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
 # TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
+# TODO: - Add password protections for actions:
+# TODO:     - Possibility 1 - Login, do whatever you like as often as you like, logout
+# TODO:     - Possibility 2 - execute command, bot shows "Enter password", user enters password, command is executed
+# TODO: - Add confirmation for order creation / cancel: Ask if data is correct, if user enters 'y', command is executed
 
 import json
 import krakenex
