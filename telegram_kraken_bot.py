@@ -1,18 +1,17 @@
 # TODO: Add logging
 # TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
-# TODO: Implement password protection
 # TODO: Show 'XBT' to user instead of 'XXBT'
 # TODO: 'calc' to calculate possible win if sold for INPUT - or integrate into confirmation of 'trade'
 # TODO: Change 'msg_params[]' into dictionaries
-# TODO: When using chat after long time, first message doesn't work
+# TODO: When using chat after long time, first message doesn't work - maybe because i ues a different client?
 # TODO: Add possibility to start job for every command so that command gets executed periodically
-# TODO: Integrate update mechanism so that script gets new version from github and then starts that and sends msg
 # TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
 # TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
 # TODO: - Add password protections for actions:
 # TODO:     - Possibility 1 - Login, do whatever you like as often as you like, logout
 # TODO:     - Possibility 2 - execute command, bot shows "Enter password", user enters password, command is executed
 # TODO: - Add confirmation for order creation / cancel: Ask if data is correct, if user enters 'y', command is executed
+# TODO: Add interactive mode? Add button for every command and the guide user through entering value (one after one)
 
 import json
 import krakenex
@@ -506,19 +505,22 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
-def check_version():
-    # Get current version of this script from GitHub
+# Check if GitHub hosts a different script then the current one
+def check_for_update():
+    # Get newest version of this script from GitHub
     github_file = requests.get(config["update_url"])
     github_content = github_file.text
 
-    # Get newest version of this script from GitHub
+    # Get current script
     with open(os.path.basename(__file__), "r") as file:
         local_content = file.read()
 
+    # Check if content of both files is the same
     if github_content != local_content:
         updater.bot.send_message(chat_id=config["user_id"], text="New version available. Get it with /update")
 
 
+# Download newest file from GitHub and update the currently running script with it and restart
 def update_bot(bot, update):
     # Get current version of this script from GitHub
     github_file = requests.get(config["update_url"])
@@ -568,6 +570,8 @@ dispatcher.add_handler(restartHandler)
 # Start the bot
 updater.start_polling()
 
+# Check if script is the newest version
+check_for_update()
+
 # Monitor status changes of open orders
-check_version()
 monitor_open_orders()
