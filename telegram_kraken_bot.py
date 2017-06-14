@@ -523,6 +523,11 @@ def check_for_update():
 def update_bot(bot, update):
     chat_id = update.message.chat_id
 
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        return
+
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
     github_file = requests.get(config["update_url"], headers=headers)
