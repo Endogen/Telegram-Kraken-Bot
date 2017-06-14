@@ -509,10 +509,10 @@ def value(bot, update):
 # Check if GitHub hosts a different script then the current one
 def check_for_update():
     # Get newest version of this script from GitHub
-    headers = {"ETag": config["update_hash"]}
+    headers = {"If-None-Match": config["update_hash"]}
     github_file = requests.get(config["update_url"], headers=headers)
 
-    # 304 = Not Modified
+    # Status code 304 = Not Modified
     if github_file.status_code != 304:
         # Send message that new version is available
         msg = "New version available. Get it with /update"
@@ -524,29 +524,31 @@ def update_bot(bot, update):
     chat_id = update.message.chat_id
 
     # Get newest version of this script from GitHub
-    headers = {"ETag": config["update_hash"]}
+    headers = {"If-None-Match": config["update_hash"]}
     github_file = requests.get(config["update_url"], headers=headers)
 
-    # 304 = Not Modified
+    # Status code 304 = Not Modified
     if github_file.status_code == 304:
         msg = "You are running the latest version of the bot"
         updater.bot.send_message(chat_id=chat_id, text=msg)
-    # 200 = OK
+    # Status code 200 = OK
     elif github_file.status_code == 200:
+        # Save current ETag (hash) in configuration file
+        with open("config.json", "w") as cfg:
+            e_tag = github_file.headers.get("ETag")
+            config["update_hash"] = e_tag
+            json.dump(config, cfg)
+
         # Save the content of the remote file
         with open(os.path.basename(__file__), "w") as file:
             file.write(github_file.text)
-
-        # Save current ETag (hash)
-        e_tag = github_file.headers.get("ETag")
-        config["update_hash"] = e_tag
 
         # Restart the bot
         restart_bot(bot, update)
         update_bot(bot, update)
     # Every other status code
     else:
-        msg = "Not possible to update. Status code: " + github_file.status_code
+        msg = "Update not executed. Request delivered unexpected status code: " + github_file.status_code
         updater.bot.send_message(chat_id=chat_id, text=msg)
 
 
