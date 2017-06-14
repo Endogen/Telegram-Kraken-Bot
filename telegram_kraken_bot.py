@@ -149,6 +149,7 @@ def balance(bot, update):
     msg = ""
 
     # Check for '/trade available'
+    # FIXME: Why does this show me the value of my XXBT coins?
     if "tb" in res_data["result"]:
         # tb = trade balance (combined balance of all equity currencies)
         msg = config["trade_to_currency"] + ": " + trim_zeros(res_data["result"]["tb"])
@@ -342,7 +343,7 @@ def orders(bot, update):
                 bot.send_message(chat_id, text="No open orders")
                 return
         else:
-            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / 'close-all'])")
+            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / ['close-all'])")
             return
     elif len(msg_params) == 3:
         # If parameter is 'close' and TXID is provided, close order with specific TXID
@@ -362,7 +363,7 @@ def orders(bot, update):
                 bot.send_message(chat_id, text="Order closed:\n" + msg_params[2])
                 return
         else:
-            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / 'close-all'])")
+            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / ['close-all'])")
             return
 
 
@@ -508,30 +509,45 @@ def value(bot, update):
 # Check if GitHub hosts a different script then the current one
 def check_for_update():
     # Get newest version of this script from GitHub
-    github_file = requests.get(config["update_url"])
-    github_content = github_file.text
+    headers = {"ETag": config["update_hash"]}
+    github_file = requests.get(config["update_url"], headers=headers)
 
-    # Get current script
-    with open(os.path.basename(__file__), "r") as file:
-        local_content = file.read()
-
-    # Check if content of both files is the same
-    if github_content != local_content:
-        updater.bot.send_message(chat_id=config["user_id"], text="New version available. Get it with /update")
+    # 304 = Not Modified
+    if github_file.status_code != 304:
+        # Send message that new version is available
+        msg = "New version available. Get it with /update"
+        updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
 
-# Download newest file from GitHub and update the currently running script with it and restart
+# Download newest script and update the currently running script with it and restart
 def update_bot(bot, update):
-    # Get current version of this script from GitHub
-    github_file = requests.get(config["update_url"])
-    github_content = github_file.text
+    chat_id = update.message.chat_id
 
-    # Save the content of the update
-    with open(os.path.basename(__file__), "w") as file:
-        file.write(github_content)
+    # Get newest version of this script from GitHub
+    headers = {"ETag": config["update_hash"]}
+    github_file = requests.get(config["update_url"], headers=headers)
 
-    # Restart the bot
-    restart_bot(bot, update)
+    # 304 = Not Modified
+    if github_file.status_code == 304:
+        msg = "You are running the latest version of the bot"
+        updater.bot.send_message(chat_id=chat_id, text=msg)
+    # 200 = OK
+    elif github_file.status_code == 200:
+        # Save the content of the remote file
+        with open(os.path.basename(__file__), "w") as file:
+            file.write(github_file.text)
+
+        # Save current ETag (hash)
+        e_tag = github_file.headers.get("ETag")
+        config["update_hash"] = e_tag
+
+        # Restart the bot
+        restart_bot(bot, update)
+        update_bot(bot, update)
+    # Every other status code
+    else:
+        msg = "Not possible to update. Status code: " + github_file.status_code
+        updater.bot.send_message(chat_id=chat_id, text=msg)
 
 
 # Restart this python script
