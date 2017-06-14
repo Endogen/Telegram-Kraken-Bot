@@ -12,6 +12,7 @@
 # TODO:     - Possibility 2 - execute command, bot shows "Enter password", user enters password, command is executed
 # TODO: - Add confirmation for order creation / cancel: Ask if data is correct, if user enters 'y', command is executed
 # TODO: Add interactive mode? Add button for every command and the guide user through entering value (one after one)
+# TODO: All 'requests' requests should have a exception handling: https://goo.gl/Bq6rXu
 
 import json
 import krakenex
@@ -512,10 +513,17 @@ def check_for_update():
     headers = {"If-None-Match": config["update_hash"]}
     github_file = requests.get(config["update_url"], headers=headers)
 
-    # Status code 304 = Not Modified
-    if github_file.status_code != 304:
+    # Status code 304 = Not Modified (remote file has same hash, is the same version)
+    if github_file.status_code == 304:
+        return
+    # Status code 200 = OK (remote file has different hash, is not the same version)
+    elif github_file.status_code == 200:
         # Send message that new version is available
         msg = "New version available. Get it with /update"
+        updater.bot.send_message(chat_id=config["user_id"], text=msg)
+    # Every other status code
+    else:
+        msg = "Update check not possible. Request delivered status code: " + github_file.status_code
         updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
 
@@ -544,13 +552,16 @@ def update_bot(bot, update):
             config["update_hash"] = e_tag
             json.dump(config, cfg)
 
+        # Get the name of the currently running script
+        path_split = os.path.split(str(sys.argv[0]))
+        filename = path_split[len(path_split)-1]
+
         # Save the content of the remote file
-        with open(os.path.basename(__file__), "w") as file:
+        with open(filename, "w") as file:
             file.write(github_file.text)
 
         # Restart the bot
         restart_bot(bot, update)
-        update_bot(bot, update)
     # Every other status code
     else:
         msg = "Update not executed. Request delivered unexpected status code: " + github_file.status_code
