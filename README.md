@@ -38,9 +38,6 @@ Time in seconds to check for order status change (see also setting `check_trade`
 #### update_url
 URL to the newest version of the bot itself. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you can use the default value
 
-#### update_hash
-Hash of the current version of the bot. **Please don't change this**. Will be set automatically when updating
-
 ## Usage
 Run the script with
 
