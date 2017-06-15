@@ -531,7 +531,9 @@ def check_for_update():
 
     # Status code 304 = Not Modified (remote file has same hash, is the same version)
     if github_file.status_code == 304:
-        return
+        # Send message that bot is up to date
+        msg = "Bot is up to date"
+        updater.bot.send_message(chat_id=config["user_id"], text=msg)
     # Status code 200 = OK (remote file has different hash, is not the same version)
     elif github_file.status_code == 200:
         # Send message that new version is available
