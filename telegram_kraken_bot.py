@@ -1,32 +1,20 @@
-# TODO: Add logging
-# TODO: Remove 'help' command, instead check for every command if argument 'help' is present, if yes show syntax
-# TODO: Show 'XBT' to user instead of 'XXBT'
-# TODO: 'calc' to calculate possible win if sold for INPUT - or integrate into confirmation of 'trade'
-# TODO: Change 'msg_params[]' into dictionaries
-# TODO: When using chat after long time, first message doesn't work - maybe because i ues a different client?
-# TODO: Add possibility to start job for every command so that command gets executed periodically
-# TODO: Add dynamic buttons: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#usage-1
-# TODO: Take a look at code snippets: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets
-# TODO: - Add password protections for actions:
-# TODO:     - Possibility 1 - Login, do whatever you like as often as you like, logout
-# TODO:     - Possibility 2 - execute command, bot shows "Enter password", user enters password, command is executed
-# TODO: - Add confirmation for order creation / cancel: Ask if data is correct, if user enters 'y', command is executed
-# TODO: Add interactive mode? Add button for every command and the guide user through entering value (one after one)
-# TODO: All 'requests' requests should have a exception handling: https://goo.gl/Bq6rXu
+#!/usr/bin/python3
 
 import json
-import krakenex
 import logging
 import os
-import time
 import sys
+import time
+
+import krakenex
 import requests
-from telegram.ext import Updater, CommandHandler, Job
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, Job, CallbackQueryHandler
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
-# TODO: Usage: logger.debug("CHAT_ID: " + str(chat_id))
+# TODO: logger.debug("CHAT_ID: " + str(chat_id))
 
 # Read configuration
 with open("config.json") as config_file:
@@ -42,6 +30,15 @@ updater = Updater(token=config["bot_token"])
 # Get dispatcher and job queue
 dispatcher = updater.dispatcher
 job_queue = updater.job_queue
+
+
+def build_menu(buttons, n_cols, header_buttons, footer_buttons):
+    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+    if header_buttons:
+        menu.insert(0, header_buttons)
+    if footer_buttons:
+        menu.append(footer_buttons)
+    return menu
 
 
 # Check order status and send message if changed
@@ -175,8 +172,8 @@ def trade(bot, update):
 
     # No arguments entered, just the '/trade' command
     if len(msg_params) == 1:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
-        bot.send_message(chat_id, text=syntax)
+        msg = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
+        bot.send_message(chat_id, text=msg)
         return
 
     # Volume is specified
@@ -227,8 +224,8 @@ def trade(bot, update):
             bot.send_message(chat_id, text=msg)
             return
     else:
-        syntax = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
-        bot.send_message(chat_id, text=syntax)
+        msg = "Syntax: /trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])"
+        bot.send_message(chat_id, text=msg)
         return
 
     req_data = dict()
@@ -247,7 +244,6 @@ def trade(bot, update):
         return
 
     # If there is a transaction id then the order was placed successfully
-    # FIXME: Am i sure that this check is working? Try 'if es_data_add_order["result"]["txid"] is not None:'
     if res_data_add_order["result"]["txid"]:
         add_order_txid = res_data_add_order["result"]["txid"][0]
 
@@ -258,11 +254,10 @@ def trade(bot, update):
         res_data_query_order = kraken.query_private("QueryOrders", req_data)
 
         # If Kraken replied with an error, show it
-        # FIXME: Am i sure that this check is working?
         if res_data_query_order["error"]:
             bot.send_message(chat_id, text=res_data["error"][0])
             return
-        # FIXME: Am i sure that this check is working?
+
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
             bot.send_message(chat_id, text="Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc))
@@ -377,12 +372,14 @@ def syntax(bot, update):
         bot.send_message(chat_id, text="Access denied")
         return
 
-    syntax_msg = "/balance (['available'])\n\n"
-    syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n\n"
-    syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n\n"
-    syntax_msg += "/price [currency] ([currency] ...)\n\n"
-    syntax_msg += "/value ([currency])\n\n"
-    syntax_msg += "/update"
+    syntax_msg = "/balance (['available'])\n"
+    syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n"
+    syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n"
+    syntax_msg += "/price [currency] ([currency] ...)\n"
+    syntax_msg += "/value ([currency])\n"
+    syntax_msg += "/update\n"
+    syntax_msg += "/restart\n"
+    syntax_msg += "/status"
 
     bot.send_message(chat_id, text=syntax_msg)
 
@@ -507,6 +504,25 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
+def status_bot(bot, update):
+    chat_id = update.message.chat_id
+
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        return
+
+    button_list = [
+        InlineKeyboardButton("Update Check", callback_data="update_check"),
+        InlineKeyboardButton("Update", callback_data="update"),
+        InlineKeyboardButton("Restart", callback_data="restart")
+    ]
+
+    reply_markup = InlineKeyboardMarkup(
+        build_menu(button_list, n_cols=2, header_buttons=None, footer_buttons=None))
+    bot.send_message(chat_id, "Choose an option", reply_markup=reply_markup)
+
+
 # Check if GitHub hosts a different script then the current one
 def check_for_update():
     # Get newest version of this script from GitHub
@@ -523,7 +539,7 @@ def check_for_update():
         updater.bot.send_message(chat_id=config["user_id"], text=msg)
     # Every other status code
     else:
-        msg = "Update check not possible. Request delivered status code: " + github_file.status_code
+        msg = "Update check not possible. Unexpected status code: " + github_file.status_code
         updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
 
@@ -542,7 +558,7 @@ def update_bot(bot, update):
 
     # Status code 304 = Not Modified
     if github_file.status_code == 304:
-        msg = "You are running the latest version of the bot"
+        msg = "You are running the latest version"
         updater.bot.send_message(chat_id=chat_id, text=msg)
     # Status code 200 = OK
     elif github_file.status_code == 200:
@@ -564,7 +580,7 @@ def update_bot(bot, update):
         restart_bot(bot, update)
     # Every other status code
     else:
-        msg = "Update not executed. Request delivered unexpected status code: " + github_file.status_code
+        msg = "Update not executed. Unexpected status code: " + github_file.status_code
         updater.bot.send_message(chat_id=chat_id, text=msg)
 
 
@@ -581,25 +597,30 @@ def restart_bot(bot, update):
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
-# Create message and command handlers
-helpHandler = CommandHandler("help", syntax)
-balanceHandler = CommandHandler("balance", balance)
-tradeHandler = CommandHandler("trade", trade)
-ordersHandler = CommandHandler("orders", orders)
-priceHandler = CommandHandler("price", price)
-valueHandler = CommandHandler("value", value)
-updateHandler = CommandHandler("update", update_bot)
-restartHandler = CommandHandler("restart", restart_bot)
+
+# FIXME: How to remove message after user chose a button?
+def status_buttons(bot, update):
+    data = update.callback_query.data
+
+    if data == "update_check":
+        check_for_update()
+    elif data == "update":
+        update_bot(bot, update)
+    elif data == "restart":
+        restart_bot(bot, update)
+
 
 # Add handlers to dispatcher
-dispatcher.add_handler(helpHandler)
-dispatcher.add_handler(balanceHandler)
-dispatcher.add_handler(tradeHandler)
-dispatcher.add_handler(ordersHandler)
-dispatcher.add_handler(priceHandler)
-dispatcher.add_handler(valueHandler)
-dispatcher.add_handler(updateHandler)
-dispatcher.add_handler(restartHandler)
+dispatcher.add_handler(CommandHandler("help", syntax))
+dispatcher.add_handler(CommandHandler("balance", balance))
+dispatcher.add_handler(CommandHandler("trade", trade))
+dispatcher.add_handler(CommandHandler("orders", orders))
+dispatcher.add_handler(CommandHandler("price", price))
+dispatcher.add_handler(CommandHandler("value", value))
+dispatcher.add_handler(CommandHandler("update", update_bot))
+dispatcher.add_handler(CommandHandler("restart", restart_bot))
+dispatcher.add_handler(CommandHandler("status", status_bot))
+dispatcher.add_handler(CallbackQueryHandler(status_buttons))
 
 # Start the bot
 updater.start_polling()
