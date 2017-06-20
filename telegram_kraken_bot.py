@@ -32,12 +32,15 @@ dispatcher = updater.dispatcher
 job_queue = updater.job_queue
 
 
+# Create a button menu to show in Telegram messages
 def build_menu(buttons, n_cols, header_buttons, footer_buttons):
     menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+
     if header_buttons:
         menu.insert(0, header_buttons)
     if footer_buttons:
         menu.append(footer_buttons)
+
     return menu
 
 
@@ -116,7 +119,7 @@ def trim_zeros(value_to_trim):
 
 # Get balance of all currencies
 def balance(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -160,7 +163,7 @@ def balance(bot, update):
 
 # Create orders to buy or sell currencies with price limit
 def trade(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -281,7 +284,7 @@ def trade(bot, update):
 
 # Show and manage orders
 def orders(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -365,7 +368,7 @@ def orders(bot, update):
 
 # Show syntax for all available commands
 def syntax(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -386,7 +389,7 @@ def syntax(bot, update):
 
 # Show last trade price for given currency
 def price(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -443,7 +446,7 @@ def price(bot, update):
 
 # Show the current real money value for all assets combined
 def value(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -504,25 +507,6 @@ def value(bot, update):
     bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
-def status_bot(bot, update):
-    chat_id = update.message.chat_id
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
-    button_list = [
-        InlineKeyboardButton("Update Check", callback_data="update_check"),
-        InlineKeyboardButton("Update", callback_data="update"),
-        InlineKeyboardButton("Restart", callback_data="restart")
-    ]
-
-    reply_markup = InlineKeyboardMarkup(
-        build_menu(button_list, n_cols=2, header_buttons=None, footer_buttons=None))
-    bot.send_message(chat_id, "Choose an option", reply_markup=reply_markup)
-
-
 # Check if GitHub hosts a different script then the current one
 def check_for_update():
     # Get newest version of this script from GitHub
@@ -545,9 +529,40 @@ def check_for_update():
         updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
 
-# Download newest script and update the currently running script with it and restart
+def status_bot(bot, update):
+    chat_id = get_chat_id(update)
+
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        return
+
+    button_list = [
+        InlineKeyboardButton("Update Check", callback_data="update_check"),
+        InlineKeyboardButton("Update", callback_data="update"),
+        InlineKeyboardButton("Restart", callback_data="restart")
+    ]
+
+    reply_markup = InlineKeyboardMarkup(
+        build_menu(button_list, n_cols=2, header_buttons=None, footer_buttons=None))
+    bot.send_message(chat_id, "Choose an option", reply_markup=reply_markup)
+
+
+# FIXME: How to remove message after user chose a button?
+def status_buttons(bot, update):
+    data = update.callback_query.data
+
+    if data == "update_check":
+        check_for_update()
+    elif data == "update":
+        update_bot(bot, update)
+    elif data == "restart":
+        restart_bot(bot, update)
+
+
+# Download newest script, update the currently running script and restart
 def update_bot(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -586,9 +601,24 @@ def update_bot(bot, update):
         updater.bot.send_message(chat_id=chat_id, text=msg)
 
 
+# Terminate this script
+def shutdown_bot(bot, update):
+    chat_id = get_chat_id(update)
+
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        return
+
+    bot.send_message(chat_id, "Shutting down...")
+
+    # Terminate bot
+    exit()
+
+
 # Restart this python script
 def restart_bot(bot, update):
-    chat_id = update.message.chat_id
+    chat_id = get_chat_id(update)
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -600,16 +630,12 @@ def restart_bot(bot, update):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
-# FIXME: How to remove message after user chose a button?
-def status_buttons(bot, update):
-    data = update.callback_query.data
-
-    if data == "update_check":
-        check_for_update()
-    elif data == "update":
-        update_bot(bot, update)
-    elif data == "restart":
-        restart_bot(bot, update)
+# Return chat ID for an Update object
+def get_chat_id(update):
+    if update.message:
+        return update.message.chat_id
+    else:
+        return update.callback_query.from_user["id"]
 
 
 # Add handlers to dispatcher
@@ -622,6 +648,7 @@ dispatcher.add_handler(CommandHandler("value", value))
 dispatcher.add_handler(CommandHandler("update", update_bot))
 dispatcher.add_handler(CommandHandler("restart", restart_bot))
 dispatcher.add_handler(CommandHandler("status", status_bot))
+dispatcher.add_handler(CommandHandler("shutdown", shutdown_bot))
 dispatcher.add_handler(CallbackQueryHandler(status_buttons))
 
 # Start the bot
