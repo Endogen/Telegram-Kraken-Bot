@@ -8,7 +8,8 @@ import time
 
 import krakenex
 import requests
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,\
+    ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, Job, CallbackQueryHandler
 
 # Set up logging
@@ -30,6 +31,27 @@ updater = Updater(token=config["bot_token"])
 # Get dispatcher and job queue
 dispatcher = updater.dispatcher
 job_queue = updater.job_queue
+
+
+def show_cmds():
+    chat_id = get_chat_id(None)
+
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        updater.bot.send_message(chat_id, text="Access denied")
+        return
+
+    kraken_btn = [
+        KeyboardButton("/trade", callback_data="trade"),
+        KeyboardButton("/orders", callback_data="orders"),
+        KeyboardButton("/balance", callback_data="balance"),
+        KeyboardButton("/price", callback_data="price"),
+        KeyboardButton("/value", callback_data="value"),
+        KeyboardButton("/status", callback_data="status")
+    ]
+
+    markup = ReplyKeyboardMarkup(build_menu(kraken_btn, n_cols=3, header_buttons=None, footer_buttons=None))
+    updater.bot.send_message(chat_id, "Choose an option", reply_markup=markup)
 
 
 # Create a button menu to show in Telegram messages
@@ -387,8 +409,7 @@ def syntax(bot, update):
     bot.send_message(chat_id, text=syntax_msg)
 
 
-# Show last trade price for given currency
-def price(bot, update):
+# TODO: For all commands: If only command without arguments, don't show syntax but ask for next needed paramdef price(bot, update):
     chat_id = get_chat_id(update)
 
     # Check if user is valid
@@ -441,7 +462,12 @@ def price(bot, update):
         # Create message
         msg += currency + ": " + last_trade_price + "\n"
 
-    bot.send_message(chat_id, text=msg)
+    button_list = [
+        InlineKeyboardButton("Show chart", url="https://dwq4do82y8xi7.cloudfront.net/widgetembed/?symbol=XBTEUR&interval=D&symboledit=1&toolbarbg=f1f3f6&hideideas=1&studies=&theme=White&style=1&timezone=exchange")
+    ]
+
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=1, header_buttons=None, footer_buttons=None))
+    bot.send_message(chat_id, text=msg, reply_markup=reply_markup)
 
 
 # Show the current real money value for all assets combined
@@ -529,6 +555,7 @@ def check_for_update():
         updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
 
+# This command will give the user the possibility to check for an update, update or restart the bot
 def status_bot(bot, update):
     chat_id = get_chat_id(update)
 
@@ -543,12 +570,11 @@ def status_bot(bot, update):
         InlineKeyboardButton("Restart", callback_data="restart")
     ]
 
-    reply_markup = InlineKeyboardMarkup(
-        build_menu(button_list, n_cols=2, header_buttons=None, footer_buttons=None))
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=2, header_buttons=None, footer_buttons=None))
     bot.send_message(chat_id, "Choose an option", reply_markup=reply_markup)
 
 
-# FIXME: How to remove message after user chose a button?
+# For the 'status' command: If button pressed, decide what to do
 def status_buttons(bot, update):
     data = update.callback_query.data
 
@@ -558,6 +584,9 @@ def status_buttons(bot, update):
         update_bot(bot, update)
     elif data == "restart":
         restart_bot(bot, update)
+
+    # TODO: Do i need this somewhere? If not, add it to snippets.py
+    #bot.send_message(chat_id=config["user_id"], text="YES!", reply_markup=ReplyKeyboardRemove())
 
 
 # Download newest script, update the currently running script and restart
@@ -632,10 +661,13 @@ def restart_bot(bot, update):
 
 # Return chat ID for an Update object
 def get_chat_id(update):
-    if update.message:
-        return update.message.chat_id
+    if update:
+        if update.message:
+            return update.message.chat_id
+        elif update.callback_query:
+            return update.callback_query.from_user["id"]
     else:
-        return update.callback_query.from_user["id"]
+        return config["user_id"]
 
 
 # Add handlers to dispatcher
@@ -659,3 +691,6 @@ check_for_update()
 
 # Monitor status changes of open orders
 monitor_open_orders()
+
+# Show all possible commands
+show_cmds()
