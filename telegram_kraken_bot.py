@@ -55,7 +55,7 @@ def show_cmds():
 
 
 # Create a button menu to show in Telegram messages
-def build_menu(buttons, n_cols, header_buttons, footer_buttons):
+def build_menu(buttons, n_cols, header_buttons=None, footer_buttons=None):
     menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
 
     if header_buttons:
@@ -409,34 +409,20 @@ def syntax(bot, update):
     bot.send_message(chat_id, text=syntax_msg)
 
 
-def price(bot, update):
-    chat_id = get_chat_id(update)
+def price_buttons(bot, update):
+    chat_id = get_chat_id(update)  # TODO: Just use the pure thing and don't use a abstract method - it's useless...
+    message_id = update.callback_query.message.message_id
 
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
-    # Save message parameters in list
-    msg_params = update.message.text.split(" ")
-
-    if len(msg_params) == 1:
-        bot.send_message(chat_id, text="Syntax: /price [currency] ([currency] ...)")
-        return
+    data = update.callback_query.data
 
     req_data = dict()
-    req_data["pair"] = ""
 
-    # Loop over all parameters (except first) and add them as currencies to request
-    first = True
-    for param in msg_params:
-        if first:
-            first = False
-        else:
-            req_data["pair"] += param + "Z" + config["trade_to_currency"] + ","
-
-    # Remove last comma from 'pair' string
-    req_data["pair"] = req_data["pair"][:-1]
+    if data == "xbt":
+        req_data["pair"] = "XXBT" + "Z" + config["trade_to_currency"]
+    elif data == "eth":
+        req_data["pair"] = "XETH" + "Z" + config["trade_to_currency"]
+    elif data == "xmr":
+        req_data["pair"] = "XXMR" + "Z" + config["trade_to_currency"]
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken.query_public("Ticker", req_data)
@@ -446,29 +432,38 @@ def price(bot, update):
         bot.send_message(chat_id, text=res_data["error"][0])
         return
 
+    # TODO: It is not necessary to iterate over items - just get the one thing we need
     msg = ""
     for currency_key, currency_value in res_data["result"].items():
-        # Set currency without 'trade to currency' value (for example 'ZEUR')
-        currency = currency_key[:-len("Z" + config["trade_to_currency"])]
-        # Read last trade price
-        last_trade_price = currency_value["c"][0]
+        # Get currency without 'trade to currency' value (for example 'ZEUR')
+        currency = currency_key[1:-len("Z" + config["trade_to_currency"])]
 
-        # Remove zeros at the end
-        last_trade_price = trim_zeros(last_trade_price)
-
-        #  Add currency to price
-        last_trade_price += " " + config["trade_to_currency"]
+        # Read last trade price and remove zeros at the end
+        last_trade_price = trim_zeros(currency_value["c"][0])
 
         # Create message
-        msg += currency + ": " + last_trade_price + "\n"
+        msg = currency + ": " + last_trade_price
+        break
 
-    # TODO: Change this
+    bot.edit_message_text(message_id=message_id, chat_id=chat_id, text=msg)
+
+
+def price(bot, update):
+    chat_id = get_chat_id(update)
+
+    # Check if user is valid
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        return
+
     button_list = [
-        InlineKeyboardButton("Show chart", url="http://bit.ly/2t26N08")  # BTC chart
+        InlineKeyboardButton("XBT", callback_data="xbt"),
+        InlineKeyboardButton("ETH", callback_data="eth"),
+        InlineKeyboardButton("XMR", callback_data="xmr")
     ]
 
-    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=1, header_buttons=None, footer_buttons=None))
-    bot.send_message(chat_id, text=msg, reply_markup=reply_markup)
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=3))
+    bot.send_message(chat_id, "Price for which currency?", reply_markup=reply_markup)
 
 
 # Show the current real money value for all assets combined
@@ -571,7 +566,7 @@ def status_bot(bot, update):
         InlineKeyboardButton("Restart", callback_data="restart")
     ]
 
-    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=2, header_buttons=None, footer_buttons=None))
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=2))
     bot.send_message(chat_id, "Choose an option", reply_markup=reply_markup)
 
 
@@ -682,6 +677,9 @@ dispatcher.add_handler(CommandHandler("update", update_bot))
 dispatcher.add_handler(CommandHandler("restart", restart_bot))
 dispatcher.add_handler(CommandHandler("status", status_bot))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_bot))
+dispatcher.add_handler(CallbackQueryHandler(price_buttons))
+
+# FIXME: Create only one CallbackQueryHandler that will handle all buttons?
 dispatcher.add_handler(CallbackQueryHandler(status_buttons))
 
 # Start the bot
