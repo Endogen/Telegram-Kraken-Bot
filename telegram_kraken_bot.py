@@ -409,7 +409,8 @@ def syntax(bot, update):
     bot.send_message(chat_id, text=syntax_msg)
 
 
-# TODO: For all commands: If only command without arguments, don't show syntax but ask for next needed paramdef price(bot, update):
+# TODO: For all commands: If only command without arguments, don't show syntax but ask for next needed param
+def price(bot, update):
     chat_id = get_chat_id(update)
 
     # Check if user is valid
@@ -462,8 +463,9 @@ def syntax(bot, update):
         # Create message
         msg += currency + ": " + last_trade_price + "\n"
 
+    # TODO: Change this
     button_list = [
-        InlineKeyboardButton("Show chart", url="https://dwq4do82y8xi7.cloudfront.net/widgetembed/?symbol=XBTEUR&interval=D&symboledit=1&toolbarbg=f1f3f6&hideideas=1&studies=&theme=White&style=1&timezone=exchange")
+        InlineKeyboardButton("Show chart", url="http://bit.ly/2t26N08")
     ]
 
     reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=1, header_buttons=None, footer_buttons=None))
