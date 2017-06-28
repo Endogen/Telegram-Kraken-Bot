@@ -34,7 +34,7 @@ job_queue = updater.job_queue
 
 
 def show_cmds():
-    chat_id = get_chat_id(None)
+    chat_id = get_chat_id()
 
     # Check if user is valid
     if str(chat_id) != config["user_id"]:
@@ -409,7 +409,6 @@ def syntax(bot, update):
     bot.send_message(chat_id, text=syntax_msg)
 
 
-# TODO: For all commands: If only command without arguments, don't show syntax but ask for next needed param
 def price(bot, update):
     chat_id = get_chat_id(update)
 
@@ -465,7 +464,7 @@ def price(bot, update):
 
     # TODO: Change this
     button_list = [
-        InlineKeyboardButton("Show chart", url="http://bit.ly/2t26N08")
+        InlineKeyboardButton("Show chart", url="http://bit.ly/2t26N08")  # BTC chart
     ]
 
     reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=1, header_buttons=None, footer_buttons=None))
@@ -662,7 +661,7 @@ def restart_bot(bot, update):
 
 
 # Return chat ID for an Update object
-def get_chat_id(update):
+def get_chat_id(update=None):
     if update:
         if update.message:
             return update.message.chat_id
