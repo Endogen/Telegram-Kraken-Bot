@@ -8,6 +8,7 @@ import time
 
 import krakenex
 import requests
+from enum import Enum
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,\
     ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, Job, CallbackQueryHandler
@@ -51,11 +52,11 @@ def show_cmds():
     ]
 
     markup = ReplyKeyboardMarkup(build_menu(kraken_btn, n_cols=3, header_buttons=None, footer_buttons=None))
-    updater.bot.send_message(chat_id, "Choose an option", reply_markup=markup)
+    updater.bot.send_message(chat_id, "Enter a command", reply_markup=markup)
 
 
 # Create a button menu to show in Telegram messages
-def build_menu(buttons, n_cols, header_buttons=None, footer_buttons=None):
+def build_menu(buttons, n_cols=1, header_buttons=None, footer_buttons=None):
     menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
 
     if header_buttons:
@@ -409,7 +410,7 @@ def syntax(bot, update):
     bot.send_message(chat_id, text=syntax_msg)
 
 
-def price_buttons(bot, update):
+def price_callback(bot, update):
     chat_id = get_chat_id(update)  # TODO: Just use the pure thing and don't use a abstract method - it's useless...
     message_id = update.callback_query.message.message_id
 
@@ -417,12 +418,16 @@ def price_buttons(bot, update):
 
     req_data = dict()
 
+    # TODO: Create a Enum for this values
     if data == "xbt":
         req_data["pair"] = "XXBT" + "Z" + config["trade_to_currency"]
     elif data == "eth":
         req_data["pair"] = "XETH" + "Z" + config["trade_to_currency"]
     elif data == "xmr":
         req_data["pair"] = "XXMR" + "Z" + config["trade_to_currency"]
+    elif data == "dismiss":
+        bot.edit_message_text("Command dismissed...", chat_id, message_id)
+        return
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken.query_public("Ticker", req_data)
@@ -448,6 +453,7 @@ def price_buttons(bot, update):
     bot.edit_message_text(message_id=message_id, chat_id=chat_id, text=msg)
 
 
+# Show the current price for the chosen currency
 def price(bot, update):
     chat_id = get_chat_id(update)
 
@@ -456,13 +462,18 @@ def price(bot, update):
         bot.send_message(chat_id, text="Access denied")
         return
 
-    button_list = [
+    buttons = [
         InlineKeyboardButton("XBT", callback_data="xbt"),
         InlineKeyboardButton("ETH", callback_data="eth"),
         InlineKeyboardButton("XMR", callback_data="xmr")
     ]
 
-    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=3))
+    footer = [
+        InlineKeyboardButton("Dismiss", callback_data="dismiss")
+    ]
+
+    # FIXME: Why
+    reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=footer))
     bot.send_message(chat_id, "Price for which currency?", reply_markup=reply_markup)
 
 
@@ -571,7 +582,7 @@ def status_bot(bot, update):
 
 
 # For the 'status' command: If button pressed, decide what to do
-def status_buttons(bot, update):
+def status_callback(bot, update):
     data = update.callback_query.data
 
     if data == "update_check":
@@ -677,10 +688,10 @@ dispatcher.add_handler(CommandHandler("update", update_bot))
 dispatcher.add_handler(CommandHandler("restart", restart_bot))
 dispatcher.add_handler(CommandHandler("status", status_bot))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_bot))
-dispatcher.add_handler(CallbackQueryHandler(price_buttons))
+dispatcher.add_handler(CallbackQueryHandler(price_callback))
 
 # FIXME: Create only one CallbackQueryHandler that will handle all buttons?
-dispatcher.add_handler(CallbackQueryHandler(status_buttons))
+dispatcher.add_handler(CallbackQueryHandler(status_callback))
 
 # Start the bot
 updater.start_polling()
