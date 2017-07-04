@@ -472,7 +472,6 @@ def price(bot, update):
         InlineKeyboardButton("Dismiss", callback_data="dismiss")
     ]
 
-    # FIXME: Why
     reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=footer))
     bot.send_message(chat_id, "Price for which currency?", reply_markup=reply_markup)
 
