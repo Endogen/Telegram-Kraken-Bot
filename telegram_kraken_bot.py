@@ -12,6 +12,8 @@ import requests
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, Job, CallbackQueryHandler, ConversationHandler
 
+from decorators import restrict_access
+from utils import get_chat_id
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -37,14 +39,8 @@ ONE, TWO, THREE, FOUR = range(4)
 
 
 # Add a custom keyboard with all available commands
-def show_cmds():
-    chat_id = get_chat_id()
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        updater.bot.send_message(chat_id, text="Access denied")
-        return
-
+def show_cmds(bot, updater):
+    chat_id = get_chat_id(updater)
     kraken_btn = [
         KeyboardButton("/trade", callback_data="trade"),
         KeyboardButton("/orders", callback_data="orders"),
@@ -102,14 +98,15 @@ def monitor_order(bot, job):
 
 
 # Monitor status changes of open orders
-def monitor_open_orders():
+def monitor_open_orders(bot, updater):
+    chat_id = get_chat_id(updater)
     if config["check_trade"].lower() == "true":
         # Send request for open orders to Kraken
         res_data = kraken.query_private("OpenOrders")
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            updater.bot.send_message(chat_id=config["user_id"], text=res_data["error"][0])
+            updater.bot.send_message(chat_id=config["user_ids"], text=res_data["error"][0])
             return
 
         # Get time in seconds from config
@@ -120,7 +117,7 @@ def monitor_open_orders():
                 order_txid = str(order)
 
                 # Create context object with chat ID and order TXID
-                context_data = dict(chat_id=config["user_id"], order_txid=order_txid)
+                context_data = dict(chat_id=config["user_ids"], order_txid=order_txid)
 
                 # Create job to check status of order
                 job_check_order = Job(monitor_order, check_trade_time, context=context_data)
@@ -144,14 +141,8 @@ def trim_zeros(value_to_trim):
 
 
 # Get balance of all currencies
-def balance_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def balance_cmd(bot, update, chat_id=None):
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
 
@@ -188,13 +179,8 @@ def balance_cmd(bot, update):
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
-def trade_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def trade_cmd(bot, update, chat_id=None):
 
     buttons = [
         InlineKeyboardButton("buy", callback_data="buy"),
@@ -302,13 +288,8 @@ def trade_four(bot, update):
 
 
 # Show and manage orders
-def orders_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def orders_cmd(bot, update, chat_id=None):
 
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
@@ -386,14 +367,8 @@ def orders_cmd(bot, update):
 
 
 # Show syntax for all available commands
-def syntax_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def syntax_cmd(bot, update, chat_id=None):
     syntax_msg = "/balance (['available'])\n"
     syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n"
     syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n"
@@ -408,13 +383,8 @@ def syntax_cmd(bot, update):
 
 # TODO: Remove ReplyKeyboard as long as we are in the execution of a command. After complete execution, add it again
 # Show the current price for the chosen currency
-def price_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def price_cmd(bot, update, chat_id=None):
 
     buttons = [
         InlineKeyboardButton("XBT", callback_data="xbt"),
@@ -480,14 +450,8 @@ def price_one(bot, update):
 
 
 # Show the current real money value for all assets combined
-def value_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def value_cmd(bot, update, chat_id=None):
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
 
@@ -551,27 +515,23 @@ def check_for_update():
     # Status code 304 = Not Modified (remote file has same hash, is the same version)
     if github_file.status_code == 304:
         # Send message that bot is up to date
+        # First user ID is super mega admin
         msg = "Bot is up to date"
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
+        updater.bot.send_message(chat_id=config["user_ids"][0], text=msg)
     # Status code 200 = OK (remote file has different hash, is not the same version)
     elif github_file.status_code == 200:
         # Send message that new version is available
         msg = "New version available. Get it with /update"
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
+        updater.bot.send_message(chat_id=config["user_ids"][0], text=msg)
     # Every other status code
     else:
         msg = "Update check not possible. Unexpected status code: " + github_file.status_code
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
+        updater.bot.send_message(chat_id=config["user_ids"][0], text=msg)
 
 
 # This command will give the user the possibility to check for an update, update or restart the bot
-def status_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def status_cmd(bot, update, chat_id=None):
 
     buttons = [
         InlineKeyboardButton("Update Check", callback_data="update_check"),
@@ -618,13 +578,8 @@ def status_one(bot, update):
 
 
 # Download newest script, update the currently running script and restart
-def update_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def update_cmd(bot, update, chat_id=None):
 
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
@@ -659,14 +614,8 @@ def update_cmd(bot, update):
 
 
 # Terminate this script
-def shutdown_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def shutdown_cmd(bot, update, chat_id=None):
     bot.send_message(chat_id, "Shutting down...")
 
     # Terminate bot
@@ -674,31 +623,16 @@ def shutdown_cmd(bot, update):
 
 
 # Restart this python script
-def restart_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def restart_cmd(bot, update, chat_id=None):
     bot.send_message(chat_id, "Bot is restarting...")
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
-# Return chat ID for an Update object
-def get_chat_id(update=None):
-    if update:
-        if update.message:
-            return update.message.chat_id
-        elif update.callback_query:
-            return update.callback_query.from_user["id"]
-    else:
-        return config["user_id"]
-
-
 # Add handlers to dispatcher
+dispatcher.add_handler(CommandHandler("menu", show_cmds))
+dispatcher.add_handler(CommandHandler("sync", monitor_open_orders))
 dispatcher.add_handler(CommandHandler("help", syntax_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 dispatcher.add_handler(CommandHandler("orders", orders_cmd))
@@ -750,7 +684,5 @@ updater.start_polling()
 check_for_update()
 
 # Monitor status changes of open orders
-monitor_open_orders()
 
 # Show all possible commands
-show_cmds()
