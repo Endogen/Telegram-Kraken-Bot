@@ -12,7 +12,7 @@ import requests
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, Job, CallbackQueryHandler, ConversationHandler
 
-
+from decorators import restrict_access
 from utils import get_chat_id
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -141,14 +141,8 @@ def trim_zeros(value_to_trim):
 
 
 # Get balance of all currencies
-def balance_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def balance_cmd(bot, update, chat_id=None):
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
 
@@ -185,13 +179,8 @@ def balance_cmd(bot, update):
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
-def trade_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def trade_cmd(bot, update, chat_id=None):
 
     buttons = [
         InlineKeyboardButton("buy", callback_data="buy"),
@@ -299,13 +288,8 @@ def trade_four(bot, update):
 
 
 # Show and manage orders
-def orders_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def orders_cmd(bot, update, chat_id=None):
 
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
@@ -383,14 +367,8 @@ def orders_cmd(bot, update):
 
 
 # Show syntax for all available commands
-def syntax_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def syntax_cmd(bot, update, chat_id=None):
     syntax_msg = "/balance (['available'])\n"
     syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n"
     syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n"
@@ -405,13 +383,8 @@ def syntax_cmd(bot, update):
 
 # TODO: Remove ReplyKeyboard as long as we are in the execution of a command. After complete execution, add it again
 # Show the current price for the chosen currency
-def price_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def price_cmd(bot, update, chat_id=None):
 
     buttons = [
         InlineKeyboardButton("XBT", callback_data="xbt"),
@@ -477,14 +450,8 @@ def price_one(bot, update):
 
 
 # Show the current real money value for all assets combined
-def value_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def value_cmd(bot, update, chat_id=None):
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
 
@@ -563,13 +530,8 @@ def check_for_update():
 
 
 # This command will give the user the possibility to check for an update, update or restart the bot
-def status_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def status_cmd(bot, update, chat_id=None):
 
     buttons = [
         InlineKeyboardButton("Update Check", callback_data="update_check"),
@@ -616,13 +578,8 @@ def status_one(bot, update):
 
 
 # Download newest script, update the currently running script and restart
-def update_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+@restrict_access(config["user_ids"])
+def update_cmd(bot, update, chat_id=None):
 
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
@@ -657,14 +614,8 @@ def update_cmd(bot, update):
 
 
 # Terminate this script
-def shutdown_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def shutdown_cmd(bot, update, chat_id=None):
     bot.send_message(chat_id, "Shutting down...")
 
     # Terminate bot
@@ -672,14 +623,8 @@ def shutdown_cmd(bot, update):
 
 
 # Restart this python script
-def restart_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_ids"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
+@restrict_access(config["user_ids"])
+def restart_cmd(bot, update, chat_id=None):
     bot.send_message(chat_id, "Bot is restarting...")
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
