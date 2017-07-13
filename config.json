@@ -1,5 +1,5 @@
 {
-	"user_id" : "some_user_id",
+	"user_ids" : ["some_user_id1", "some_user_id2"],
 	"bot_token" : "some_bot_token",
 	"password_needed" : "true",
 	"password_hash" : "some_hash",
