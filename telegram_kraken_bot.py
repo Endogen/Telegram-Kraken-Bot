@@ -507,7 +507,8 @@ def value_cmd(bot, update, chat_id=None):
 
 
 # Check if GitHub hosts a different script then the current one
-def check_for_update():
+def check_for_update(bot, updater):
+    chat_id = get_chat_id(updater)
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
     github_file = requests.get(config["update_url"], headers=headers)
@@ -517,16 +518,16 @@ def check_for_update():
         # Send message that bot is up to date
         # First user ID is super mega admin
         msg = "Bot is up to date"
-        updater.bot.send_message(chat_id=config["user_ids"][0], text=msg)
+        updater.bot.send_message(chat_id=chat_id, text=msg)
     # Status code 200 = OK (remote file has different hash, is not the same version)
     elif github_file.status_code == 200:
         # Send message that new version is available
         msg = "New version available. Get it with /update"
-        updater.bot.send_message(chat_id=config["user_ids"][0], text=msg)
+        updater.bot.send_message(chat_id=chat_id, text=msg)
     # Every other status code
     else:
         msg = "Update check not possible. Unexpected status code: " + github_file.status_code
-        updater.bot.send_message(chat_id=config["user_ids"][0], text=msg)
+        updater.bot.send_message(chat_id=chat_id, text=msg)
 
 
 # This command will give the user the possibility to check for an update, update or restart the bot
@@ -631,6 +632,7 @@ def restart_cmd(bot, update, chat_id=None):
 
 
 # Add handlers to dispatcher
+dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("menu", show_cmds))
 dispatcher.add_handler(CommandHandler("sync", monitor_open_orders))
 dispatcher.add_handler(CommandHandler("help", syntax_cmd))
@@ -681,7 +683,6 @@ updater.start_polling()
 #updater.idle()
 
 # Check if script is the newest version
-check_for_update()
 
 # Monitor status changes of open orders
 
