@@ -13,7 +13,7 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger()
 # TODO: logger.debug("CHAT_ID: " + str(chat_id))
 
@@ -192,11 +192,12 @@ def balance_cmd(bot, update):
 
 
 # Enum for 'trade' command
-TRADE_CURRENCY, TRADE_PRICE, TRADE_VOLUME, TRADE_EXECUTE = range(4)
+TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_EXECUTE = range(5)
+
 
 # TODO: Add additional button to CANCEL
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
-def trade_buysell(bot, update):
+def trade_buy_sell(bot, update):
     """
     chat_id = get_chat_id(update)
 
@@ -236,136 +237,157 @@ def trade_price(bot, update, chat_data):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
+    return TRADE_VOL_TYPE
+
+
+def trade_vol_type(bot, update, chat_data):
+    chat_data["price"] = update.message.text
+
+    reply_msg = "How to enter the volume? Or skip and use /all"
+    reply_mrk = ReplyKeyboardMarkup([["EURO", "VOLUME"]])
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return TRADE_VOLUME
 
 
 def trade_volume(bot, update, chat_data):
-    chat_data["price"] = update.message.text
+    chat_data["vol_type"] = update.message.text
 
-    reply_msg = "Enter volume or /all to use everything you have"
+    reply_msg = "Enter volume"
+    reply_mrk = ReplyKeyboardRemove()
 
-    update.message.reply_text(reply_msg)
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
     return TRADE_EXECUTE
 
 
 def trade_execute(bot, update, chat_data):
-    chat_data["volume"] = update.message.text
+    update.message.reply_text("Creating order...", reply_markup=keyboard_cmds())
 
-    reply_msg = "Order created!"
-    reply_mrk = keyboard_cmds()
+    # Check if entering the volume was skipped == use whole volume
+    if update.message.text == "/all":
+        chat_data["vol_type"] = "/all"
+        chat_data["volume"] = None
+    else:
+        chat_data["volume"] = update.message.text
 
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    # Volume specified
+    # TODO: Use enum names as strings in dict
+    if chat_data["volume"]:
+        if chat_data["vol_type"] == "EURO":
+            # Volume specified in euro
+            amount = float(chat_data["volume"])
+            price_per_unit = float(chat_data["price"])
+            volume = "{0:.8f}".format(amount / price_per_unit)
 
-    print(chat_data)
+        elif chat_data["vol_type"] == "VOLUME":
+            # Volume specified in amount of currency
+            volume = chat_data["volume"]
+
+    # Volume not specified
+    else:
+        buy = "buy"
+        sell = "sell"
+
+        # Logic for 'buy'
+        if chat_data["buysell"] == buy:
+            req_data = dict()
+            req_data["asset"] = "Z" + config["trade_to_currency"]
+
+            # Send request to Kraken to get current trade balance of all currencies
+            res_data = kraken.query_private("TradeBalance", req_data)
+
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                update.message.reply_text(res_data["error"][0])
+                return ConversationHandler.END
+
+            euros = res_data["result"]["tb"]
+            # Calculate volume depending on full euro balance and round it to 8 digits
+            volume = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
+
+        # Logic for 'sell'
+        elif chat_data["buysell"] == sell:
+
+            # FIXME: This will give me all available BTC. But some of them are already inside a sell order.
+            # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
+            # Send request to Kraken to get euro balance to calculate volume
+            res_data = kraken.query_private("Balance")
+
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                update.message.reply_text(res_data["error"][0])
+                return ConversationHandler.END
+
+            # TODO: Use '.upper' all over the place
+            current_volume = res_data["result"][chat_data["currency"].upper()]
+            # Get volume from balance and round it to 8 digits
+            volume = "{0:.8f}".format(float(current_volume))
+
+    req_data = dict()
+    req_data["type"] = chat_data["buysell"]
+    req_data["pair"] = chat_data["currency"] + "Z" + config["trade_to_currency"]
+    req_data["price"] = chat_data["price"]
+    req_data["ordertype"] = "limit"
+    req_data["volume"] = volume
+
+    # Send request to create order to Kraken
+    res_data_add_order = kraken.query_private("AddOrder", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_data_add_order["error"]:
+        update.message.reply_text(res_data_add_order["error"][0])
+        return ConversationHandler.END
+
+    # If there is a transaction id then the order was placed successfully
+    if res_data_add_order["result"]["txid"]:
+        add_order_txid = res_data_add_order["result"]["txid"][0]
+
+        req_data = dict()
+        req_data["txid"] = add_order_txid
+
+        # Send request to get info on specific order
+        res_data_query_order = kraken.query_private("QueryOrders", req_data)
+
+        # If Kraken replied with an error, show it
+        if res_data_query_order["error"]:
+            update.message.reply_text(res_data["error"][0])
+            return ConversationHandler.END
+
+        if res_data_query_order["result"][add_order_txid]:
+            order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
+            update.message.reply_text("Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc))
+
+            if config["check_trade"].lower() == "true":
+                # Get time in seconds from config
+                check_trade_time = config["check_trade_time"]
+                # Create context object with chat ID and order TXID
+                context_data = dict(chat_id=update.message.chat_id, order_txid=add_order_txid)
+
+                # Create job to check status of newly created order
+                job_check_order = Job(monitor_order, check_trade_time, context=context_data)
+                job_queue.put(job_check_order, next_t=0.0)
+
+            return ConversationHandler.END
+
+        else:
+            update.message.reply_text("No order with TXID " + add_order_txid)
+            return ConversationHandler.END
+    else:
+        update.message.reply_text("Undefined state: no error and no TXID")
 
     return ConversationHandler.END
 
 
 def cancel(bot, update):
-    reply_msg = "Canceled..."
-    reply_markup = ReplyKeyboardRemove()
-
-    update.message.reply_text(reply_msg, reply_markup=reply_markup)
-
+    update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
     return ConversationHandler.END
 
 
+# TODO: Timeout errors (while calling Kraken) will not get shown because i only handle python-telegram-bot exceptions
 def error(bot, update, error):
     logger.error("Update '%s' caused error '%s'" % (update, error))
-    print("IT WORKS!!!")
-
-
-"""
-# Callback for the 'trade' command - choose the currency
-def trade_one(bot, update):
-    chat_id = get_chat_id(update)
-    message_id = update.callback_query.message.message_id
-
-    data = update.callback_query.data
-
-    if data == "cancel":
-        bot.edit_message_text("Canceled...", chat_id, message_id)
-        return
-
-    buttons = [
-        InlineKeyboardButton("XXBT", callback_data="xxbt"),
-        InlineKeyboardButton("XETH", callback_data="xeth"),
-        InlineKeyboardButton("XXMR", callback_data="xxmr")
-    ]
-
-    footer = [
-        InlineKeyboardButton("Cancel", callback_data="cancel")
-    ]
-
-    reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=footer))
-    bot.edit_message_text(data + "\nEnter currency to " + data, chat_id, message_id, reply_markup=reply_markup)
-
-    return TWO
-
-
-# Callback for the 'status' command - enter price per unit
-def trade_two(bot, update):
-    chat_id = get_chat_id(update)
-    message_id = update.callback_query.message.message_id
-
-    data = update.callback_query.data
-
-    if data == "cancel":
-        bot.edit_message_text("Canceled...", chat_id, message_id)
-        return
-
-    buttons = [
-        InlineKeyboardButton("Cancel", callback_data="cancel")
-    ]
-
-    line_brk_index = update.callback_query.message.text.index("\n")
-    cmd = update.callback_query.message.text[0:line_brk_index]
-
-    reply_markup = InlineKeyboardMarkup(build_menu(buttons))
-    bot.edit_message_text(
-        cmd + " " + data + "\nEnter price per unit",
-        chat_id,
-        message_id,
-        reply_markup=reply_markup)
-
-    return THREE
-
-
-# Callback for the 'status' command - enter volume
-def trade_three(bot, update):
-    chat_id = get_chat_id(update)
-    message_id = update.callback_query.message.message_id
-
-    data = update.callback_query.data
-
-    if data == "cancel":
-        bot.edit_message_text("Canceled...", chat_id, message_id)
-        return
-
-    buttons = [
-        InlineKeyboardButton("Cancel", callback_data="cancel")
-    ]
-
-    reply_markup = InlineKeyboardMarkup(build_menu(buttons))
-    bot.edit_message_text(data + "\Enter volume", chat_id, message_id, reply_markup=reply_markup)
-
-    return THREE
-
-
-# Callback for the 'status' command
-def trade_four(bot, update):
-    chat_id = get_chat_id(update)
-    message_id = update.callback_query.message.message_id
-
-    data = update.callback_query.data
-
-    # TODO: Add logic to execute trade command on kraken
-
-    bot.edit_message_text(data + "COMMAND COMPLETE", chat_id, message_id)
-
-    return FOUR
-"""
 
 
 # Show and manage orders
@@ -657,6 +679,7 @@ def status_cmd(bot, update):
     return ONE
 """
 
+
 # Callback for the 'status' command - choose a sub-command
 def status_one(bot, update):
     chat_id = get_chat_id(update)
@@ -775,12 +798,14 @@ dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 
 # TRADE command handler
+# TODO: Integrate everywhere also the 'CANCEL' command to exit the workflow
 trade_handler = ConversationHandler(
-    entry_points=[CommandHandler('trade', trade_buysell)],
+    entry_points=[CommandHandler('trade', trade_buy_sell)],
     states={
         TRADE_CURRENCY: [RegexHandler("^(buy|sell)$", trade_currency, pass_chat_data=True)],
         TRADE_PRICE: [RegexHandler("^(XXBT|XETH|XXMR)$", trade_price, pass_chat_data=True)],
-        TRADE_VOLUME: [RegexHandler("^(?=.*?\d)\d*[.]?\d*$", trade_volume, pass_chat_data=True),
+        TRADE_VOL_TYPE: [RegexHandler("^(?=.*?\d)\d*[.]?\d*$", trade_vol_type, pass_chat_data=True)],
+        TRADE_VOLUME: [RegexHandler("^(EURO|VOLUME)$", trade_volume, pass_chat_data=True),
                        CommandHandler("all", trade_execute, pass_chat_data=True)],
         TRADE_EXECUTE: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_execute, pass_chat_data=True)]
     },
@@ -788,7 +813,7 @@ trade_handler = ConversationHandler(
 )
 dispatcher.add_handler(trade_handler)
 
-# log all errors
+# Log all errors
 dispatcher.add_error_handler(error)
 
 """
