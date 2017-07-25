@@ -208,7 +208,17 @@ def trade_buy_sell(bot, update):
     """
 
     reply_msg = "Buy or sell?"
-    reply_mrk = ReplyKeyboardMarkup([["buy", "sell"]])
+
+    buttons = [
+        KeyboardButton("BUY"),
+        KeyboardButton("SELL")
+    ]
+
+    cancel_btn = [
+        KeyboardButton("CANCEL")
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
@@ -216,13 +226,28 @@ def trade_buy_sell(bot, update):
 
 
 def trade_currency(bot, update, chat_data):
+    if update.message.text == "CANCEL":
+        update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+
     chat_data["buysell"] = update.message.text
 
     user = update.message.from_user
     logger.info("Gender of %s: %s" % (user.first_name, update.message.text))  # TODO: Add correct logging
 
     reply_msg = "Enter currency"
-    reply_mrk = ReplyKeyboardMarkup([["XXBT", "XETH", "XXMR"]])
+
+    buttons = [
+        KeyboardButton("XXBT"),
+        KeyboardButton("XETH"),
+        KeyboardButton("XXMR")
+    ]
+
+    cancel_btn = [
+        KeyboardButton("CANCEL")
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
@@ -230,6 +255,10 @@ def trade_currency(bot, update, chat_data):
 
 
 def trade_price(bot, update, chat_data):
+    if update.message.text == "CANCEL":
+        update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+
     chat_data["currency"] = update.message.text
 
     reply_msg = "Enter price per unit"
@@ -244,7 +273,17 @@ def trade_vol_type(bot, update, chat_data):
     chat_data["price"] = update.message.text
 
     reply_msg = "How to enter the volume? Or skip and use /all"
-    reply_mrk = ReplyKeyboardMarkup([["EURO", "VOLUME"]])
+
+    buttons = [
+        KeyboardButton("EURO"),
+        KeyboardButton("VOLUME")
+    ]
+
+    cancel_btn = [
+        KeyboardButton("CANCEL")
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
@@ -252,6 +291,10 @@ def trade_vol_type(bot, update, chat_data):
 
 
 def trade_volume(bot, update, chat_data):
+    if update.message.text == "CANCEL":
+        update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+
     chat_data["vol_type"] = update.message.text
 
     reply_msg = "Enter volume"
@@ -263,7 +306,7 @@ def trade_volume(bot, update, chat_data):
 
 
 def trade_execute(bot, update, chat_data):
-    update.message.reply_text("Creating order...", reply_markup=keyboard_cmds())
+    update.message.reply_text("Placing order...", reply_markup=keyboard_cmds())
 
     # Check if entering the volume was skipped == use whole volume
     if update.message.text == "/all":
@@ -312,6 +355,7 @@ def trade_execute(bot, update, chat_data):
 
             # FIXME: This will give me all available BTC. But some of them are already inside a sell order.
             # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
+            # FIXME: Current balance of BTC minus all open BTC orders
             # Send request to Kraken to get euro balance to calculate volume
             res_data = kraken.query_private("Balance")
 
@@ -380,9 +424,8 @@ def trade_execute(bot, update, chat_data):
     return ConversationHandler.END
 
 
-def cancel(bot, update):
+def cancel(update):
     update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
-    return ConversationHandler.END
 
 
 # TODO: Timeout errors (while calling Kraken) will not get shown because i only handle python-telegram-bot exceptions
@@ -798,16 +841,17 @@ dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 
 # TRADE command handler
-# TODO: Integrate everywhere also the 'CANCEL' command to exit the workflow
+# TODO: Add generic step that asks if entered data is correct. Show, 'YES' = place order; 'NO' = restart trade cmd;
+# TODO: 'CANCEL' = cancel
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_buy_sell)],
     states={
-        TRADE_CURRENCY: [RegexHandler("^(buy|sell)$", trade_currency, pass_chat_data=True)],
-        TRADE_PRICE: [RegexHandler("^(XXBT|XETH|XXMR)$", trade_price, pass_chat_data=True)],
-        TRADE_VOL_TYPE: [RegexHandler("^(?=.*?\d)\d*[.]?\d*$", trade_vol_type, pass_chat_data=True)],
-        TRADE_VOLUME: [RegexHandler("^(EURO|VOLUME)$", trade_volume, pass_chat_data=True),
+        TRADE_CURRENCY: [RegexHandler("^(BUY|SELL|CANCEL)$", trade_currency, pass_chat_data=True)],
+        TRADE_PRICE: [RegexHandler("^(XXBT|XETH|XXMR|CANCEL)$", trade_price, pass_chat_data=True)],
+        TRADE_VOL_TYPE: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(CANCEL))$", trade_vol_type, pass_chat_data=True)],
+        TRADE_VOLUME: [RegexHandler("^(EURO|VOLUME|CANCEL)$", trade_volume, pass_chat_data=True),
                        CommandHandler("all", trade_execute, pass_chat_data=True)],
-        TRADE_EXECUTE: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_execute, pass_chat_data=True)]
+        TRADE_EXECUTE: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all)|(CANCEL))$", trade_execute, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
