@@ -10,7 +10,7 @@ import krakenex
 import requests
 
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler
+from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler, MessageHandler, Filters
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -192,12 +192,13 @@ def balance_cmd(bot, update):
 
 
 # Enum for 'trade' command
-TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_EXECUTE = range(5)
+TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(6)
 
 
 # TODO: Add additional button to CANCEL
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 def trade_buy_sell(bot, update):
+    # TODO: How to best check for valid user?
     """
     chat_id = get_chat_id(update)
 
@@ -227,8 +228,7 @@ def trade_buy_sell(bot, update):
 
 def trade_currency(bot, update, chat_data):
     if update.message.text == "CANCEL":
-        update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
-        return ConversationHandler.END
+        return cancel(bot, update)
 
     chat_data["buysell"] = update.message.text
 
@@ -256,8 +256,7 @@ def trade_currency(bot, update, chat_data):
 
 def trade_price(bot, update, chat_data):
     if update.message.text == "CANCEL":
-        update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
-        return ConversationHandler.END
+        return cancel(bot, update)
 
     chat_data["currency"] = update.message.text
 
@@ -292,8 +291,7 @@ def trade_vol_type(bot, update, chat_data):
 
 def trade_volume(bot, update, chat_data):
     if update.message.text == "CANCEL":
-        update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
-        return ConversationHandler.END
+        return cancel(bot, update)
 
     chat_data["vol_type"] = update.message.text
 
@@ -302,39 +300,14 @@ def trade_volume(bot, update, chat_data):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return TRADE_EXECUTE
+    return TRADE_CONFIRM
 
 
-def trade_execute(bot, update, chat_data):
-    update.message.reply_text("Placing order...", reply_markup=keyboard_cmds())
-
-    # Check if entering the volume was skipped == use whole volume
-    if update.message.text == "/all":
-        chat_data["vol_type"] = "/all"
-        chat_data["volume"] = None
-    else:
-        chat_data["volume"] = update.message.text
-
-    # Volume specified
-    # TODO: Use enum names as strings in dict
-    if chat_data["volume"]:
-        if chat_data["vol_type"] == "EURO":
-            # Volume specified in euro
-            amount = float(chat_data["volume"])
-            price_per_unit = float(chat_data["price"])
-            volume = "{0:.8f}".format(amount / price_per_unit)
-
-        elif chat_data["vol_type"] == "VOLUME":
-            # Volume specified in amount of currency
-            volume = chat_data["volume"]
-
-    # Volume not specified
-    else:
-        buy = "buy"
-        sell = "sell"
-
-        # Logic for 'buy'
-        if chat_data["buysell"] == buy:
+def trade_confirm(bot, update, chat_data):
+    # Determine the volume
+    # Entered '/all'
+    if chat_data["vol_type"] == "/all":
+        if chat_data["buysell"] == "buy":
             req_data = dict()
             req_data["asset"] = "Z" + config["trade_to_currency"]
 
@@ -348,11 +321,9 @@ def trade_execute(bot, update, chat_data):
 
             euros = res_data["result"]["tb"]
             # Calculate volume depending on full euro balance and round it to 8 digits
-            volume = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
+            chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
 
-        # Logic for 'sell'
-        elif chat_data["buysell"] == sell:
-
+        if chat_data["buysell"] == "sell":
             # FIXME: This will give me all available BTC. But some of them are already inside a sell order.
             # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
             # FIXME: Current balance of BTC minus all open BTC orders
@@ -367,14 +338,53 @@ def trade_execute(bot, update, chat_data):
             # TODO: Use '.upper' all over the place
             current_volume = res_data["result"][chat_data["currency"].upper()]
             # Get volume from balance and round it to 8 digits
-            volume = "{0:.8f}".format(float(current_volume))
+            chat_data["volume"] = "{0:.8f}".format(float(current_volume))
+
+    # Entered EURO
+    elif chat_data["vol_type"] == "EURO":
+        amount = float(update.message.text)
+        price_per_unit = float(chat_data["price"])
+        chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
+
+    # Entered VOLUME
+    elif chat_data["vol_type"] == "VOLUME":
+        chat_data["volume"] = "{0:.8f}".format(update.message.text)
+
+    trade_str = chat_data["buysell"].lower() + " " + \
+                trim_zeros(chat_data["volume"]) + " " + \
+                chat_data["currency"] + " @ limit " + \
+                chat_data["price"]
+
+    if config["confirm_action"].lower() == "true":
+        reply_msg = "Place this order?\n" + trade_str
+
+        buttons = [
+            KeyboardButton("YES"),
+            KeyboardButton("NO")
+        ]
+
+        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
+
+        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+        return TRADE_EXECUTE
+
+    else:
+        trade_execute(bot, update, chat_data)
+
+
+def trade_execute(bot, update, chat_data):
+    if update.message.text == "NO":
+        return cancel(bot, update)
+
+    update.message.reply_text("Placing order...", reply_markup=keyboard_cmds())
 
     req_data = dict()
     req_data["type"] = chat_data["buysell"].lower()
     req_data["pair"] = chat_data["currency"] + "Z" + config["trade_to_currency"]
     req_data["price"] = chat_data["price"]
     req_data["ordertype"] = "limit"
-    req_data["volume"] = volume
+    req_data["volume"] = chat_data["volume"]
 
     # Send request to create order to Kraken
     res_data_add_order = kraken.query_private("AddOrder", req_data)
@@ -396,7 +406,7 @@ def trade_execute(bot, update, chat_data):
 
         # If Kraken replied with an error, show it
         if res_data_query_order["error"]:
-            update.message.reply_text(res_data["error"][0])
+            update.message.reply_text(res_data_query_order["error"][0])
             return ConversationHandler.END
 
         if res_data_query_order["result"][add_order_txid]:
@@ -424,8 +434,9 @@ def trade_execute(bot, update, chat_data):
     return ConversationHandler.END
 
 
-def cancel(update):
+def cancel(bot, update):
     update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+    return ConversationHandler.END
 
 
 # TODO: Timeout errors (while calling Kraken) will not get shown because i only handle python-telegram-bot exceptions
@@ -842,17 +853,16 @@ dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 
 # TRADE command handler
-# TODO: Add generic step that asks if entered data is correct. Show, 'YES' = place order; 'NO' = restart trade cmd;
-# TODO: 'CANCEL' = cancel
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_buy_sell)],
     states={
         TRADE_CURRENCY: [RegexHandler("^(BUY|SELL|CANCEL)$", trade_currency, pass_chat_data=True)],
         TRADE_PRICE: [RegexHandler("^(XXBT|XETH|XXMR|CANCEL)$", trade_price, pass_chat_data=True)],
-        TRADE_VOL_TYPE: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(CANCEL))$", trade_vol_type, pass_chat_data=True)],
+        TRADE_VOL_TYPE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_vol_type, pass_chat_data=True)],
         TRADE_VOLUME: [RegexHandler("^(EURO|VOLUME|CANCEL)$", trade_volume, pass_chat_data=True),
-                       CommandHandler("all", trade_execute, pass_chat_data=True)],
-        TRADE_EXECUTE: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all)|(CANCEL))$", trade_execute, pass_chat_data=True)]
+                       CommandHandler("all", trade_confirm, pass_chat_data=True)],
+        TRADE_CONFIRM: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_confirm, pass_chat_data=True)],
+        TRADE_EXECUTE: [RegexHandler("^(YES|NO)$", trade_execute, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
