@@ -370,7 +370,7 @@ def trade_execute(bot, update, chat_data):
             volume = "{0:.8f}".format(float(current_volume))
 
     req_data = dict()
-    req_data["type"] = chat_data["buysell"]
+    req_data["type"] = chat_data["buysell"].lower()
     req_data["pair"] = chat_data["currency"] + "Z" + config["trade_to_currency"]
     req_data["price"] = chat_data["price"]
     req_data["ordertype"] = "limit"
@@ -563,6 +563,7 @@ def price_cmd(bot, update):
 
     return ONE
 """
+
 
 # Callback for the 'price' command - choose currency
 def price_one(bot, update):
