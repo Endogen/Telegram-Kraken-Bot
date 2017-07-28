@@ -210,7 +210,7 @@ def trade_currency(bot, update, chat_data):
     if update.message.text == "CANCEL":
         return cancel(bot, update)
 
-    chat_data["buysell"] = update.message.text
+    chat_data["buysell"] = update.message.text.lower()
 
     reply_msg = "Enter currency"
 
@@ -235,7 +235,7 @@ def trade_price(bot, update, chat_data):
     if update.message.text == "CANCEL":
         return cancel(bot, update)
 
-    chat_data["currency"] = "X" + update.message.text
+    chat_data["currency"] = "X" + update.message.text.upper()
 
     reply_msg = "Enter price per unit"
     reply_mrk = ReplyKeyboardRemove()
@@ -312,8 +312,7 @@ def trade_confirm(bot, update, chat_data):
                 update.message.reply_text(res_data["error"][0])
                 return ConversationHandler.END
 
-            # TODO: Use '.upper' all over the place
-            current_volume = res_data["result"][chat_data["currency"].upper()]
+            current_volume = res_data["result"][chat_data["currency"]]
             # Get volume from balance and round it to 8 digits
             chat_data["volume"] = "{0:.8f}".format(float(current_volume))
 
@@ -327,7 +326,7 @@ def trade_confirm(bot, update, chat_data):
     elif chat_data["vol_type"] == "VOLUME":
         chat_data["volume"] = "{0:.8f}".format(update.message.text)
 
-    trade_str = chat_data["buysell"].lower() + " " + \
+    trade_str = chat_data["buysell"] + " " + \
                 trim_zeros(chat_data["volume"]) + " " + \
                 chat_data["currency"][1:] + " @ limit " + \
                 chat_data["price"]
