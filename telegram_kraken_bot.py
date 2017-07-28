@@ -553,7 +553,7 @@ def price_one(bot, update):
 
     req_data = dict()
 
-    # TODO: Create an Enum for this values
+    # TODO: Create an Enum for these values
     if data == "xbt":
         req_data["pair"] = "XXBT" + "Z" + config["trade_to_currency"]
     elif data == "eth":
@@ -575,18 +575,10 @@ def price_one(bot, update):
         bot.send_message(chat_id, text=res_data["error"][0])
         return
 
-    # TODO: It is not necessary to iterate over items - just get the one thing we need
-    msg = ""
-    for currency_key, currency_value in res_data["result"].items():
-        # Get currency without 'trade to currency' value (for example 'ZEUR')
-        currency = currency_key[1:-len("Z" + config["trade_to_currency"])]
+    currency = req_data["pair"][1:-len("Z" + config["trade_to_currency"])]
+    last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-        # Read last trade price and remove zeros at the end
-        last_trade_price = trim_zeros(currency_value["c"][0])
-
-        # Create message
-        msg = currency + ": " + last_trade_price
-        break
+    msg = currency + ": " + last_trade_price
 
     bot.edit_message_text(message_id=message_id, chat_id=chat_id, text=msg)
 
