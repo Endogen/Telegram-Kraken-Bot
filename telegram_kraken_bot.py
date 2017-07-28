@@ -215,9 +215,9 @@ def trade_currency(bot, update, chat_data):
     reply_msg = "Enter currency"
 
     buttons = [
-        KeyboardButton("XXBT"),
-        KeyboardButton("XETH"),
-        KeyboardButton("XXMR")
+        KeyboardButton("XBT"),
+        KeyboardButton("ETH"),
+        KeyboardButton("XMR")
     ]
 
     cancel_btn = [
@@ -235,7 +235,7 @@ def trade_price(bot, update, chat_data):
     if update.message.text == "CANCEL":
         return cancel(bot, update)
 
-    chat_data["currency"] = update.message.text
+    chat_data["currency"] = "X" + update.message.text
 
     reply_msg = "Enter price per unit"
     reply_mrk = ReplyKeyboardRemove()
@@ -329,7 +329,7 @@ def trade_confirm(bot, update, chat_data):
 
     trade_str = chat_data["buysell"].lower() + " " + \
                 trim_zeros(chat_data["volume"]) + " " + \
-                chat_data["currency"] + " @ limit " + \
+                chat_data["currency"][1:] + " @ limit " + \
                 chat_data["price"]
 
     if config["confirm_action"].lower() == "true":
@@ -819,7 +819,7 @@ trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_buy_sell)],
     states={
         TRADE_CURRENCY: [RegexHandler("^(BUY|SELL|CANCEL)$", trade_currency, pass_chat_data=True)],
-        TRADE_PRICE: [RegexHandler("^(XXBT|XETH|XXMR|CANCEL)$", trade_price, pass_chat_data=True)],
+        TRADE_PRICE: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", trade_price, pass_chat_data=True)],
         TRADE_VOL_TYPE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_vol_type, pass_chat_data=True)],
         TRADE_VOLUME: [RegexHandler("^(EURO|VOLUME|CANCEL)$", trade_volume, pass_chat_data=True),
                        CommandHandler("all", trade_confirm, pass_chat_data=True)],
