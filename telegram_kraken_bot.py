@@ -179,8 +179,12 @@ def balance_cmd(bot, update):
     bot.send_message(config["user_id"], text=msg)
 
 
-# Enum for 'trade' command
+# Enum for 'trade' workflow
 TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(6)
+
+# TODO: Change values
+# Enum for 'trade' keyboards
+BUY, SELL, EURO, VOLUME, YES, NO, CANCEL = range(7)
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
@@ -214,6 +218,7 @@ def trade_currency(bot, update, chat_data):
 
     reply_msg = "Enter currency"
 
+    # TODO: Add buttons dynamically - call Kraken and get all available currencies
     buttons = [
         KeyboardButton("XBT"),
         KeyboardButton("ETH"),
@@ -699,7 +704,6 @@ def status_one(bot, update):
 
     # FIXME: This will not set a new message (on update). Exclude the message from the method and add a return value
     # then call this method and check return value. Show message dependant on return value.
-    # TODO: Change in whole app: Only send msg to user from config, not user that send msg
     if data == "update_check":
         check_for_update()
     elif data == "update":
