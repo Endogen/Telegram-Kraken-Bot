@@ -15,7 +15,6 @@ from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, Rege
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger()
-# TODO: logger.debug("CHAT_ID: " + str(chat_id))
 
 # Read configuration
 with open("config.json") as config_file:
@@ -61,17 +60,10 @@ def keyboard_cmds():
 
 # Add a custom keyboard with all available commands
 def show_cmds():
-    chat_id = get_chat_id()
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        updater.bot.send_message(chat_id, text="Access denied")
-        return
-
     msg = "Choose a command"
     mrk = keyboard_cmds()
 
-    updater.bot.send_message(chat_id, msg, reply_markup=mrk)
+    updater.bot.send_message(config["user_id"], msg, reply_markup=mrk)
 
 
 # Check order status and send message if changed
@@ -149,12 +141,8 @@ def trim_zeros(value_to_trim):
 
 # Get balance of all currencies
 def balance_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
@@ -174,7 +162,7 @@ def balance_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        bot.send_message(chat_id, text=res_data["error"][0])
+        bot.send_message(config["user_id"], text=res_data["error"][0])
         return
 
     msg = ""
@@ -188,25 +176,17 @@ def balance_cmd(bot, update):
         for currency_key, currency_value in res_data["result"].items():
             msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
 
-    bot.send_message(chat_id, text=msg)
+    bot.send_message(config["user_id"], text=msg)
 
 
 # Enum for 'trade' command
 TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(6)
 
 
-# TODO: Add additional button to CANCEL
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 def trade_buy_sell(bot, update):
-    # TODO: How to best check for valid user?
-    """
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-    """
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
     reply_msg = "Buy or sell?"
 
@@ -231,9 +211,6 @@ def trade_currency(bot, update, chat_data):
         return cancel(bot, update)
 
     chat_data["buysell"] = update.message.text
-
-    user = update.message.from_user
-    logger.info("Gender of %s: %s" % (user.first_name, update.message.text))  # TODO: Add correct logging
 
     reply_msg = "Enter currency"
 
@@ -446,12 +423,8 @@ def error(bot, update, error):
 
 # Show and manage orders
 def orders_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
@@ -463,16 +436,16 @@ def orders_cmd(bot, update):
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            bot.send_message(chat_id, text=res_data["error"][0])
+            bot.send_message(config["user_id"], text=res_data["error"][0])
             return
 
         if res_data["result"]["open"]:
             for order in res_data["result"]["open"]:
                 order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
-                bot.send_message(chat_id, text=order + "\n" + order_desc)
+                bot.send_message(config["user_id"], text=order + "\n" + order_desc)
             return
         else:
-            bot.send_message(chat_id, text="No open orders")
+            bot.send_message(config["user_id"], text="No open orders")
             return
     elif len(msg_params) == 2:
         # If parameter is 'close-all' then close all orders
@@ -482,7 +455,7 @@ def orders_cmd(bot, update):
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                bot.send_message(chat_id, text=res_data["error"][0])
+                bot.send_message(config["user_id"], text=res_data["error"][0])
                 return
 
             if res_data["result"]["open"]:
@@ -495,16 +468,16 @@ def orders_cmd(bot, update):
 
                     # If Kraken replied with an error, show it
                     if res_data["error"]:
-                        bot.send_message(chat_id, text=res_data["error"][0])
+                        bot.send_message(config["user_id"], text=res_data["error"][0])
                         return
 
-                    bot.send_message(chat_id, text="Order closed:\n" + order)
+                    bot.send_message(config["user_id"], text="Order closed:\n" + order)
                 return
             else:
-                bot.send_message(chat_id, text="No open orders")
+                bot.send_message(config["user_id"], text="No open orders")
                 return
         else:
-            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / ['close-all'])")
+            bot.send_message(config["user_id"], text="Syntax: /orders (['close'] [txid] / ['close-all'])")
             return
     elif len(msg_params) == 3:
         # If parameter is 'close' and TXID is provided, close order with specific TXID
@@ -518,24 +491,20 @@ def orders_cmd(bot, update):
 
                 # If Kraken replied with an error, show it
                 if res_data["error"]:
-                    bot.send_message(chat_id, text=res_data["error"][0])
+                    bot.send_message(config["user_id"], text=res_data["error"][0])
                     return
 
-                bot.send_message(chat_id, text="Order closed:\n" + msg_params[2])
+                bot.send_message(config["user_id"], text="Order closed:\n" + msg_params[2])
                 return
         else:
-            bot.send_message(chat_id, text="Syntax: /orders (['close'] [txid] / ['close-all'])")
+            bot.send_message(config["user_id"], text="Syntax: /orders (['close'] [txid] / ['close-all'])")
             return
 
 
 # Show syntax for all available commands
 def syntax_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
     syntax_msg = "/balance (['available'])\n"
     syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n"
@@ -546,7 +515,7 @@ def syntax_cmd(bot, update):
     syntax_msg += "/restart\n"
     syntax_msg += "/status"
 
-    bot.send_message(chat_id, text=syntax_msg)
+    bot.send_message(config["user_id"], text=syntax_msg)
 
 """
 # TODO: Remove ReplyKeyboard as long as we are in the execution of a command. After complete execution, add it again
@@ -625,12 +594,8 @@ def price_one(bot, update):
 
 # Show the current real money value for all assets combined
 def value_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
     # Save message parameters in list
     msg_params = update.message.text.split(" ")
@@ -640,7 +605,7 @@ def value_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_balance["error"]:
-        bot.send_message(chat_id, text=res_data_balance["error"][0])
+        bot.send_message(config["user_id"], text=res_data_balance["error"][0])
         return
 
     curr_str = "Overall: "
@@ -667,7 +632,7 @@ def value_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_price["error"]:
-        bot.send_message(chat_id, text=res_data_price["error"][0])
+        bot.send_message(config["user_id"], text=res_data_price["error"][0])
         return
 
     total_value_euro = float(0)
@@ -683,7 +648,7 @@ def value_cmd(bot, update):
     # Show only 2 digits after decimal place
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
-    bot.send_message(chat_id, text=curr_str + total_value_euro + " " + config["trade_to_currency"])
+    bot.send_message(config["user_id"], text=curr_str + total_value_euro + " " + config["trade_to_currency"])
 
 
 # Check if GitHub hosts a different script then the current one
@@ -737,7 +702,6 @@ def status_cmd(bot, update):
 
 # Callback for the 'status' command - choose a sub-command
 def status_one(bot, update):
-    chat_id = get_chat_id(update)
     message_id = update.callback_query.message.message_id
 
     data = update.callback_query.data
@@ -752,24 +716,20 @@ def status_one(bot, update):
     elif data == "restart":
         restart_cmd(bot, update)
     elif data == "shutdown":
-        bot.edit_message_text("Shutting down...", chat_id, message_id)
-        exit()  # TODO: Test this
+        bot.edit_message_text("Shutting down...", config["user_id"], message_id)
+        exit()
     elif data == "cancel":
-        bot.edit_message_text("Canceled...", chat_id, message_id)
+        bot.edit_message_text("Canceled...", config["user_id"], message_id)
         return
     else:
-        bot.edit_message_text("Unknown callback command...", chat_id, message_id)
+        bot.edit_message_text("Unknown callback command...", config["user_id"], message_id)
         return
 
 
 # Download newest script, update the currently running script and restart
 def update_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
@@ -778,7 +738,7 @@ def update_cmd(bot, update):
     # Status code 304 = Not Modified
     if github_file.status_code == 304:
         msg = "You are running the latest version"
-        updater.bot.send_message(chat_id=chat_id, text=msg)
+        updater.bot.send_message(chat_id=config["user_id"], text=msg)
     # Status code 200 = OK
     elif github_file.status_code == 200:
         # Save current ETag (hash) in configuration file
@@ -800,19 +760,15 @@ def update_cmd(bot, update):
     # Every other status code
     else:
         msg = "Update not executed. Unexpected status code: " + github_file.status_code
-        updater.bot.send_message(chat_id=chat_id, text=msg)
+        updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
 
 # Terminate this script
 def shutdown_cmd(bot, update):
-    chat_id = get_chat_id(update)
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
-    bot.send_message(chat_id, "Shutting down...")
+    bot.send_message(config["user_id"], "Shutting down...")
 
     # Terminate bot
     exit()
@@ -820,14 +776,10 @@ def shutdown_cmd(bot, update):
 
 # Restart this python script
 def restart_cmd(bot, update):
-    chat_id = get_chat_id(update)
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
-    bot.send_message(chat_id, "Bot is restarting...")
+    bot.send_message(config["user_id"], "Bot is restarting...")
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
@@ -842,6 +794,16 @@ def get_chat_id(update=None):
     else:
         return config["user_id"]
 
+
+# Check if user is valid and send message to user if not
+def is_user_valid(bot, update):
+    chat_id = get_chat_id(update)
+    if str(chat_id) != config["user_id"]:
+        bot.send_message(chat_id, text="Access denied")
+        logger.info("Access denied for user %s" % chat_id)
+        return False
+    else:
+        return True
 
 # Add handlers to dispatcher
 dispatcher.add_handler(CommandHandler("help", syntax_cmd))
