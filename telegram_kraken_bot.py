@@ -360,6 +360,7 @@ def trade_execute(bot, update, chat_data):
     if update.message.text == GeneralEnum.NO.name:
         return cancel(bot, update)
 
+    # TODO: Already show this keyboard? Telegram isn't ready yet! It requests data. There will be no action on input
     update.message.reply_text("Placing order...", reply_markup=keyboard_cmds())
 
     req_data = dict()
@@ -406,11 +407,9 @@ def trade_execute(bot, update, chat_data):
                 job_check_order = Job(monitor_order, check_trade_time, context=context_data)
                 job_queue.put(job_check_order, next_t=0.0)
 
-            return ConversationHandler.END
-
         else:
             update.message.reply_text("No order with TXID " + add_order_txid)
-            return ConversationHandler.END
+
     else:
         update.message.reply_text("Undefined state: no error and no TXID")
 
@@ -551,9 +550,7 @@ def price_cmd(bot, update):
 """
 
 # Enum for 'price' workflow
-PRICE_CURRENCY, PRICE_CONFIRM, PRICE_EXECUTE = range(3)
-# Enum for 'price' keyboards
-PriceEnum = Enum("PriceEnum", "BUY SELL EURO VOLUME")
+PRICE_EXECUTE = range(1)
 # TODO: Create dynamic Enum for currencies
 # https://stackoverflow.com/questions/33690064/dynamically-create-an-enum-with-custom-values-in-python
 
@@ -563,38 +560,47 @@ def price_currency(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    # TODO: Start new implementation
+    reply_msg = "Enter currency"
+
+    # TODO: Add buttons dynamically - call Kraken and get all available currencies
+    buttons = [
+        KeyboardButton("XBT"),
+        KeyboardButton("ETH"),
+        KeyboardButton("XMR")
+    ]
+
+    cancel_btn = [
+        KeyboardButton(GeneralEnum.CANCEL.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+    return PRICE_EXECUTE
+
+
+def price_execute(bot, update, chat_data):
+    if update.message.text == GeneralEnum.CANCEL.name:
+        return cancel(bot, update)
 
     req_data = dict()
-
-    # TODO: Create an Enum for these values
-    if data == "xbt":
-        req_data["pair"] = "XXBT" + "Z" + config["trade_to_currency"]
-    elif data == "eth":
-        req_data["pair"] = "XETH" + "Z" + config["trade_to_currency"]
-    elif data == "xmr":
-        req_data["pair"] = "XXMR" + "Z" + config["trade_to_currency"]
-    elif data == "cancel":
-        bot.edit_message_text("Canceled...", chat_id, message_id)
-        return
-    else:
-        bot.edit_message_text("Unknown callback command...", chat_id, message_id)
-        return
+    req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken.query_public("Ticker", req_data)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        bot.send_message(chat_id, text=res_data["error"][0])
-        return
+        update.message.reply_text(res_data["error"][0])
+        return ConversationHandler.END
 
-    currency = req_data["pair"][1:-len("Z" + config["trade_to_currency"])]
+    currency = update.message.text
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-    msg = currency + ": " + last_trade_price
+    update.message.reply_text(currency + ": " + last_trade_price, reply_markup=keyboard_cmds())
 
-    bot.edit_message_text(message_id=message_id, chat_id=chat_id, text=msg)
+    return ConversationHandler.END
 
 
 # Show the current real money value for all assets combined
@@ -840,14 +846,15 @@ dispatcher.add_handler(trade_handler)
 
 # PRICE command handler
 price_handler = ConversationHandler(
-    entry_points=[CommandHandler('price', price_cmd)],
+    entry_points=[CommandHandler('price', price_currency)],
     states={
-        ONE: [CallbackQueryHandler(price_one)]
+        PRICE_EXECUTE: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", price_execute, pass_chat_data=True)]
     },
-    fallbacks=[CommandHandler('price', price_cmd)]
+    fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(price_handler)
 
+'''
 # STATUS command handler
 status_handler = ConversationHandler(
     entry_points=[CommandHandler('status', status_cmd)],
@@ -857,6 +864,7 @@ status_handler = ConversationHandler(
     fallbacks=[CommandHandler('status', status_cmd)]
 )
 dispatcher.add_handler(status_handler)
+'''
 
 # Start the bot
 updater.start_polling()
