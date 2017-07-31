@@ -550,13 +550,20 @@ def price_cmd(bot, update):
     return ONE
 """
 
+# Enum for 'price' workflow
+PRICE_CURRENCY, PRICE_CONFIRM, PRICE_EXECUTE = range(3)
+# Enum for 'price' keyboards
+PriceEnum = Enum("PriceEnum", "BUY SELL EURO VOLUME")
+# TODO: Create dynamic Enum for currencies
+# https://stackoverflow.com/questions/33690064/dynamically-create-an-enum-with-custom-values-in-python
+
 
 # Callback for the 'price' command - choose currency
-def price_one(bot, update):
-    chat_id = get_chat_id(update)
-    message_id = update.callback_query.message.message_id
+def price_currency(bot, update):
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
-    data = update.callback_query.data
+    # TODO: Start new implementation
 
     req_data = dict()
 
@@ -802,6 +809,10 @@ def is_user_valid(bot, update):
     else:
         return True
 
+
+# Log all errors
+dispatcher.add_error_handler(error)
+
 # Add handlers to dispatcher
 dispatcher.add_handler(CommandHandler("help", syntax_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
@@ -827,10 +838,6 @@ trade_handler = ConversationHandler(
 )
 dispatcher.add_handler(trade_handler)
 
-# Log all errors
-dispatcher.add_error_handler(error)
-
-"""
 # PRICE command handler
 price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
@@ -850,7 +857,6 @@ status_handler = ConversationHandler(
     fallbacks=[CommandHandler('status', status_cmd)]
 )
 dispatcher.add_handler(status_handler)
-"""
 
 # Start the bot
 updater.start_polling()
