@@ -9,6 +9,7 @@ import time
 import krakenex
 import requests
 
+from enum import Enum
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler, MessageHandler, Filters
 
@@ -30,6 +31,9 @@ updater = Updater(token=config["bot_token"])
 # Get dispatcher and job queue
 dispatcher = updater.dispatcher
 job_queue = updater.job_queue
+
+# General Enum for keyboard
+GeneralEnum = Enum("GeneralEnum", "YES NO CANCEL")
 
 
 # Create a button menu to show in Telegram messages
@@ -181,10 +185,8 @@ def balance_cmd(bot, update):
 
 # Enum for 'trade' workflow
 TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(6)
-
-# TODO: Change values
 # Enum for 'trade' keyboards
-BUY, SELL, EURO, VOLUME, YES, NO, CANCEL = range(7)
+TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME")
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
@@ -195,12 +197,12 @@ def trade_buy_sell(bot, update):
     reply_msg = "Buy or sell?"
 
     buttons = [
-        KeyboardButton("BUY"),
-        KeyboardButton("SELL")
+        KeyboardButton(TradeEnum.BUY.name),
+        KeyboardButton(TradeEnum.SELL.name)
     ]
 
     cancel_btn = [
-        KeyboardButton("CANCEL")
+        KeyboardButton(GeneralEnum.CANCEL.name)
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
@@ -211,10 +213,10 @@ def trade_buy_sell(bot, update):
 
 
 def trade_currency(bot, update, chat_data):
-    if update.message.text == "CANCEL":
+    if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
-    chat_data["buysell"] = update.message.text.lower()
+    chat_data["buysell"] = update.message.text
 
     reply_msg = "Enter currency"
 
@@ -226,7 +228,7 @@ def trade_currency(bot, update, chat_data):
     ]
 
     cancel_btn = [
-        KeyboardButton("CANCEL")
+        KeyboardButton(GeneralEnum.CANCEL.name)
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
@@ -237,10 +239,10 @@ def trade_currency(bot, update, chat_data):
 
 
 def trade_price(bot, update, chat_data):
-    if update.message.text == "CANCEL":
+    if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
-    chat_data["currency"] = "X" + update.message.text.upper()
+    chat_data["currency"] = "X" + update.message.text
 
     reply_msg = "Enter price per unit"
     reply_mrk = ReplyKeyboardRemove()
@@ -256,12 +258,12 @@ def trade_vol_type(bot, update, chat_data):
     reply_msg = "How to enter the volume? Or skip and use /all"
 
     buttons = [
-        KeyboardButton("EURO"),
-        KeyboardButton("VOLUME")
+        KeyboardButton(TradeEnum.EURO.name),
+        KeyboardButton(TradeEnum.VOLUME.name)
     ]
 
     cancel_btn = [
-        KeyboardButton("CANCEL")
+        KeyboardButton(GeneralEnum.CANCEL.name)
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
@@ -272,7 +274,7 @@ def trade_vol_type(bot, update, chat_data):
 
 
 def trade_volume(bot, update, chat_data):
-    if update.message.text == "CANCEL":
+    if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
     chat_data["vol_type"] = update.message.text
@@ -289,7 +291,7 @@ def trade_confirm(bot, update, chat_data):
     # Determine the volume
     # Entered '/all'
     if chat_data["vol_type"] == "/all":
-        if chat_data["buysell"] == "buy":
+        if chat_data["buysell"] == TradeEnum.BUY.name:
             req_data = dict()
             req_data["asset"] = "Z" + config["trade_to_currency"]
 
@@ -305,7 +307,7 @@ def trade_confirm(bot, update, chat_data):
             # Calculate volume depending on full euro balance and round it to 8 digits
             chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
 
-        if chat_data["buysell"] == "sell":
+        if chat_data["buysell"] == TradeEnum.SELL.name:
             # FIXME: This will give me all available BTC. But some of them are already inside a sell order.
             # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
             # FIXME: Current balance of BTC minus all open BTC orders
@@ -322,16 +324,16 @@ def trade_confirm(bot, update, chat_data):
             chat_data["volume"] = "{0:.8f}".format(float(current_volume))
 
     # Entered EURO
-    elif chat_data["vol_type"] == "EURO":
+    elif chat_data["vol_type"] == TradeEnum.EURO.name:
         amount = float(update.message.text)
         price_per_unit = float(chat_data["price"])
         chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
 
     # Entered VOLUME
-    elif chat_data["vol_type"] == "VOLUME":
+    elif chat_data["vol_type"] == TradeEnum.VOLUME.name:
         chat_data["volume"] = "{0:.8f}".format(update.message.text)
 
-    trade_str = chat_data["buysell"] + " " + \
+    trade_str = chat_data["buysell"].lower() + " " + \
                 trim_zeros(chat_data["volume"]) + " " + \
                 chat_data["currency"][1:] + " @ limit " + \
                 chat_data["price"]
@@ -340,8 +342,8 @@ def trade_confirm(bot, update, chat_data):
         reply_msg = "Place this order?\n" + trade_str
 
         buttons = [
-            KeyboardButton("YES"),
-            KeyboardButton("NO")
+            KeyboardButton(GeneralEnum.YES.name),
+            KeyboardButton(GeneralEnum.NO.name)
         ]
 
         reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
@@ -355,7 +357,7 @@ def trade_confirm(bot, update, chat_data):
 
 
 def trade_execute(bot, update, chat_data):
-    if update.message.text == "NO":
+    if update.message.text == GeneralEnum.NO.name:
         return cancel(bot, update)
 
     update.message.reply_text("Placing order...", reply_markup=keyboard_cmds())
