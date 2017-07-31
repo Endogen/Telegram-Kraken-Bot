@@ -522,32 +522,6 @@ def syntax_cmd(bot, update):
 
     bot.send_message(config["user_id"], text=syntax_msg)
 
-"""
-# TODO: Remove ReplyKeyboard as long as we are in the execution of a command. After complete execution, add it again
-# Show the current price for the chosen currency
-def price_cmd(bot, update):
-    chat_id = get_chat_id(update)
-
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
-    buttons = [
-        InlineKeyboardButton("XBT", callback_data="xbt"),
-        InlineKeyboardButton("ETH", callback_data="eth"),
-        InlineKeyboardButton("XMR", callback_data="xmr")
-    ]
-
-    footer = [
-        InlineKeyboardButton("Cancel", callback_data="cancel")
-    ]
-
-    reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=footer))
-    bot.send_message(chat_id, "Price for which currency?", reply_markup=reply_markup)
-
-    return ONE
-"""
 
 # Enum for 'price' workflow
 PRICE_EXECUTE = range(1)
