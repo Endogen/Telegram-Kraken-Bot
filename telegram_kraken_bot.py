@@ -112,19 +112,17 @@ def monitor_open_orders():
             updater.bot.send_message(chat_id=config["user_id"], text=res_data["error"][0])
             return
 
-        # Get time in seconds from config
-        check_trade_time = config["check_trade_time"]
-
         if res_data["result"]["open"]:
             for order in res_data["result"]["open"]:
                 order_txid = str(order)
 
+                # Get time in seconds from config
+                check_trade_time = config["check_trade_time"]
                 # Create context object with chat ID and order TXID
                 context_data = dict(chat_id=config["user_id"], order_txid=order_txid)
 
-                # Create job to check status of order
-                job_check_order = Job(monitor_order, check_trade_time, context=context_data)
-                job_queue.put(job_check_order, next_t=0.0)
+                # Add Job to JobQueue to check status of order
+                job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
 
 
 # Remove trailing zeros to get clean values
@@ -404,8 +402,7 @@ def trade_execute(bot, update, chat_data):
                 context_data = dict(chat_id=update.message.chat_id, order_txid=add_order_txid)
 
                 # Create job to check status of newly created order
-                job_check_order = Job(monitor_order, check_trade_time, context=context_data)
-                job_queue.put(job_check_order, next_t=0.0)
+                job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
 
         else:
             update.message.reply_text("No order with TXID " + add_order_txid)
