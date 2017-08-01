@@ -290,7 +290,7 @@ def trade_volume(bot, update, chat_data):
 def trade_confirm(bot, update, chat_data):
     # Determine the volume
     # Entered '/all'
-    if chat_data["vol_type"] == "/all":
+    if update.message.text == "/all":
         if chat_data["buysell"] == TradeEnum.BUY.name:
             req_data = dict()
             req_data["asset"] = "Z" + config["trade_to_currency"]
@@ -308,7 +308,7 @@ def trade_confirm(bot, update, chat_data):
             chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
 
         if chat_data["buysell"] == TradeEnum.SELL.name:
-            # FIXME: This will give me all available BTC. But some of them are already inside a sell order.
+            # FIXME: This will give me all available BTC. But some of them are already part of a sell order.
             # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
             # FIXME: Current balance of BTC minus all open BTC orders
             # Send request to Kraken to get euro balance to calculate volume
@@ -331,7 +331,7 @@ def trade_confirm(bot, update, chat_data):
 
     # Entered VOLUME
     elif chat_data["vol_type"] == TradeEnum.VOLUME.name:
-        chat_data["volume"] = "{0:.8f}".format(update.message.text)
+        chat_data["volume"] = "{0:.8f}".format(float(update.message.text))
 
     trade_str = chat_data["buysell"].lower() + " " + \
                 trim_zeros(chat_data["volume"]) + " " + \
