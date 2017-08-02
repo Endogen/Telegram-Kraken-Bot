@@ -56,7 +56,7 @@ def keyboard_cmds():
         KeyboardButton("/balance"),
         KeyboardButton("/price"),
         KeyboardButton("/value"),
-        KeyboardButton("/status")
+        KeyboardButton("/bot")
     ]
 
     return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
@@ -668,7 +668,7 @@ VALUE_CURRENCY = range(1)
 ValueEnum = Enum("ValueEnum", "ALL")
 
 
-# Show the current real money value for all assets combined
+# Show the current real money value for a certain asset or for all assets combined
 def value_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
@@ -676,6 +676,7 @@ def value_cmd(bot, update):
     reply_msg = "Enter currency"
 
     # TODO: Add buttons dynamically - call Kraken and get all available currencies
+    # TODO: Use modulo to determine number of columns
     buttons = [
         KeyboardButton("XBT"),
         KeyboardButton("BCH"),
@@ -695,7 +696,7 @@ def value_cmd(bot, update):
     return VALUE_CURRENCY
 
 
-# FIXME: If if get an error on the last kraken request, keyboard will stay - is that OK?
+# FIXME: If i get an error on the last kraken request, keyboard will stay - is that OK?
 def value_currency(bot, update):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
@@ -756,24 +757,24 @@ def value_currency(bot, update):
     return ConversationHandler.END
 
 
-# Enum for 'status' workflow
-STATUS_SUB_CMD = range(1)
-# Enum for 'trade' keyboards
-StatusEnum = Enum("StatusEnum", "UPDATE_CHECK UPDATE RESTART SHUTDOWN")
+# Enum for 'bot' workflow
+BOT_SUB_CMD = range(1)
+# Enum for 'bot' keyboards
+BotEnum = Enum("BotEnum", "UPDATE_CHECK UPDATE RESTART SHUTDOWN")
 
 
-# Callback for the 'status' command - choose a sub-command
-def status_cmd(bot, update):
+# Shows sub-commands to control the bot
+def bot_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
     reply_msg = "What do you want to do?"
 
     buttons = [
-        KeyboardButton(StatusEnum.UPDATE_CHECK.name.replace("_", " ")),
-        KeyboardButton(StatusEnum.UPDATE.name),
-        KeyboardButton(StatusEnum.RESTART.name),
-        KeyboardButton(StatusEnum.SHUTDOWN.name)
+        KeyboardButton(BotEnum.UPDATE_CHECK.name.replace("_", " ")),
+        KeyboardButton(BotEnum.UPDATE.name),
+        KeyboardButton(BotEnum.RESTART.name),
+        KeyboardButton(BotEnum.SHUTDOWN.name)
     ]
 
     cancel_btn = [
@@ -784,25 +785,25 @@ def status_cmd(bot, update):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return STATUS_SUB_CMD
+    return BOT_SUB_CMD
 
 
-def status_sub_cmd(bot, update):
+def bot_sub_cmd(bot, update):
     # Update check
-    if update.message.text == StatusEnum.UPDATE_CHECK.name.replace("_", " "):
+    if update.message.text == BotEnum.UPDATE_CHECK.name.replace("_", " "):
         update.message.reply_text(get_update_state(), reply_markup=keyboard_cmds())
         return ConversationHandler.END
 
     # Update
-    elif update.message.text == StatusEnum.UPDATE.name:
+    elif update.message.text == BotEnum.UPDATE.name:
         return update_cmd(bot, update)
 
     # Restart
-    elif update.message.text == StatusEnum.RESTART.name:
+    elif update.message.text == BotEnum.RESTART.name:
         restart_cmd(bot, update)
 
     # Shutdown
-    elif update.message.text == StatusEnum.SHUTDOWN.name:
+    elif update.message.text == BotEnum.SHUTDOWN.name:
         shutdown_cmd(bot, update)
 
     elif update.message.text == GeneralEnum.CANCEL.name:
@@ -985,15 +986,15 @@ value_handler = ConversationHandler(
 dispatcher.add_handler(value_handler)
 
 
-# STATUS command handler
-status_handler = ConversationHandler(
-    entry_points=[CommandHandler('status', status_cmd)],
+# BOT command handler
+bot_handler = ConversationHandler(
+    entry_points=[CommandHandler('bot', bot_cmd)],
     states={
-        STATUS_SUB_CMD: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN|CANCEL)$", status_sub_cmd)]
+        BOT_SUB_CMD: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN|CANCEL)$", bot_sub_cmd)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
-dispatcher.add_handler(status_handler)
+dispatcher.add_handler(bot_handler)
 
 
 # Start the bot
