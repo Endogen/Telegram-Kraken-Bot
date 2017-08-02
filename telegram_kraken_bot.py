@@ -176,7 +176,9 @@ def balance_cmd(bot, update):
         msg = config["trade_to_currency"] + ": " + trim_zeros(res_data["result"]["tb"])
     else:
         for currency_key, currency_value in res_data["result"].items():
-            msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
+            display_value = trim_zeros(currency_value)
+            if display_value is not "0":
+                msg += currency_key + ": " + display_value + "\n"
 
     bot.send_message(config["user_id"], text=msg)
 
