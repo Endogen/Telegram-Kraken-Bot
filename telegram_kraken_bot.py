@@ -417,7 +417,7 @@ def trade_execute(bot, update, chat_data):
 
 
 # Enum for 'value' workflow
-ORDERS_EXECUTE, ORDERS_CLOSE_ORDER, ORDERS_CLOSE_ALL = range(3)
+ORDERS_EXECUTE, ORDERS_CLOSE_ORDER = range(2)
 # Enum for 'trade' keyboards
 OrdersEnum = Enum("OrdersEnum", "CLOSE_ORDER CLOSE_ALL")
 
@@ -437,11 +437,12 @@ def orders_list(bot, update):
         update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
         return ConversationHandler.END
 
+    # Go through all open orders and show them to the user
     if res_data["result"]["open"]:
         for order in res_data["result"]["open"]:
             order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
             update.message.reply_text(order + "\n" + order_desc)
-        return ConversationHandler.END
+
     else:
         update.message.reply_text("No open orders")
         return ConversationHandler.END
