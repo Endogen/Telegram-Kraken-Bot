@@ -554,7 +554,7 @@ def price_currency(bot, update):
     return PRICE_EXECUTE
 
 
-def price_execute(bot, update, chat_data):
+def price_execute(bot, update):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
@@ -860,7 +860,7 @@ dispatcher.add_handler(trade_handler)
 price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_currency)],
     states={
-        PRICE_EXECUTE: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", price_execute, pass_chat_data=True)]
+        PRICE_EXECUTE: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", price_execute)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -888,6 +888,7 @@ status_handler = ConversationHandler(
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(status_handler)
+
 
 # Start the bot
 updater.start_polling()
