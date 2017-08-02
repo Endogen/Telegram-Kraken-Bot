@@ -138,41 +138,22 @@ def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    # Save message parameters in list
-    msg_params = update.message.text.split(" ")
-
-    # Command without arguments
-    if len(msg_params) == 1:
-        # Send request to Kraken to get current balance of all currencies
-        res_data = kraken.query_private("Balance")
-
-    # Command with argument 'available'
-    elif len(msg_params) == 2 and msg_params[1] == "available":
-        req_data = dict()
-        req_data["asset"] = "Z" + config["trade_to_currency"]
-
-        # Send request to Kraken to get current trade balance of all currencies
-        res_data = kraken.query_private("TradeBalance", req_data)
+    # Send request to Kraken to get current balance of all currencies
+    res_data = kraken.query_private("Balance")
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        bot.send_message(config["user_id"], text=res_data["error"][0])
+        update.message.reply_text(res_data["error"][0])
         return
 
     msg = ""
 
-    # Check for '/trade available'
-    # FIXME: Why does this show me the value of my XXBT coins?
-    if "tb" in res_data["result"]:
-        # tb = trade balance (combined balance of all equity currencies)
-        msg = config["trade_to_currency"] + ": " + trim_zeros(res_data["result"]["tb"])
-    else:
-        for currency_key, currency_value in res_data["result"].items():
-            display_value = trim_zeros(currency_value)
-            if display_value is not "0":
-                msg += currency_key + ": " + display_value + "\n"
+    for currency_key, currency_value in res_data["result"].items():
+        display_value = trim_zeros(currency_value)
+        if display_value is not "0":
+            msg += currency_key + ": " + display_value + "\n"
 
-    bot.send_message(config["user_id"], text=msg)
+    update.message.reply_text(msg)
 
 
 # Enum for 'trade' workflow
@@ -354,8 +335,7 @@ def trade_confirm(bot, update, chat_data):
     if update.message.text == GeneralEnum.NO.name:
         return cancel(bot, update)
 
-    # TODO: Already show this keyboard? Telegram isn't ready yet! It requests data. There will be no action on input
-    update.message.reply_text("Placing order...", reply_markup=keyboard_cmds())
+    update.message.reply_text("Placing order...")
 
     req_data = dict()
     req_data["type"] = chat_data["buysell"].lower()
@@ -389,7 +369,8 @@ def trade_confirm(bot, update, chat_data):
 
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
-            update.message.reply_text("Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc))
+            msg = "Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc)
+            update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
             if config["check_trade"].lower() == "true":
                 # Get time in seconds from config
@@ -405,12 +386,13 @@ def trade_confirm(bot, update, chat_data):
 
     else:
         update.message.reply_text("Undefined state: no error and no TXID")
-        return ConversationHandler.END
+
+    return ConversationHandler.END
 
 
-# Enum for 'value' workflow
-ORDERS_CLOSE, ORDERS_CLOSE_ORDER = range(2)
-# Enum for 'trade' keyboards
+# Enum for 'orders' workflow
+ORDERS_CLOSE_ALL, ORDERS_CLOSE_ORDER = range(2)
+# Enum for 'orders' keyboards
 OrdersEnum = Enum("OrdersEnum", "CLOSE_ORDER CLOSE_ALL")
 
 
@@ -422,7 +404,6 @@ def orders_cmd(bot, update):
     # Send request for open orders to Kraken
     res_data = kraken.query_private("OpenOrders")
 
-    # FIXME: Handle all errors with 'update.message.reply_text' instead of 'bot.send_message'
     # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -453,7 +434,7 @@ def orders_cmd(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=close_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-    return ORDERS_CLOSE
+    return ORDERS_CLOSE_ALL
 
 
 def orders_close(bot, update):
@@ -527,86 +508,6 @@ def orders_close_order(bot, update):
     update.message.reply_text("Order closed:\n" + req_data["txid"])
     return ConversationHandler.END
 
-'''
-# Show and manage orders
-def orders_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
-    # Save message parameters in list
-    msg_params = update.message.text.split(" ")
-
-    # If there are no parameters, show all orders
-    if len(msg_params) == 1:
-        # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")
-
-        # If Kraken replied with an error, show it
-        if res_data["error"]:
-            bot.send_message(config["user_id"], text=res_data["error"][0])
-            return
-
-        if res_data["result"]["open"]:
-            for order in res_data["result"]["open"]:
-                order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
-                bot.send_message(config["user_id"], text=order + "\n" + order_desc)
-            return
-        else:
-            bot.send_message(config["user_id"], text="No open orders")
-            return
-    elif len(msg_params) == 2:
-        # If parameter is 'close-all' then close all orders
-        if msg_params[1] == "close-all":
-            # Send request for open orders to Kraken
-            res_data = kraken.query_private("OpenOrders")
-
-            # If Kraken replied with an error, show it
-            if res_data["error"]:
-                bot.send_message(config["user_id"], text=res_data["error"][0])
-                return
-
-            if res_data["result"]["open"]:
-                for order in res_data["result"]["open"]:
-                    req_data = dict()
-                    req_data["txid"] = order
-
-                    # Send request to Kraken to cancel orders
-                    res_data = kraken.query_private("CancelOrder", req_data)
-
-                    # If Kraken replied with an error, show it
-                    if res_data["error"]:
-                        bot.send_message(config["user_id"], text=res_data["error"][0])
-                        return
-
-                    bot.send_message(config["user_id"], text="Order closed:\n" + order)
-                return
-            else:
-                bot.send_message(config["user_id"], text="No open orders")
-                return
-        else:
-            bot.send_message(config["user_id"], text="Syntax: /orders (['close'] [txid] / ['close-all'])")
-            return
-    elif len(msg_params) == 3:
-        # If parameter is 'close' and TXID is provided, close order with specific TXID
-        if msg_params[1] == "close":
-            if len(msg_params) == 3:
-                req_data = dict()
-                req_data["txid"] = msg_params[2]
-
-                # Send request to Kraken to cancel orders
-                res_data = kraken.query_private("CancelOrder", req_data)
-
-                # If Kraken replied with an error, show it
-                if res_data["error"]:
-                    bot.send_message(config["user_id"], text=res_data["error"][0])
-                    return
-
-                bot.send_message(config["user_id"], text="Order closed:\n" + msg_params[2])
-                return
-        else:
-            bot.send_message(config["user_id"], text="Syntax: /orders (['close'] [txid] / ['close-all'])")
-            return
-'''
 
 # Enum for 'price' workflow
 PRICE_CURRENCY = range(1)
@@ -664,7 +565,7 @@ def price_currency(bot, update):
 
 # Enum for 'value' workflow
 VALUE_CURRENCY = range(1)
-# Enum for 'trade' keyboards
+# Enum for 'value' keyboards
 ValueEnum = Enum("ValueEnum", "ALL")
 
 
@@ -696,7 +597,6 @@ def value_cmd(bot, update):
     return VALUE_CURRENCY
 
 
-# FIXME: If i get an error on the last kraken request, keyboard will stay - is that OK?
 def value_currency(bot, update):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
@@ -706,8 +606,8 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_balance["error"]:
-        bot.send_message(config["user_id"], text=res_data_balance["error"][0])
-        return
+        update.message.reply_text(res_data_balance["error"][0])
+        return ConversationHandler.END
 
     req_data_price = dict()
     req_data_price["pair"] = ""
@@ -735,8 +635,8 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_price["error"]:
-        bot.send_message(config["user_id"], text=res_data_price["error"][0])
-        return
+        update.message.reply_text(res_data_balance["error"][0])
+        return ConversationHandler.END
 
     total_value_euro = float(0)
 
@@ -930,8 +830,6 @@ dispatcher.add_error_handler(error)
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
-
-# TODO: Convert this to a conversation
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 
 
@@ -939,7 +837,7 @@ dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 orders_handler = ConversationHandler(
     entry_points=[CommandHandler('orders', orders_cmd)],
     states={
-        ORDERS_CLOSE: [RegexHandler("^(CLOSE ORDER|CLOSE ALL|CANCEL)$", orders_close)],
+        ORDERS_CLOSE_ALL: [RegexHandler("^(CLOSE ORDER|CLOSE ALL|CANCEL)$", orders_close)],
         ORDERS_CLOSE_ORDER: [MessageHandler(Filters.text, orders_close_order)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
