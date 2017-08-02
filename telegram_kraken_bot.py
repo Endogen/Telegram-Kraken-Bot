@@ -62,14 +62,6 @@ def keyboard_cmds():
     return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
 
 
-# Add a custom keyboard with all available commands
-def show_cmds():
-    msg = "Choose a command"
-    mrk = keyboard_cmds()
-
-    updater.bot.send_message(config["user_id"], msg, reply_markup=mrk)
-
-
 # Check order status and send message if changed
 def monitor_order(bot, job):
     req_data = dict()
@@ -184,7 +176,7 @@ def balance_cmd(bot, update):
 
 
 # Enum for 'trade' workflow
-TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(6)
+TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM = range(6)
 # Enum for 'trade' keyboards
 TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME")
 
@@ -192,7 +184,7 @@ TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME")
 # FIXME: After a while it will not get triggered by '/trade' anymore
 # FIXME: Issue should be that Kraken request times out and then we don't send a ConversationHandler.END
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
-def trade_buy_sell(bot, update):
+def trade_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
@@ -211,10 +203,10 @@ def trade_buy_sell(bot, update):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return TRADE_CURRENCY
+    return TRADE_BUY_SELL
 
 
-def trade_currency(bot, update, chat_data):
+def trade_buy_sell(bot, update, chat_data):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
@@ -237,10 +229,10 @@ def trade_currency(bot, update, chat_data):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return TRADE_PRICE
+    return TRADE_CURRENCY
 
 
-def trade_price(bot, update, chat_data):
+def trade_currency(bot, update, chat_data):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
@@ -251,10 +243,10 @@ def trade_price(bot, update, chat_data):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return TRADE_VOL_TYPE
+    return TRADE_PRICE
 
 
-def trade_vol_type(bot, update, chat_data):
+def trade_price(bot, update, chat_data):
     chat_data["price"] = update.message.text
 
     reply_msg = "How to enter the volume? Or skip and use /all"
@@ -272,10 +264,10 @@ def trade_vol_type(bot, update, chat_data):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return TRADE_VOLUME
+    return TRADE_VOL_TYPE
 
 
-def trade_volume(bot, update, chat_data):
+def trade_vol_type(bot, update, chat_data):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
@@ -286,10 +278,10 @@ def trade_volume(bot, update, chat_data):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return TRADE_CONFIRM
+    return TRADE_VOLUME
 
 
-def trade_confirm(bot, update, chat_data):
+def trade_volume(bot, update, chat_data):
     # Determine the volume
     # Entered '/all'
     if update.message.text == "/all":
@@ -352,13 +344,13 @@ def trade_confirm(bot, update, chat_data):
 
         update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-        return TRADE_EXECUTE
+        return TRADE_CONFIRM
 
     else:
-        trade_execute(bot, update, chat_data)
+        trade_confirm(bot, update, chat_data)
 
 
-def trade_execute(bot, update, chat_data):
+def trade_confirm(bot, update, chat_data):
     if update.message.text == GeneralEnum.NO.name:
         return cancel(bot, update)
 
@@ -417,13 +409,13 @@ def trade_execute(bot, update, chat_data):
 
 
 # Enum for 'value' workflow
-ORDERS_EXECUTE, ORDERS_CLOSE_ORDER = range(2)
+ORDERS_CLOSE, ORDERS_CLOSE_ORDER = range(2)
 # Enum for 'trade' keyboards
 OrdersEnum = Enum("OrdersEnum", "CLOSE_ORDER CLOSE_ALL")
 
 
 # Show and manage orders
-def orders_list(bot, update):
+def orders_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
@@ -461,10 +453,10 @@ def orders_list(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=close_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-    return ORDERS_EXECUTE
+    return ORDERS_CLOSE
 
 
-def orders_execute(bot, update):
+def orders_close(bot, update):
     # CANCEL button pressed
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
@@ -617,13 +609,13 @@ def orders_cmd(bot, update):
 '''
 
 # Enum for 'price' workflow
-PRICE_EXECUTE = range(1)
+PRICE_CURRENCY = range(1)
 # TODO: Create dynamic Enum for currencies
 # https://stackoverflow.com/questions/33690064/dynamically-create-an-enum-with-custom-values-in-python
 
 
 # Callback for the 'price' command - choose currency
-def price_currency(bot, update):
+def price_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
@@ -644,10 +636,10 @@ def price_currency(bot, update):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return PRICE_EXECUTE
+    return PRICE_CURRENCY
 
 
-def price_execute(bot, update):
+def price_currency(bot, update):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
@@ -671,13 +663,13 @@ def price_execute(bot, update):
 
 
 # Enum for 'value' workflow
-VALUE_EXECUTE = range(1)
+VALUE_CURRENCY = range(1)
 # Enum for 'trade' keyboards
 ValueEnum = Enum("ValueEnum", "ALL")
 
 
 # Show the current real money value for all assets combined
-def value_currency(bot, update):
+def value_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
@@ -700,11 +692,11 @@ def value_currency(bot, update):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return VALUE_EXECUTE
+    return VALUE_CURRENCY
 
 
 # FIXME: If if get an error on the last kraken request, keyboard will stay - is that OK?
-def value_execute(bot, update):
+def value_currency(bot, update):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
@@ -764,36 +756,14 @@ def value_execute(bot, update):
     return ConversationHandler.END
 
 
-# Check if GitHub hosts a different script then the currently running one
-def check_for_update():
-    # Get newest version of this script from GitHub
-    headers = {"If-None-Match": config["update_hash"]}
-    github_file = requests.get(config["update_url"], headers=headers)
-
-    # Status code 304 = Not Modified (remote file has same hash, is the same version)
-    if github_file.status_code == 304:
-        # Send message that bot is up to date
-        msg = "Bot is up to date"
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
-    # Status code 200 = OK (remote file has different hash, is not the same version)
-    elif github_file.status_code == 200:
-        # Send message that new version is available
-        msg = "New version available. Get it with /update"
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
-    # Every other status code
-    else:
-        msg = "Update check not possible. Unexpected status code: " + github_file.status_code
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
-
-
 # Enum for 'status' workflow
-STATUS_CHOOSE = range(1)
+STATUS_SUB_CMD = range(1)
 # Enum for 'trade' keyboards
 StatusEnum = Enum("StatusEnum", "UPDATE_CHECK UPDATE RESTART SHUTDOWN")
 
 
 # Callback for the 'status' command - choose a sub-command
-def status_choose(bot, update):
+def status_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
@@ -814,18 +784,16 @@ def status_choose(bot, update):
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
-    return STATUS_CHOOSE
+    return STATUS_SUB_CMD
 
 
-def status_execute(bot, update):
-    # FIXME: This will not set a new message (on update). Exclude the message from the method and add a return value
-    # then call this method and check return value. Show message dependant on return value.
-    if update.message.text == StatusEnum.UPDATE_CHECK.name:
-        check_for_update()
+def status_sub_cmd(bot, update):
+    if update.message.text == StatusEnum.UPDATE_CHECK.name.replace("_", " "):
+        update.message.reply_text(get_update_state(), reply_markup=keyboard_cmds())
         return ConversationHandler.END
 
     elif update.message.text == StatusEnum.UPDATE.name:
-        update(bot, update)
+        update_cmd(bot, update)
         return ConversationHandler.END  # FIXME: We will not get here...
 
     elif update.message.text == StatusEnum.RESTART.name:
@@ -908,6 +876,25 @@ def error(bot, update, error):
     logger.error("Update '%s' caused error '%s'" % (update, error))
 
 
+# Check if GitHub hosts a different script then the currently running one
+def get_update_state():
+    # Get newest version of this script from GitHub
+    headers = {"If-None-Match": config["update_hash"]}
+    github_file = requests.get(config["update_url"], headers=headers)
+
+    # Status code 304 = Not Modified (remote file has same hash, is the same version)
+    if github_file.status_code == 304:
+        msg = "Bot is up to date"
+    # Status code 200 = OK (remote file has different hash, is not the same version)
+    elif github_file.status_code == 200:
+        msg = "New version available. Get it with /update"
+    # Every other status code
+    else:
+        msg = "Update check not possible. Unexpected status code: " + github_file.status_code
+
+    return msg
+
+
 # Return chat ID for an Update object
 def get_chat_id(update=None):
     if update:
@@ -942,9 +929,9 @@ dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 
 # ORDERS command handler
 orders_handler = ConversationHandler(
-    entry_points=[CommandHandler('orders', orders_list)],
+    entry_points=[CommandHandler('orders', orders_cmd)],
     states={
-        ORDERS_EXECUTE: [RegexHandler("^(CLOSE ORDER|CLOSE ALL|CANCEL)$", orders_execute)],
+        ORDERS_CLOSE: [RegexHandler("^(CLOSE ORDER|CLOSE ALL|CANCEL)$", orders_close)],
         ORDERS_CLOSE_ORDER: [MessageHandler(Filters.text, orders_close_order)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
@@ -952,18 +939,17 @@ orders_handler = ConversationHandler(
 dispatcher.add_handler(orders_handler)
 
 
-# TODO: state should start with 'TRADE_BUYSELL' and not with TRADE_CURRENCY!
 # TRADE command handler
 trade_handler = ConversationHandler(
-    entry_points=[CommandHandler('trade', trade_buy_sell)],
+    entry_points=[CommandHandler('trade', trade_cmd)],
     states={
-        TRADE_CURRENCY: [RegexHandler("^(BUY|SELL|CANCEL)$", trade_currency, pass_chat_data=True)],
-        TRADE_PRICE: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", trade_price, pass_chat_data=True)],
-        TRADE_VOL_TYPE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_vol_type, pass_chat_data=True)],
-        TRADE_VOLUME: [RegexHandler("^(EURO|VOLUME|CANCEL)$", trade_volume, pass_chat_data=True),
-                       CommandHandler("all", trade_confirm, pass_chat_data=True)],
-        TRADE_CONFIRM: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_confirm, pass_chat_data=True)],
-        TRADE_EXECUTE: [RegexHandler("^(YES|NO)$", trade_execute, pass_chat_data=True)]
+        TRADE_BUY_SELL: [RegexHandler("^(BUY|SELL|CANCEL)$", trade_buy_sell, pass_chat_data=True)],
+        TRADE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", trade_currency, pass_chat_data=True)],
+        TRADE_PRICE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
+        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME|CANCEL)$", trade_vol_type, pass_chat_data=True),
+                         CommandHandler("all", trade_volume, pass_chat_data=True)],
+        TRADE_VOLUME: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_volume, pass_chat_data=True)],
+        TRADE_CONFIRM: [RegexHandler("^(YES|NO)$", trade_confirm, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -972,9 +958,9 @@ dispatcher.add_handler(trade_handler)
 
 # PRICE command handler
 price_handler = ConversationHandler(
-    entry_points=[CommandHandler('price', price_currency)],
+    entry_points=[CommandHandler('price', price_cmd)],
     states={
-        PRICE_EXECUTE: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", price_execute)]
+        PRICE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", price_currency)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -983,9 +969,9 @@ dispatcher.add_handler(price_handler)
 
 # VALUE command handler
 value_handler = ConversationHandler(
-    entry_points=[CommandHandler('value', value_currency)],
+    entry_points=[CommandHandler('value', value_cmd)],
     states={
-        VALUE_EXECUTE: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL|CANCEL)$", value_execute)]
+        VALUE_CURRENCY: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL|CANCEL)$", value_currency)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -994,9 +980,9 @@ dispatcher.add_handler(value_handler)
 
 # STATUS command handler
 status_handler = ConversationHandler(
-    entry_points=[CommandHandler('status', status_choose)],
+    entry_points=[CommandHandler('status', status_cmd)],
     states={
-        STATUS_CHOOSE: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN|CANCEL)$", status_execute)]
+        STATUS_SUB_CMD: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN|CANCEL)$", status_sub_cmd)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1006,11 +992,9 @@ dispatcher.add_handler(status_handler)
 # Start the bot
 updater.start_polling()
 
-# Check if script is the newest version
-check_for_update()
-
-# Show all possible commands
-show_cmds()
+# Show welcome message, update state, keyboard for commands
+msg = "Up and running!\n" + get_update_state()
+updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 # Monitor status changes of open orders
 monitor_open_orders()
