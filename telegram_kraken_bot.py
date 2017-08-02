@@ -10,7 +10,7 @@ import krakenex
 import requests
 
 from enum import Enum
-from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, replymarkup
 from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler, MessageHandler, Filters
 
 # Set up logging
@@ -187,6 +187,8 @@ TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_
 TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME")
 
 
+# FIXME: After a while it will not get triggered by '/trade' anymore
+# FIXME: Issue should be that Kraken request times out and then we don't send a ConversationHandler.END
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 def trade_buy_sell(bot, update):
     if not is_user_valid(bot, update):
@@ -409,8 +411,7 @@ def trade_execute(bot, update, chat_data):
 
     else:
         update.message.reply_text("Undefined state: no error and no TXID")
-
-    return ConversationHandler.END
+        return ConversationHandler.END
 
 
 def cancel(bot, update):
@@ -654,57 +655,59 @@ def check_for_update():
         msg = "Update check not possible. Unexpected status code: " + github_file.status_code
         updater.bot.send_message(chat_id=config["user_id"], text=msg)
 
-"""
-# This command will give the user the possibility to check for an update, update or restart the bot
-def status_cmd(bot, update):
-    chat_id = get_chat_id(update)
 
-    # Check if user is valid
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        return
-
-    buttons = [
-        InlineKeyboardButton("Update Check", callback_data="update_check"),
-        InlineKeyboardButton("Update", callback_data="update"),
-        InlineKeyboardButton("Restart", callback_data="restart"),
-        InlineKeyboardButton("Shutdown", callback_data="shutdown")
-    ]
-
-    footer = [
-        InlineKeyboardButton("Cancel", callback_data="cancel")
-    ]
-
-    reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=footer))
-    bot.send_message(chat_id, "Choose an option", reply_markup=reply_markup)
-
-    return ONE
-"""
+# Enum for 'status' workflow
+STATUS_CHOOSE = range(1)
+# Enum for 'trade' keyboards
+StatusEnum = Enum("StatusEnum", "UPDATE_CHECK UPDATE RESTART SHUTDOWN")
 
 
 # Callback for the 'status' command - choose a sub-command
-def status_one(bot, update):
-    message_id = update.callback_query.message.message_id
+def status_choose(bot, update):
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
 
-    data = update.callback_query.data
+    reply_msg = "What do you want to do?"
 
+    buttons = [
+        KeyboardButton(StatusEnum.UPDATE_CHECK.name.replace("_", " ")),
+        KeyboardButton(StatusEnum.UPDATE.name),
+        KeyboardButton(StatusEnum.RESTART.name),
+        KeyboardButton(StatusEnum.SHUTDOWN.name)
+    ]
+
+    cancel_btn = [
+        KeyboardButton(GeneralEnum.CANCEL.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+    return STATUS_CHOOSE
+
+
+def status_execute(bot, update):
     # FIXME: This will not set a new message (on update). Exclude the message from the method and add a return value
     # then call this method and check return value. Show message dependant on return value.
-    if data == "update_check":
+    if update.message.text == StatusEnum.UPDATE_CHECK.name:
         check_for_update()
-    elif data == "update":
+        return ConversationHandler.END
+
+    elif update.message.text == StatusEnum.UPDATE.name:
         update(bot, update)
-    elif data == "restart":
+        return ConversationHandler.END  # FIXME: We will not get here...
+
+    elif update.message.text == StatusEnum.RESTART.name:
         restart_cmd(bot, update)
-    elif data == "shutdown":
-        bot.edit_message_text("Shutting down...", config["user_id"], message_id)
-        exit()
-    elif data == "cancel":
-        bot.edit_message_text("Canceled...", config["user_id"], message_id)
-        return
-    else:
-        bot.edit_message_text("Unknown callback command...", config["user_id"], message_id)
-        return
+        return ConversationHandler.END  # FIXME: We will not get here...
+
+    elif update.message.text == StatusEnum.SHUTDOWN.name:
+        update.message.reply_text("Shutting down...", reply_markup=keyboard_cmds())
+        exit()  # FIXME: Create a new command for 'exit'?
+
+    elif update.message.text == GeneralEnum.CANCEL.name:
+        return cancel(bot, update)
 
 
 # Download newest script, update the currently running script and restart
@@ -825,17 +828,15 @@ price_handler = ConversationHandler(
 )
 dispatcher.add_handler(price_handler)
 
-'''
 # STATUS command handler
 status_handler = ConversationHandler(
-    entry_points=[CommandHandler('status', status_cmd)],
+    entry_points=[CommandHandler('status', status_choose)],
     states={
-        ONE: [CallbackQueryHandler(status_one)]
+        STATUS_CHOOSE: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN|CANCEL)$", status_execute)]
     },
-    fallbacks=[CommandHandler('status', status_cmd)]
+    fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(status_handler)
-'''
 
 # Start the bot
 updater.start_polling()
