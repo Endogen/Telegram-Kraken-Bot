@@ -788,21 +788,22 @@ def status_cmd(bot, update):
 
 
 def status_sub_cmd(bot, update):
+    # Update check
     if update.message.text == StatusEnum.UPDATE_CHECK.name.replace("_", " "):
         update.message.reply_text(get_update_state(), reply_markup=keyboard_cmds())
         return ConversationHandler.END
 
+    # Update
     elif update.message.text == StatusEnum.UPDATE.name:
-        update_cmd(bot, update)
-        return ConversationHandler.END  # FIXME: We will not get here...
+        return update_cmd(bot, update)
 
+    # Restart
     elif update.message.text == StatusEnum.RESTART.name:
         restart_cmd(bot, update)
-        return ConversationHandler.END  # FIXME: We will not get here...
 
+    # Shutdown
     elif update.message.text == StatusEnum.SHUTDOWN.name:
-        update.message.reply_text("Shutting down...", reply_markup=keyboard_cmds())
-        exit()  # FIXME: Create a new command for 'exit'?
+        shutdown_cmd(bot, update)
 
     elif update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
@@ -820,7 +821,7 @@ def update_cmd(bot, update):
     # Status code 304 = Not Modified
     if github_file.status_code == 304:
         msg = "You are running the latest version"
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
+        update.message.reply_text(msg, reply_markup=keyboard_cmds())
     # Status code 200 = OK
     elif github_file.status_code == 200:
         # Save current ETag (hash) in configuration file
@@ -837,12 +838,16 @@ def update_cmd(bot, update):
         with open(filename, "w") as file:
             file.write(github_file.text)
 
+        update.message.reply_text("Restarting...", reply_markup=ReplyKeyboardRemove())
+
         # Restart the bot
         restart_cmd(bot, update)
     # Every other status code
     else:
         msg = "Update not executed. Unexpected status code: " + github_file.status_code
-        updater.bot.send_message(chat_id=config["user_id"], text=msg)
+        update.message.reply_text(msg, reply_markup=keyboard_cmds())
+
+    return ConversationHandler.END
 
 
 # Terminate this script
@@ -850,9 +855,8 @@ def shutdown_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    bot.send_message(config["user_id"], "Shutting down...")
+    update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
 
-    # Terminate bot
     exit()
 
 
@@ -861,7 +865,8 @@ def restart_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    bot.send_message(config["user_id"], "Bot is restarting...")
+    update.message.reply_text("Bot is restarting...", reply_markup=ReplyKeyboardRemove())
+
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
@@ -895,7 +900,7 @@ def get_update_state():
     return msg
 
 
-# Return chat ID for an Update object
+# Return chat ID for an update object
 def get_chat_id(update=None):
     if update:
         if update.message:
@@ -921,10 +926,12 @@ def is_user_valid(bot, update):
 dispatcher.add_error_handler(error)
 
 # Add handlers to dispatcher
-dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
+
+# TODO: Convert this to a conversation
+dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 
 
 # ORDERS command handler
@@ -993,8 +1000,8 @@ dispatcher.add_handler(status_handler)
 updater.start_polling()
 
 # Show welcome message, update state, keyboard for commands
-msg = "Up and running!\n" + get_update_state()
-updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
+message = "Up and running!\n" + get_update_state()
+updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
 
 # Monitor status changes of open orders
 monitor_open_orders()
