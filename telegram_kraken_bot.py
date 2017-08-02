@@ -577,13 +577,43 @@ def price_execute(bot, update, chat_data):
     return ConversationHandler.END
 
 
+# Enum for 'value' workflow
+VALUE_EXECUTE = range(1)
+# Enum for 'trade' keyboards
+ValueEnum = Enum("ValueEnum", "ALL")
+
+
 # Show the current real money value for all assets combined
-def value_cmd(bot, update):
+def value_currency(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    # Save message parameters in list
-    msg_params = update.message.text.split(" ")
+    reply_msg = "Enter currency"
+
+    # TODO: Add buttons dynamically - call Kraken and get all available currencies
+    buttons = [
+        KeyboardButton("XBT"),
+        KeyboardButton("BCH"),
+        KeyboardButton("ETH"),
+        KeyboardButton("XMR")
+    ]
+
+    footer_btns = [
+        KeyboardButton(ValueEnum.ALL.name),
+        KeyboardButton(GeneralEnum.CANCEL.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=footer_btns))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+    return VALUE_EXECUTE
+
+
+# FIXME: If if get an error on the last kraken request, keyboard will stay - is that OK?
+def value_execute(bot, update):
+    if update.message.text == GeneralEnum.CANCEL.name:
+        return cancel(bot, update)
 
     # Send request to Kraken to get current balance of all currencies
     res_data_balance = kraken.query_private("Balance")
@@ -593,21 +623,23 @@ def value_cmd(bot, update):
         bot.send_message(config["user_id"], text=res_data_balance["error"][0])
         return
 
-    curr_str = "Overall: "
-
     req_data_price = dict()
     req_data_price["pair"] = ""
 
-    for currency_name, currency_amount in res_data_balance["result"].items():
-        if currency_name.endswith(config["trade_to_currency"]):
-            continue
+    # Get balance of all currencies
+    if update.message.text == ValueEnum.ALL.name:
+        msg = "Overall: "
 
-        if (len(msg_params) == 2) and (currency_name == msg_params[1].upper()):
-            req_data_price["pair"] = currency_name + "Z" + config["trade_to_currency"] + ","
-            curr_str = msg_params[1].upper() + ": "
-            break
+        for currency_name, currency_amount in res_data_balance["result"].items():
+            if currency_name.endswith(config["trade_to_currency"]):
+                continue
 
-        req_data_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
+            req_data_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
+
+    # Get balance of a specific currency
+    else:
+        msg = update.message.text + ": "
+        req_data_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"] + ","
 
     # Remove last comma from 'pair' string
     req_data_price["pair"] = req_data_price["pair"][:-1]
@@ -633,10 +665,13 @@ def value_cmd(bot, update):
     # Show only 2 digits after decimal place
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
-    bot.send_message(config["user_id"], text=curr_str + total_value_euro + " " + config["trade_to_currency"])
+    msg += total_value_euro + " " + config["trade_to_currency"]
+    update.message.reply_text(msg, reply_markup=keyboard_cmds())
+
+    return ConversationHandler.END
 
 
-# Check if GitHub hosts a different script then the current one
+# Check if GitHub hosts a different script then the currently running one
 def check_for_update():
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
@@ -799,11 +834,11 @@ dispatcher.add_error_handler(error)
 dispatcher.add_handler(CommandHandler("help", syntax_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 dispatcher.add_handler(CommandHandler("orders", orders_cmd))
-dispatcher.add_handler(CommandHandler("value", value_cmd))
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 
+# TODO: state should start with 'TRADE_BUYSELL' and not with TRADE_CURRENCY!
 # TRADE command handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_buy_sell)],
@@ -820,6 +855,7 @@ trade_handler = ConversationHandler(
 )
 dispatcher.add_handler(trade_handler)
 
+
 # PRICE command handler
 price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_currency)],
@@ -829,6 +865,19 @@ price_handler = ConversationHandler(
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(price_handler)
+
+
+# VALUE command handler
+value_handler = ConversationHandler(
+    entry_points=[CommandHandler('value', value_currency)],
+    states={
+        VALUE_EXECUTE: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL|CANCEL)$", value_execute)]
+        #VALUE_EXECUTE: [MessageHandler(Filters.text, value_execute)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(value_handler)
+
 
 # STATUS command handler
 status_handler = ConversationHandler(
