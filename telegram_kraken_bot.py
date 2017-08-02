@@ -416,16 +416,125 @@ def trade_execute(bot, update, chat_data):
         return ConversationHandler.END
 
 
-def cancel(bot, update):
-    update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+# Enum for 'value' workflow
+ORDERS_EXECUTE, ORDERS_CLOSE_ORDER, ORDERS_CLOSE_ALL = range(3)
+# Enum for 'trade' keyboards
+OrdersEnum = Enum("OrdersEnum", "CLOSE_ORDER CLOSE_ALL")
+
+
+# Show and manage orders
+def orders_list(bot, update):
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
+
+    # Send request for open orders to Kraken
+    res_data = kraken.query_private("OpenOrders")
+
+    # FIXME: Handle all errors with 'update.message.reply_text' instead of 'bot.send_message'
+    # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+
+    if res_data["result"]["open"]:
+        for order in res_data["result"]["open"]:
+            order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
+            update.message.reply_text(order + "\n" + order_desc)
+        return ConversationHandler.END
+    else:
+        update.message.reply_text("No open orders")
+        return ConversationHandler.END
+
+    reply_msg = "What do you want to do?"
+
+    buttons = [
+        KeyboardButton(OrdersEnum.CLOSE_ORDER.name.replace("_", " ")),
+        KeyboardButton(OrdersEnum.CLOSE_ALL.name.replace("_", " "))
+    ]
+
+    close_btn = [
+        KeyboardButton(GeneralEnum.CANCEL.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=close_btn))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    return ORDERS_EXECUTE
+
+
+def orders_execute(bot, update):
+    # CANCEL button pressed
+    if update.message.text == GeneralEnum.CANCEL.name:
+        return cancel(bot, update)
+
+    # CLOSE ORDER button pressed
+    elif update.message.text == OrdersEnum.CLOSE_ORDER.name.replace("_", " "):
+        reply_msg = "Which order to close?"
+
+        # TODO: Create buttons dynamically - run thru 'res_data = kraken.query_private("OpenOrders")'
+        buttons = [
+            KeyboardButton("ID1"),
+            KeyboardButton("ID2")
+        ]
+
+        close_btn = [
+            KeyboardButton(GeneralEnum.CANCEL.name)
+        ]
+
+        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=close_btn))
+
+        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+        return ORDERS_CLOSE_ORDER
+
+    # CLOSE ALL button pressed
+    elif update.message.text == OrdersEnum.CLOSE_ALL.name.replace("_", " "):
+        # Send request for open orders to Kraken
+        res_data = kraken.query_private("OpenOrders")
+
+        # If Kraken replied with an error, show it
+        if res_data["error"]:
+            update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
+            return ConversationHandler.END
+
+        if res_data["result"]["open"]:
+            for order in res_data["result"]["open"]:
+                req_data = dict()
+                req_data["txid"] = order
+
+                # Send request to Kraken to cancel orders
+                res_data = kraken.query_private("CancelOrder", req_data)
+
+                # If Kraken replied with an error, show it
+                if res_data["error"]:
+                    update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
+                    return ConversationHandler.END
+
+                update.message.reply_text("Order closed:\n" + order, reply_markup=keyboard_cmds())
+
+            return ConversationHandler.END
+
+        else:
+            update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
+            return ConversationHandler.END
+
+
+def orders_close_order(bot, update):
+    req_data = dict()
+    req_data["txid"] = update.message.text
+
+    # Send request to Kraken to cancel order
+    res_data = kraken.query_private("CancelOrder", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+
+    update.message.reply_text("Order closed:\n" + req_data["txid"])
     return ConversationHandler.END
 
-
-# TODO: Timeout errors (while calling Kraken) will not get shown because i only handle python-telegram-bot exceptions
-def error(bot, update, error):
-    logger.error("Update '%s' caused error '%s'" % (update, error))
-
-
+'''
 # Show and manage orders
 def orders_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -504,24 +613,7 @@ def orders_cmd(bot, update):
         else:
             bot.send_message(config["user_id"], text="Syntax: /orders (['close'] [txid] / ['close-all'])")
             return
-
-
-# Show syntax for all available commands
-def syntax_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
-    syntax_msg = "/balance (['available'])\n"
-    syntax_msg += "/trade ['buy' / 'sell'] [currency] [price per unit] ([volume] / [amount'eur'])\n"
-    syntax_msg += "/orders (['close'] [txid] / 'close-all'])\n"
-    syntax_msg += "/price [currency] ([currency] ...)\n"
-    syntax_msg += "/value ([currency])\n"
-    syntax_msg += "/update\n"
-    syntax_msg += "/restart\n"
-    syntax_msg += "/status"
-
-    bot.send_message(config["user_id"], text=syntax_msg)
-
+'''
 
 # Enum for 'price' workflow
 PRICE_EXECUTE = range(1)
@@ -805,6 +897,16 @@ def restart_cmd(bot, update):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
+def cancel(bot, update):
+    update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+    return ConversationHandler.END
+
+
+# TODO: Timeout errors (while calling Kraken) will not get shown because i only handle python-telegram-bot exceptions
+def error(bot, update, error):
+    logger.error("Update '%s' caused error '%s'" % (update, error))
+
+
 # Return chat ID for an Update object
 def get_chat_id(update=None):
     if update:
@@ -831,12 +933,23 @@ def is_user_valid(bot, update):
 dispatcher.add_error_handler(error)
 
 # Add handlers to dispatcher
-dispatcher.add_handler(CommandHandler("help", syntax_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
-dispatcher.add_handler(CommandHandler("orders", orders_cmd))
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
+
+
+# ORDERS command handler
+orders_handler = ConversationHandler(
+    entry_points=[CommandHandler('orders', orders_list)],
+    states={
+        ORDERS_EXECUTE: [RegexHandler("^(CLOSE ORDER|CLOSE ALL|CANCEL)$", orders_execute)],
+        ORDERS_CLOSE_ORDER: [MessageHandler(Filters.text, orders_close_order)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(orders_handler)
+
 
 # TODO: state should start with 'TRADE_BUYSELL' and not with TRADE_CURRENCY!
 # TRADE command handler
@@ -872,7 +985,6 @@ value_handler = ConversationHandler(
     entry_points=[CommandHandler('value', value_currency)],
     states={
         VALUE_EXECUTE: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL|CANCEL)$", value_execute)]
-        #VALUE_EXECUTE: [MessageHandler(Filters.text, value_execute)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
