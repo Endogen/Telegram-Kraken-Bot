@@ -350,7 +350,7 @@ def trade_confirm(bot, update, chat_data):
     # If Kraken replied with an error, show it
     if res_data_add_order["error"]:
         update.message.reply_text(res_data_add_order["error"][0])
-        return ConversationHandler.END
+        return
 
     # If there is a transaction id then the order was placed successfully
     if res_data_add_order["result"]["txid"]:
@@ -365,7 +365,7 @@ def trade_confirm(bot, update, chat_data):
         # If Kraken replied with an error, show it
         if res_data_query_order["error"]:
             update.message.reply_text(res_data_query_order["error"][0])
-            return ConversationHandler.END
+            return
 
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
@@ -619,13 +619,16 @@ def value_currency(bot, update):
     if update.message.text == GeneralEnum.CANCEL.name:
         return cancel(bot, update)
 
+    # TODO: Edit this msg later on with the value to show - do this globally
+    update.message.reply_text("Calculating value...")
+
     # Send request to Kraken to get current balance of all currencies
     res_data_balance = kraken.query_private("Balance")
 
     # If Kraken replied with an error, show it
     if res_data_balance["error"]:
         update.message.reply_text(res_data_balance["error"][0])
-        return ConversationHandler.END
+        return
 
     req_data_price = dict()
     req_data_price["pair"] = ""
@@ -653,8 +656,8 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_price["error"]:
-        update.message.reply_text(res_data_balance["error"][0])
-        return ConversationHandler.END
+        update.message.reply_text(res_data_price["error"][0])
+        return
 
     total_value_euro = float(0)
 
