@@ -138,6 +138,8 @@ def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
+    update.message.reply_text("Retrieving information...")
+
     # Send request to Kraken to get current balance of all currencies
     res_data = kraken.query_private("Balance")
 
@@ -151,6 +153,11 @@ def balance_cmd(bot, update):
     for currency_key, currency_value in res_data["result"].items():
         display_value = trim_zeros(currency_value)
         if display_value is not "0":
+            if config["trade_to_currency"] in currency_key:
+                currency_key = config["trade_to_currency"]
+            if currency_key.startswith("X"):
+                currency_key = currency_key[1:]
+
             msg += currency_key + ": " + display_value + "\n"
 
     update.message.reply_text(msg)
@@ -192,7 +199,6 @@ def trade_buy_sell(bot, update, chat_data):
 
     reply_msg = "Enter currency"
 
-    # TODO: Add buttons dynamically - call Kraken and get all available currencies
     buttons = [
         KeyboardButton("XBT"),
         KeyboardButton("ETH"),
@@ -467,7 +473,6 @@ def orders_choose_order(bot, update):
     # Send request for open orders to Kraken
     res_data = kraken.query_private("OpenOrders")
 
-    # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
     # If Kraken replied with an error, show it
     if res_data["error"]:
         update.message.reply_text(beautify(res_data["error"][0]))
@@ -530,7 +535,6 @@ def price_cmd(bot, update):
 
     reply_msg = "Enter currency"
 
-    # TODO: Add buttons dynamically - call Kraken and get all available currencies
     buttons = [
         KeyboardButton("XBT"),
         KeyboardButton("ETH"),
@@ -581,8 +585,6 @@ def value_cmd(bot, update):
 
     reply_msg = "Enter currency"
 
-    # TODO: Add buttons dynamically - call Kraken and get all available currencies
-    # TODO: Use modulo to determine number of columns
     buttons = [
         KeyboardButton("XBT"),
         KeyboardButton("BCH"),
