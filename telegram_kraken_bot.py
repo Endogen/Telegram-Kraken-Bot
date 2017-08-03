@@ -276,7 +276,7 @@ def trade_volume(bot, update, chat_data):
             # If Kraken replied with an error, show it
             if res_data["error"]:
                 update.message.reply_text(res_data["error"][0])
-                return ConversationHandler.END
+                return
 
             euros = res_data["result"]["tb"]
             # Calculate volume depending on full euro balance and round it to 8 digits
@@ -292,7 +292,7 @@ def trade_volume(bot, update, chat_data):
             # If Kraken replied with an error, show it
             if res_data["error"]:
                 update.message.reply_text(res_data["error"][0])
-                return ConversationHandler.END
+                return
 
             current_volume = res_data["result"][chat_data["currency"]]
             # Get volume from balance and round it to 8 digits
@@ -391,7 +391,7 @@ def trade_confirm(bot, update, chat_data):
 
 
 # Enum for 'orders' workflow
-ORDERS_CLOSE_ALL, ORDERS_CLOSE_ORDER = range(2)
+ORDERS_CLOSE, ORDERS_CLOSE_ORDER = range(2)
 # Enum for 'orders' keyboards
 OrdersEnum = Enum("OrdersEnum", "CLOSE_ORDER CLOSE_ALL")
 
@@ -407,8 +407,8 @@ def orders_cmd(bot, update):
     # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
-        return ConversationHandler.END
+        update.message.reply_text(res_data["error"][0])
+        return
 
     # Go through all open orders and show them to the user
     if res_data["result"]["open"]:
@@ -434,66 +434,84 @@ def orders_cmd(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=close_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-    return ORDERS_CLOSE_ALL
+    return ORDERS_CLOSE
 
 
-def orders_close(bot, update):
-    # CANCEL button pressed
-    if update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
+def orders_close_all(bot, update):
+    update.message.reply_text("Closing orders...")
 
-    # CLOSE ORDER button pressed
-    elif update.message.text == OrdersEnum.CLOSE_ORDER.name.replace("_", " "):
-        reply_msg = "Which order to close?"
+    # Send request for open orders to Kraken
+    res_data = kraken.query_private("OpenOrders")
 
-        # TODO: Create buttons dynamically - run thru 'res_data = kraken.query_private("OpenOrders")'
-        buttons = [
-            KeyboardButton("ID1"),
-            KeyboardButton("ID2")
-        ]
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(res_data["error"][0])
+        return
 
-        close_btn = [
-            KeyboardButton(GeneralEnum.CANCEL.name)
-        ]
+    closed_orders = list()
+    if res_data["result"]["open"]:
+        for order in res_data["result"]["open"]:
+            req_data = dict()
+            req_data["txid"] = order
 
-        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=close_btn))
+            # Send request to Kraken to cancel orders
+            res_data = kraken.query_private("CancelOrder", req_data)
 
-        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-        return ORDERS_CLOSE_ORDER
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                update.message.reply_text("Error closing order " + order + "\n" + res_data["error"][0])
+            else:
+                closed_orders.append(order)
 
-    # CLOSE ALL button pressed
-    elif update.message.text == OrdersEnum.CLOSE_ALL.name.replace("_", " "):
-        # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")
+        update.message.reply_text("Orders closed:\n" + "\n".join(closed_orders), reply_markup=keyboard_cmds())
 
-        # If Kraken replied with an error, show it
-        if res_data["error"]:
-            update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
-            return ConversationHandler.END
+    else:
+        update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
 
-        if res_data["result"]["open"]:
-            for order in res_data["result"]["open"]:
-                req_data = dict()
-                req_data["txid"] = order
-
-                # Send request to Kraken to cancel orders
-                res_data = kraken.query_private("CancelOrder", req_data)
-
-                # If Kraken replied with an error, show it
-                if res_data["error"]:
-                    update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
-                    return ConversationHandler.END
-
-                update.message.reply_text("Order closed:\n" + order, reply_markup=keyboard_cmds())
-
-            return ConversationHandler.END
-
-        else:
-            update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
-            return ConversationHandler.END
+    return ConversationHandler.END
 
 
+def orders_choose_order(bot, update):
+    update.message.reply_text("Looking up open orders...")
+
+    # Send request for open orders to Kraken
+    res_data = kraken.query_private("OpenOrders")
+
+    # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(res_data["error"][0])
+        return
+
+    buttons = list()
+
+    # Go through all open orders and create a button
+    if res_data["result"]["open"]:
+        for order in res_data["result"]["open"]:
+            buttons.append(KeyboardButton(order))
+
+    else:
+        update.message.reply_text("No open orders")
+        return ConversationHandler.END
+
+    msg = "Which order to close?"
+
+    close_btn = [
+        KeyboardButton(GeneralEnum.CANCEL.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=1, footer_buttons=close_btn))
+
+    update.message.reply_text(msg, reply_markup=reply_mrk)
+    return ORDERS_CLOSE_ORDER
+
+
+# TODO: How to assure that user doesnt enter bullshit here? We really need only a valid TXID
+# TODO: Maybe use RegexHandler again and check for two occurrences of '-'? --> O55BGK-VSYTV-ADZLV7 & 6-5-6
+# TODO: Or work with dynamic Enums here?
 def orders_close_order(bot, update):
+    update.message.reply_text("Closing order...")
+
     req_data = dict()
     req_data["txid"] = update.message.text
 
@@ -502,10 +520,10 @@ def orders_close_order(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0], reply_markup=keyboard_cmds())
-        return ConversationHandler.END
+        update.message.reply_text(res_data["error"][0])
+        return
 
-    update.message.reply_text("Order closed:\n" + req_data["txid"])
+    update.message.reply_text("Order closed:\n" + req_data["txid"], reply_markup=keyboard_cmds())
     return ConversationHandler.END
 
 
@@ -553,7 +571,7 @@ def price_currency(bot, update):
     # If Kraken replied with an error, show it
     if res_data["error"]:
         update.message.reply_text(res_data["error"][0])
-        return ConversationHandler.END
+        return
 
     currency = update.message.text
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
@@ -837,14 +855,19 @@ dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 orders_handler = ConversationHandler(
     entry_points=[CommandHandler('orders', orders_cmd)],
     states={
-        ORDERS_CLOSE_ALL: [RegexHandler("^(CLOSE ORDER|CLOSE ALL|CANCEL)$", orders_close)],
-        ORDERS_CLOSE_ORDER: [MessageHandler(Filters.text, orders_close_order)]
+        ORDERS_CLOSE: [RegexHandler("^(CLOSE ORDER)$", orders_choose_order),
+                       RegexHandler("^(CLOSE ALL)$", orders_close_all),
+                       RegexHandler("^(CANCEL)$", cancel)],
+        ORDERS_CLOSE_ORDER: [RegexHandler("^(CANCEL)$", cancel),
+                             MessageHandler(Filters.text, orders_close_order)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(orders_handler)
 
 
+# TODO: Change globally: Add own RegexHandler for all CANCEL buttons
+# TODO: Do not use 'all' cmd, but add button
 # TRADE command handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
