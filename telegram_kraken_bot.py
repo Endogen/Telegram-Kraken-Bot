@@ -72,7 +72,7 @@ def monitor_order(bot, job):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        bot.send_message(job.context["chat_id"], text=res_data["error"][0])
+        bot.send_message(job.context["chat_id"], text=beautify(res_data["error"][0]))
         # Stop this job
         job.schedule_removal()
         return
@@ -101,7 +101,7 @@ def monitor_open_orders():
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            updater.bot.send_message(chat_id=config["user_id"], text=res_data["error"][0])
+            updater.bot.send_message(chat_id=config["user_id"], text=beautify(res_data["error"][0]))
             return
 
         if res_data["result"]["open"]:
@@ -143,7 +143,7 @@ def balance_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0])
+        update.message.reply_text(beautify(res_data["error"][0]))
         return
 
     msg = ""
@@ -188,9 +188,6 @@ def trade_cmd(bot, update):
 
 
 def trade_buy_sell(bot, update, chat_data):
-    if update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
-
     chat_data["buysell"] = update.message.text
 
     reply_msg = "Enter currency"
@@ -214,9 +211,6 @@ def trade_buy_sell(bot, update, chat_data):
 
 
 def trade_currency(bot, update, chat_data):
-    if update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
-
     chat_data["currency"] = "X" + update.message.text
 
     reply_msg = "Enter price per unit"
@@ -249,9 +243,6 @@ def trade_price(bot, update, chat_data):
 
 
 def trade_vol_type(bot, update, chat_data):
-    if update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
-
     chat_data["vol_type"] = update.message.text
 
     reply_msg = "Enter volume"
@@ -275,7 +266,7 @@ def trade_volume(bot, update, chat_data):
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                update.message.reply_text(res_data["error"][0])
+                update.message.reply_text(beautify(res_data["error"][0]))
                 return
 
             euros = res_data["result"]["tb"]
@@ -291,7 +282,7 @@ def trade_volume(bot, update, chat_data):
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                update.message.reply_text(res_data["error"][0])
+                update.message.reply_text(beautify(res_data["error"][0]))
                 return
 
             current_volume = res_data["result"][chat_data["currency"]]
@@ -369,7 +360,7 @@ def trade_confirm(bot, update, chat_data):
 
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
-            msg = "Order placed: " + add_order_txid + "\n" + trim_zeros(order_desc)
+            msg = "Order placed:\n" + add_order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
             if config["check_trade"].lower() == "true":
@@ -404,10 +395,9 @@ def orders_cmd(bot, update):
     # Send request for open orders to Kraken
     res_data = kraken.query_private("OpenOrders")
 
-    # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0])
+        update.message.reply_text(beautify(res_data["error"][0]))
         return
 
     # Go through all open orders and show them to the user
@@ -445,7 +435,7 @@ def orders_close_all(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0])
+        update.message.reply_text(beautify(res_data["error"][0]))
         return
 
     closed_orders = list()
@@ -459,7 +449,7 @@ def orders_close_all(bot, update):
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                update.message.reply_text("Error closing order " + order + "\n" + res_data["error"][0])
+                update.message.reply_text("Error closing order\n" + order + "\n" + beautify(res_data["error"][0]))
             else:
                 closed_orders.append(order)
 
@@ -480,7 +470,7 @@ def orders_choose_order(bot, update):
     # TODO: Change error string to 'Kraken error: ' .replace("EQuery:", "") - Create own method?
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0])
+        update.message.reply_text(beautify(res_data["error"][0]))
         return
 
     buttons = list()
@@ -520,7 +510,7 @@ def orders_close_order(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0])
+        update.message.reply_text(beautify(res_data["error"][0]))
         return
 
     update.message.reply_text("Order closed:\n" + req_data["txid"], reply_markup=keyboard_cmds())
@@ -559,9 +549,6 @@ def price_cmd(bot, update):
 
 
 def price_currency(bot, update):
-    if update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
-
     req_data = dict()
     req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
@@ -570,7 +557,7 @@ def price_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(res_data["error"][0])
+        update.message.reply_text(beautify(res_data["error"][0]))
         return
 
     currency = update.message.text
@@ -616,10 +603,7 @@ def value_cmd(bot, update):
 
 
 def value_currency(bot, update):
-    if update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
-
-    # TODO: Edit this msg later on with the value to show - do this globally
+    # TODO: Edit this msg later on with the value to show - do this globally (bot.editMessage...)
     update.message.reply_text("Calculating value...")
 
     # Send request to Kraken to get current balance of all currencies
@@ -639,6 +623,9 @@ def value_currency(bot, update):
 
         for currency_name, currency_amount in res_data_balance["result"].items():
             if currency_name.endswith(config["trade_to_currency"]):
+                continue
+            # FIXME: Workaround for buggy Kraken API
+            if "BCH" in currency_name:
                 continue
 
             req_data_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
@@ -712,8 +699,8 @@ def bot_cmd(bot, update):
 def bot_sub_cmd(bot, update):
     # Update check
     if update.message.text == BotEnum.UPDATE_CHECK.name.replace("_", " "):
-        update.message.reply_text(get_update_state(), reply_markup=keyboard_cmds())
-        return ConversationHandler.END
+        update.message.reply_text(get_update_state())
+        return
 
     # Update
     elif update.message.text == BotEnum.UPDATE.name:
@@ -844,6 +831,12 @@ def is_user_valid(bot, update):
         return True
 
 
+# Enriches or replaces text based on predefined pattern
+def beautify(text):
+    if "EQuery" in text:
+        return text.replace("EQuery", "Kraken Error")
+
+
 # Log all errors
 dispatcher.add_error_handler(error)
 
@@ -869,17 +862,19 @@ orders_handler = ConversationHandler(
 dispatcher.add_handler(orders_handler)
 
 
-# TODO: Change globally: Add own RegexHandler for all CANCEL buttons
 # TODO: Do not use 'all' cmd, but add button
 # TRADE command handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
     states={
-        TRADE_BUY_SELL: [RegexHandler("^(BUY|SELL|CANCEL)$", trade_buy_sell, pass_chat_data=True)],
-        TRADE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", trade_currency, pass_chat_data=True)],
+        TRADE_BUY_SELL: [RegexHandler("^(BUY|SELL)$", trade_buy_sell, pass_chat_data=True),
+                         RegexHandler("^(CANCEL)$", cancel)],
+        TRADE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR)$", trade_currency, pass_chat_data=True),
+                         RegexHandler("^(CANCEL)$", cancel)],
         TRADE_PRICE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
-        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME|CANCEL)$", trade_vol_type, pass_chat_data=True),
-                         CommandHandler("all", trade_volume, pass_chat_data=True)],
+        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME)$", trade_vol_type, pass_chat_data=True),
+                         CommandHandler("all", trade_volume, pass_chat_data=True),
+                         RegexHandler("^(CANCEL)$", cancel)],
         TRADE_VOLUME: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_volume, pass_chat_data=True)],
         TRADE_CONFIRM: [RegexHandler("^(YES|NO)$", trade_confirm, pass_chat_data=True)]
     },
@@ -892,7 +887,8 @@ dispatcher.add_handler(trade_handler)
 price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
     states={
-        PRICE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR|CANCEL)$", price_currency)]
+        PRICE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR)$", price_currency),
+                         RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -903,7 +899,8 @@ dispatcher.add_handler(price_handler)
 value_handler = ConversationHandler(
     entry_points=[CommandHandler('value', value_cmd)],
     states={
-        VALUE_CURRENCY: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL|CANCEL)$", value_currency)]
+        VALUE_CURRENCY: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL)$", value_currency),
+                         RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -914,7 +911,8 @@ dispatcher.add_handler(value_handler)
 bot_handler = ConversationHandler(
     entry_points=[CommandHandler('bot', bot_cmd)],
     states={
-        BOT_SUB_CMD: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN|CANCEL)$", bot_sub_cmd)]
+        BOT_SUB_CMD: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$", bot_sub_cmd),
+                      RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
