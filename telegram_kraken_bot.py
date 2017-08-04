@@ -13,6 +13,8 @@ from enum import Enum
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, replymarkup
 from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler, MessageHandler, Filters
 
+# TODO: After a while cmds don't get triggered, have to be send twice
+
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger()
