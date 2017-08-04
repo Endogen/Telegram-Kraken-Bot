@@ -138,7 +138,7 @@ def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    update.message.reply_text("Retrieving information...")
+    update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
     res_data = kraken.query_private("Balance")
@@ -398,6 +398,8 @@ def orders_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
+    update.message.reply_text("Retrieving data...")
+
     # Send request for open orders to Kraken
     res_data = kraken.query_private("OpenOrders")
 
@@ -553,6 +555,8 @@ def price_cmd(bot, update):
 
 
 def price_currency(bot, update):
+    update.message.reply_text("Retrieving data...")
+
     req_data = dict()
     req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
@@ -606,7 +610,7 @@ def value_cmd(bot, update):
 
 def value_currency(bot, update):
     # TODO: Edit this msg later on with the value to show - do this globally (bot.editMessage...)
-    update.message.reply_text("Calculating value...")
+    update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
     res_data_balance = kraken.query_private("Balance")
