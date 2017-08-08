@@ -166,9 +166,9 @@ def balance_cmd(bot, update):
 
 
 # Enum for 'trade' workflow
-TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM = range(6)
+TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(7)
 # Enum for 'trade' keyboards
-TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME")
+TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME ALL")
 
 
 # FIXME: After a while it will not get triggered by '/trade' anymore
@@ -232,7 +232,7 @@ def trade_currency(bot, update, chat_data):
 def trade_price(bot, update, chat_data):
     chat_data["price"] = update.message.text
 
-    reply_msg = "How to enter the volume? Or skip and use /all"
+    reply_msg = "How to enter the volume?"
 
     buttons = [
         KeyboardButton(TradeEnum.EURO.name),
@@ -240,6 +240,7 @@ def trade_price(bot, update, chat_data):
     ]
 
     cancel_btn = [
+        KeyboardButton(TradeEnum.ALL.name),
         KeyboardButton(GeneralEnum.CANCEL.name)
     ]
 
@@ -253,18 +254,7 @@ def trade_price(bot, update, chat_data):
 def trade_vol_type(bot, update, chat_data):
     chat_data["vol_type"] = update.message.text
 
-    reply_msg = "Enter volume"
-    reply_mrk = ReplyKeyboardRemove()
-
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
-    return TRADE_VOLUME
-
-
-def trade_volume(bot, update, chat_data):
-    # Determine the volume
-    # Entered '/all'
-    if update.message.text == "/all":
+    if chat_data["vol_type"] == TradeEnum.ALL.name:
         if chat_data["buysell"] == TradeEnum.BUY.name:
             req_data = dict()
             req_data["asset"] = "Z" + config["trade_to_currency"]
@@ -297,22 +287,12 @@ def trade_volume(bot, update, chat_data):
             # Get volume from balance and round it to 8 digits
             chat_data["volume"] = "{0:.8f}".format(float(current_volume))
 
-    # Entered EURO
-    elif chat_data["vol_type"] == TradeEnum.EURO.name:
-        amount = float(update.message.text)
-        price_per_unit = float(chat_data["price"])
-        chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
+        # Show confirmation for placing order
+        trade_str = chat_data["buysell"].lower() + " " + \
+                    trim_zeros(chat_data["volume"]) + " " + \
+                    chat_data["currency"][1:] + " @ limit " + \
+                    chat_data["price"]
 
-    # Entered VOLUME
-    elif chat_data["vol_type"] == TradeEnum.VOLUME.name:
-        chat_data["volume"] = "{0:.8f}".format(float(update.message.text))
-
-    trade_str = chat_data["buysell"].lower() + " " + \
-                trim_zeros(chat_data["volume"]) + " " + \
-                chat_data["currency"][1:] + " @ limit " + \
-                chat_data["price"]
-
-    if config["confirm_action"].lower() == "true":
         reply_msg = "Place this order?\n" + trade_str
 
         buttons = [
@@ -327,9 +307,46 @@ def trade_volume(bot, update, chat_data):
         return TRADE_CONFIRM
 
     else:
-        trade_confirm(bot, update, chat_data)
+        reply_msg = "Enter volume"
+        reply_mrk = ReplyKeyboardRemove()
+
+        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+        return TRADE_VOLUME
 
 
+def trade_volume(bot, update, chat_data):
+    # Entered EURO
+    if chat_data["vol_type"] == TradeEnum.EURO.name:
+        amount = float(update.message.text)
+        price_per_unit = float(chat_data["price"])
+        chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
+
+    # Entered VOLUME
+    elif chat_data["vol_type"] == TradeEnum.VOLUME.name:
+        chat_data["volume"] = "{0:.8f}".format(float(update.message.text))
+
+    # TODO: This confirmation logic is doubled. Export into own method?
+    trade_str = chat_data["buysell"].lower() + " " + \
+                trim_zeros(chat_data["volume"]) + " " + \
+                chat_data["currency"][1:] + " @ limit " + \
+                chat_data["price"]
+
+    reply_msg = "Place this order?\n" + trade_str
+
+    buttons = [
+        KeyboardButton(GeneralEnum.YES.name),
+        KeyboardButton(GeneralEnum.NO.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+    return TRADE_CONFIRM
+
+
+# The user has to confirm placing the order
 def trade_confirm(bot, update, chat_data):
     if update.message.text == GeneralEnum.NO.name:
         return cancel(bot, update)
@@ -870,7 +887,6 @@ orders_handler = ConversationHandler(
 dispatcher.add_handler(orders_handler)
 
 
-# TODO: Do not use 'all' cmd, but add button
 # TRADE command handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
@@ -880,10 +896,9 @@ trade_handler = ConversationHandler(
         TRADE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR)$", trade_currency, pass_chat_data=True),
                          RegexHandler("^(CANCEL)$", cancel)],
         TRADE_PRICE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
-        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME)$", trade_vol_type, pass_chat_data=True),
-                         CommandHandler("all", trade_volume, pass_chat_data=True),
+        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME|ALL)$", trade_vol_type, pass_chat_data=True),
                          RegexHandler("^(CANCEL)$", cancel)],
-        TRADE_VOLUME: [RegexHandler("^(((?=.*?\d)\d*[.]?\d*)|(/all))$", trade_volume, pass_chat_data=True)],
+        TRADE_VOLUME: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_volume, pass_chat_data=True)],
         TRADE_CONFIRM: [RegexHandler("^(YES|NO)$", trade_confirm, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
