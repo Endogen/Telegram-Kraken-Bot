@@ -151,7 +151,7 @@ def trim_zeros(value_to_trim):
 # Get balance of all currencies
 def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     update.message.reply_text("Retrieving data...")
 
@@ -179,7 +179,7 @@ def balance_cmd(bot, update):
 
 
 # Enum for 'trade' workflow
-TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM = range(7)
+TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM = range(6)
 # Enum for 'trade' keyboards
 TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME ALL")
 
@@ -187,7 +187,7 @@ TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME ALL")
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 def trade_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     reply_msg = "Buy or sell?"
 
@@ -341,7 +341,7 @@ def trade_volume(bot, update, chat_data):
 # The user has to confirm placing the order
 def trade_confirm(bot, update, chat_data):
     if update.message.text == GeneralEnum.NO.name:
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     update.message.reply_text("Placing order...")
 
@@ -407,7 +407,7 @@ OrdersEnum = Enum("OrdersEnum", "CLOSE_ORDER CLOSE_ALL")
 # Show and manage orders
 def orders_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     update.message.reply_text("Retrieving data...")
 
@@ -547,7 +547,7 @@ PRICE_CURRENCY = range(1)
 # Callback for the 'price' command - choose currency
 def price_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     reply_msg = "Enter currency"
 
@@ -598,7 +598,7 @@ ValueEnum = Enum("ValueEnum", "ALL")
 # Show the current real money value for a certain asset or for all assets combined
 def value_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     reply_msg = "Enter currency"
 
@@ -691,7 +691,7 @@ BotEnum = Enum("BotEnum", "UPDATE_CHECK UPDATE RESTART SHUTDOWN")
 # Shows sub-commands to control the bot
 def bot_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     reply_msg = "What do you want to do?"
 
@@ -732,13 +732,13 @@ def bot_sub_cmd(bot, update):
         shutdown_cmd(bot, update)
 
     elif update.message.text == GeneralEnum.CANCEL.name:
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
 
 # Download newest script, update the currently running script and restart
 def update_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
@@ -779,7 +779,7 @@ def update_cmd(bot, update):
 # Terminate this script
 def shutdown_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
 
@@ -789,7 +789,7 @@ def shutdown_cmd(bot, update):
 # Restart this python script
 def restart_cmd(bot, update):
     if not is_user_valid(bot, update):
-        return cancel(bot, update)
+        return cancel_cmd(bot, update)
 
     update.message.reply_text("Bot is restarting...", reply_markup=ReplyKeyboardRemove())
 
@@ -798,7 +798,7 @@ def restart_cmd(bot, update):
 
 
 # Will show a cancel message, end the conversation and show the default keyboard
-def cancel(bot, update):
+def cancel_cmd(bot, update):
     update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
     return ConversationHandler.END
 
@@ -871,11 +871,11 @@ orders_handler = ConversationHandler(
     states={
         ORDERS_CLOSE: [RegexHandler("^(CLOSE ORDER)$", orders_choose_order),
                        RegexHandler("^(CLOSE ALL)$", orders_close_all),
-                       RegexHandler("^(CANCEL)$", cancel)],
-        ORDERS_CLOSE_ORDER: [RegexHandler("^(CANCEL)$", cancel),
+                       RegexHandler("^(CANCEL)$", cancel_cmd)],
+        ORDERS_CLOSE_ORDER: [RegexHandler("^(CANCEL)$", cancel_cmd),
                              MessageHandler(Filters.text, orders_close_order)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel_cmd)]
 )
 dispatcher.add_handler(orders_handler)
 
@@ -885,17 +885,17 @@ trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
     states={
         TRADE_BUY_SELL: [RegexHandler("^(BUY|SELL)$", trade_buy_sell, pass_chat_data=True),
-                         RegexHandler("^(CANCEL)$", cancel)],
+                         RegexHandler("^(CANCEL)$", cancel_cmd)],
         TRADE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR)$", trade_currency, pass_chat_data=True),
-                         RegexHandler("^(CANCEL)$", cancel)],
+                         RegexHandler("^(CANCEL)$", cancel_cmd)],
         TRADE_PRICE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
         TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME)$", trade_vol_type, pass_chat_data=True),
                          RegexHandler("^(ALL)$", trade_vol_type_all, pass_chat_data=True),
-                         RegexHandler("^(CANCEL)$", cancel)],
+                         RegexHandler("^(CANCEL)$", cancel_cmd)],
         TRADE_VOLUME: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_volume, pass_chat_data=True)],
         TRADE_CONFIRM: [RegexHandler("^(YES|NO)$", trade_confirm, pass_chat_data=True)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel_cmd)]
 )
 dispatcher.add_handler(trade_handler)
 
@@ -905,9 +905,9 @@ price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
     states={
         PRICE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR)$", price_currency),
-                         RegexHandler("^(CANCEL)$", cancel)]
+                         RegexHandler("^(CANCEL)$", cancel_cmd)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel_cmd)]
 )
 dispatcher.add_handler(price_handler)
 
@@ -917,9 +917,9 @@ value_handler = ConversationHandler(
     entry_points=[CommandHandler('value', value_cmd)],
     states={
         VALUE_CURRENCY: [RegexHandler("^(XBT|BCH|ETH|XMR|ALL)$", value_currency),
-                         RegexHandler("^(CANCEL)$", cancel)]
+                         RegexHandler("^(CANCEL)$", cancel_cmd)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel_cmd)]
 )
 dispatcher.add_handler(value_handler)
 
@@ -929,9 +929,9 @@ bot_handler = ConversationHandler(
     entry_points=[CommandHandler('bot', bot_cmd)],
     states={
         BOT_SUB_CMD: [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$", bot_sub_cmd),
-                      RegexHandler("^(CANCEL)$", cancel)]
+                      RegexHandler("^(CANCEL)$", cancel_cmd)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel_cmd)]
 )
 dispatcher.add_handler(bot_handler)
 
