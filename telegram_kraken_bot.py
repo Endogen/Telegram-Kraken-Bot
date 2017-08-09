@@ -678,6 +678,14 @@ def value_currency(bot, update):
     total_value_euro = "{0:.2f}".format(total_value_euro)
 
     msg += total_value_euro + " " + config["trade_to_currency"]
+
+    # Check if we have only one currency. If true, add last trade price to msg
+    if len(res_data_price["result"]) == 1:
+        pair = list(res_data_price["result"].keys())[0]
+        last_price = res_data_price["result"][pair]["c"][0]
+        last_trade_price = "{0:.2f}".format(float(last_price))
+        msg += " (Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
+
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
     return ConversationHandler.END
 
@@ -849,10 +857,12 @@ def is_user_valid(bot, update):
         return True
 
 
-# Enriches or replaces text based on predefined pattern
+# Enriches or replaces text based on hardcoded patterns
 def beautify(text):
     if "EQuery" in text:
         return text.replace("EQuery", "Kraken Error")
+    if "null" in text:
+        return "Kraken Error: " + text
 
 
 # Log all errors
