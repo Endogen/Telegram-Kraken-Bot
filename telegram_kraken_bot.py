@@ -64,6 +64,15 @@ def keyboard_cmds():
     return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
 
 
+def keyboard_confirm():
+    buttons = [
+        KeyboardButton(GeneralEnum.YES.name),
+        KeyboardButton(GeneralEnum.NO.name)
+    ]
+
+    return ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
+
+
 # Check order status and send message if changed
 def monitor_order(bot, job):
     req_data = dict()
@@ -288,21 +297,14 @@ def trade_vol_type(bot, update, chat_data):
             chat_data["volume"] = "{0:.8f}".format(float(current_volume))
 
         # Show confirmation for placing order
-        trade_str = chat_data["buysell"].lower() + " " + \
-                    trim_zeros(chat_data["volume"]) + " " + \
-                    chat_data["currency"][1:] + " @ limit " + \
-                    chat_data["price"]
+        trade_str = (chat_data["buysell"].lower() + " " +
+                     trim_zeros(chat_data["volume"]) + " " +
+                     chat_data["currency"][1:] + " @ limit " +
+                     chat_data["price"])
 
         reply_msg = "Place this order?\n" + trade_str
 
-        buttons = [
-            KeyboardButton(GeneralEnum.YES.name),
-            KeyboardButton(GeneralEnum.NO.name)
-        ]
-
-        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
-
-        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+        update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
 
         return TRADE_CONFIRM
 
@@ -326,22 +328,15 @@ def trade_volume(bot, update, chat_data):
     elif chat_data["vol_type"] == TradeEnum.VOLUME.name:
         chat_data["volume"] = "{0:.8f}".format(float(update.message.text))
 
-    # TODO: This confirmation logic is doubled. Export into own method?
-    trade_str = chat_data["buysell"].lower() + " " + \
-                trim_zeros(chat_data["volume"]) + " " + \
-                chat_data["currency"][1:] + " @ limit " + \
-                chat_data["price"]
+    # Show confirmation for placing order
+    trade_str = (chat_data["buysell"].lower() + " " +
+                 trim_zeros(chat_data["volume"]) + " " +
+                 chat_data["currency"][1:] + " @ limit " +
+                 chat_data["price"])
 
     reply_msg = "Place this order?\n" + trade_str
 
-    buttons = [
-        KeyboardButton(GeneralEnum.YES.name),
-        KeyboardButton(GeneralEnum.NO.name)
-    ]
-
-    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
-
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
 
     return TRADE_CONFIRM
 
@@ -365,7 +360,7 @@ def trade_confirm(bot, update, chat_data):
 
     # If Kraken replied with an error, show it
     if res_data_add_order["error"]:
-        update.message.reply_text(res_data_add_order["error"][0])
+        update.message.reply_text(beautify(res_data_add_order["error"][0]))
         return
 
     # If there is a transaction id then the order was placed successfully
@@ -380,7 +375,7 @@ def trade_confirm(bot, update, chat_data):
 
         # If Kraken replied with an error, show it
         if res_data_query_order["error"]:
-            update.message.reply_text(res_data_query_order["error"][0])
+            update.message.reply_text(beautify(res_data_query_order["error"][0]))
             return
 
         if res_data_query_order["result"][add_order_txid]:
@@ -636,7 +631,7 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_balance["error"]:
-        update.message.reply_text(res_data_balance["error"][0])
+        update.message.reply_text(beautify(res_data_balance["error"][0]))
         return
 
     req_data_price = dict()
@@ -668,7 +663,7 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_price["error"]:
-        update.message.reply_text(res_data_price["error"][0])
+        update.message.reply_text(beautify(res_data_price["error"][0]))
         return
 
     total_value_euro = float(0)
@@ -946,7 +941,7 @@ dispatcher.add_handler(bot_handler)
 updater.start_polling()
 
 # Show welcome message, update state, keyboard for commands
-message = "Up and running!\n" + get_update_state()
+message = "KrakenBot is up and running!\n" + get_update_state()
 updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
 
 # Monitor status changes of open orders
