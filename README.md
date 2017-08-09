@@ -1,5 +1,5 @@
 # Telegram Kraken Bot
-Python script to trade on Kraken via Telegram
+Python bot to trade on Kraken via Telegram
 
 ## Installation
 Install python modules
