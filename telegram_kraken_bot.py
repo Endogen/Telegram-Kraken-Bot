@@ -14,6 +14,8 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, r
 from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler, MessageHandler, Filters
 
 # TODO: After a while cmds don't get triggered, have to be send twice
+# TODO: Has todo with nounce value - create a separate kraken api key for every app
+# TODO: Maybe using my own nounce will get rid of the problem?
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -144,6 +146,8 @@ def trim_zeros(value_to_trim):
         return value_to_trim
 
 
+# TODO: I have to add again the /balance available cmd to see how much € is still free to use and not
+# TODO: bound to a open order
 # Get balance of all currencies
 def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -201,7 +205,6 @@ def trade_cmd(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return TRADE_BUY_SELL
 
 
@@ -223,7 +226,6 @@ def trade_buy_sell(bot, update, chat_data):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return TRADE_CURRENCY
 
 
@@ -234,7 +236,6 @@ def trade_currency(bot, update, chat_data):
     reply_mrk = ReplyKeyboardRemove()
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return TRADE_PRICE
 
 
@@ -256,65 +257,64 @@ def trade_price(bot, update, chat_data):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return TRADE_VOL_TYPE
 
 
 def trade_vol_type(bot, update, chat_data):
     chat_data["vol_type"] = update.message.text
 
-    if chat_data["vol_type"] == TradeEnum.ALL.name:
-        if chat_data["buysell"] == TradeEnum.BUY.name:
-            req_data = dict()
-            req_data["asset"] = "Z" + config["trade_to_currency"]
+    reply_msg = "Enter volume"
+    reply_mrk = ReplyKeyboardRemove()
 
-            # Send request to Kraken to get current trade balance of all currencies
-            res_data = kraken.query_private("TradeBalance", req_data)
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    return TRADE_VOLUME
 
-            # If Kraken replied with an error, show it
-            if res_data["error"]:
-                update.message.reply_text(beautify(res_data["error"][0]))
-                return
 
-            euros = res_data["result"]["tb"]
-            # Calculate volume depending on full euro balance and round it to 8 digits
-            chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
+def trade_vol_type_all(bot, update, chat_data):
+    update.message.reply_text("Calculating volume...")
 
-        if chat_data["buysell"] == TradeEnum.SELL.name:
-            # FIXME: This will give me all available BTC. But some of them are already part of a sell order.
-            # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
-            # FIXME: Current balance of BTC minus all open BTC orders
-            # Send request to Kraken to get euro balance to calculate volume
-            res_data = kraken.query_private("Balance")
+    if chat_data["buysell"] == TradeEnum.BUY.name:
+        req_data = dict()
+        req_data["asset"] = "Z" + config["trade_to_currency"]
 
-            # If Kraken replied with an error, show it
-            if res_data["error"]:
-                update.message.reply_text(beautify(res_data["error"][0]))
-                return
+        # Send request to Kraken to get current trade balance of all currencies
+        res_data = kraken.query_private("TradeBalance", req_data)
 
-            current_volume = res_data["result"][chat_data["currency"]]
-            # Get volume from balance and round it to 8 digits
-            chat_data["volume"] = "{0:.8f}".format(float(current_volume))
+        # If Kraken replied with an error, show it
+        if res_data["error"]:
+            update.message.reply_text(beautify(res_data["error"][0]))
+            return
 
-        # Show confirmation for placing order
-        trade_str = (chat_data["buysell"].lower() + " " +
-                     trim_zeros(chat_data["volume"]) + " " +
-                     chat_data["currency"][1:] + " @ limit " +
-                     chat_data["price"])
+        euros = res_data["result"]["tb"]
+        # Calculate volume depending on full euro balance and round it to 8 digits
+        chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
 
-        reply_msg = "Place this order?\n" + trade_str
+    if chat_data["buysell"] == TradeEnum.SELL.name:
+        # FIXME: This will give me all available BTC. But some of them are already part of a sell order.
+        # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
+        # FIXME: Current balance of BTC minus all open BTC orders
+        # Send request to Kraken to get euro balance to calculate volume
+        res_data = kraken.query_private("Balance")
 
-        update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
+        # If Kraken replied with an error, show it
+        if res_data["error"]:
+            update.message.reply_text(beautify(res_data["error"][0]))
+            return
 
-        return TRADE_CONFIRM
+        current_volume = res_data["result"][chat_data["currency"]]
+        # Get volume from balance and round it to 8 digits
+        chat_data["volume"] = "{0:.8f}".format(float(current_volume))
 
-    else:
-        reply_msg = "Enter volume"
-        reply_mrk = ReplyKeyboardRemove()
+    # Show confirmation for placing order
+    trade_str = (chat_data["buysell"].lower() + " " +
+                 trim_zeros(chat_data["volume"]) + " " +
+                 chat_data["currency"][1:] + " @ limit " +
+                 chat_data["price"])
 
-        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    reply_msg = "Place this order?\n" + trade_str
 
-        return TRADE_VOLUME
+    update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
+    return TRADE_CONFIRM
 
 
 def trade_volume(bot, update, chat_data):
@@ -337,7 +337,6 @@ def trade_volume(bot, update, chat_data):
     reply_msg = "Place this order?\n" + trade_str
 
     update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
-
     return TRADE_CONFIRM
 
 
@@ -449,40 +448,7 @@ def orders_cmd(bot, update):
     return ORDERS_CLOSE
 
 
-def orders_close_all(bot, update):
-    update.message.reply_text("Closing orders...")
-
-    # Send request for open orders to Kraken
-    res_data = kraken.query_private("OpenOrders")
-
-    # If Kraken replied with an error, show it
-    if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
-        return
-
-    closed_orders = list()
-    if res_data["result"]["open"]:
-        for order in res_data["result"]["open"]:
-            req_data = dict()
-            req_data["txid"] = order
-
-            # Send request to Kraken to cancel orders
-            res_data = kraken.query_private("CancelOrder", req_data)
-
-            # If Kraken replied with an error, show it
-            if res_data["error"]:
-                update.message.reply_text("Error closing order\n" + order + "\n" + beautify(res_data["error"][0]))
-            else:
-                closed_orders.append(order)
-
-        update.message.reply_text("Orders closed:\n" + "\n".join(closed_orders), reply_markup=keyboard_cmds())
-
-    else:
-        update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
-
-    return ConversationHandler.END
-
-
+# Choose what to do with the open orders
 def orders_choose_order(bot, update):
     update.message.reply_text("Looking up open orders...")
 
@@ -517,9 +483,45 @@ def orders_choose_order(bot, update):
     return ORDERS_CLOSE_ORDER
 
 
+# Close all open orders
+def orders_close_all(bot, update):
+    update.message.reply_text("Closing orders...")
+
+    # Send request for open orders to Kraken
+    res_data = kraken.query_private("OpenOrders")
+
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(beautify(res_data["error"][0]))
+        return
+
+    closed_orders = list()
+    if res_data["result"]["open"]:
+        for order in res_data["result"]["open"]:
+            req_data = dict()
+            req_data["txid"] = order
+
+            # Send request to Kraken to cancel orders
+            res_data = kraken.query_private("CancelOrder", req_data)
+
+            # If Kraken replied with an error, show it
+            if res_data["error"]:
+                update.message.reply_text("Error closing order\n" + order + "\n" + beautify(res_data["error"][0]))
+            else:
+                closed_orders.append(order)
+
+        update.message.reply_text("Orders closed:\n" + "\n".join(closed_orders), reply_markup=keyboard_cmds())
+
+    else:
+        update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
+
+    return ConversationHandler.END
+
+
 # TODO: How to assure that user doesnt enter bullshit here? We really need only a valid TXID
 # TODO: Maybe use RegexHandler again and check for two occurrences of '-'? --> O55BGK-VSYTV-ADZLV7 & 6-5-6
 # TODO: Or work with dynamic Enums here?
+# Close the specified order
 def orders_close_order(bot, update):
     update.message.reply_text("Closing order...")
 
@@ -541,7 +543,7 @@ def orders_close_order(bot, update):
 # Enum for 'price' workflow
 PRICE_CURRENCY = range(1)
 # TODO: Create dynamic Enum for currencies
-# https://stackoverflow.com/questions/33690064/dynamically-create-an-enum-with-custom-values-in-python
+# TODO: https://stackoverflow.com/questions/33690064/dynamically-create-an-enum-with-custom-values-in-python
 
 
 # Callback for the 'price' command - choose currency
@@ -564,10 +566,10 @@ def price_cmd(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return PRICE_CURRENCY
 
 
+# Choose for which currency you want to know the last trade price
 def price_currency(bot, update):
     update.message.reply_text("Retrieving data...")
 
@@ -586,7 +588,6 @@ def price_currency(bot, update):
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
     update.message.reply_text(currency + ": " + last_trade_price, reply_markup=keyboard_cmds())
-
     return ConversationHandler.END
 
 
@@ -618,12 +619,11 @@ def value_cmd(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=footer_btns))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return VALUE_CURRENCY
 
 
+# Choose for which currency you want to know the current value
 def value_currency(bot, update):
-    # TODO: Edit this msg later on with the value to show - do this globally (bot.editMessage...)
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
@@ -681,7 +681,6 @@ def value_currency(bot, update):
 
     msg += total_value_euro + " " + config["trade_to_currency"]
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
-
     return ConversationHandler.END
 
 
@@ -712,10 +711,10 @@ def bot_cmd(bot, update):
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
-
     return BOT_SUB_CMD
 
 
+# Execute chosen sub-cmd of 'bot' cmd
 def bot_sub_cmd(bot, update):
     # Update check
     if update.message.text == BotEnum.UPDATE_CHECK.name.replace("_", " "):
@@ -800,6 +799,7 @@ def restart_cmd(bot, update):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
+# Will show a cancel message, end the conversation and show the default keyboard
 def cancel(bot, update):
     update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
     return ConversationHandler.END
@@ -882,6 +882,7 @@ orders_handler = ConversationHandler(
 dispatcher.add_handler(orders_handler)
 
 
+# TODO: Maybe add own RegexHandler for "ALL"?
 # TRADE command handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
@@ -891,7 +892,8 @@ trade_handler = ConversationHandler(
         TRADE_CURRENCY: [RegexHandler("^(XBT|ETH|XMR)$", trade_currency, pass_chat_data=True),
                          RegexHandler("^(CANCEL)$", cancel)],
         TRADE_PRICE: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
-        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME|ALL)$", trade_vol_type, pass_chat_data=True),
+        TRADE_VOL_TYPE: [RegexHandler("^(EURO|VOLUME)$", trade_vol_type, pass_chat_data=True),
+                         RegexHandler("^(ALL)$", trade_vol_type_all, pass_chat_data=True),
                          RegexHandler("^(CANCEL)$", cancel)],
         TRADE_VOLUME: [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_volume, pass_chat_data=True)],
         TRADE_CONFIRM: [RegexHandler("^(YES|NO)$", trade_confirm, pass_chat_data=True)]
