@@ -146,7 +146,7 @@ def trim_zeros(value_to_trim):
         return value_to_trim
 
 
-# TODO: I have to add again the /balance available cmd to see how much € is still free to use and not
+# TODO: I have to add again the '/balance available' cmd to see how much € is still free to use and not
 # TODO: bound to a open order
 # Get balance of all currencies
 def balance_cmd(bot, update):
@@ -179,13 +179,11 @@ def balance_cmd(bot, update):
 
 
 # Enum for 'trade' workflow
-TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM, TRADE_EXECUTE = range(7)
+TRADE_BUY_SELL, TRADE_CURRENCY, TRADE_PRICE, TRADE_VOL_TYPE, TRADE_VOLUME, TRADE_CONFIRM = range(7)
 # Enum for 'trade' keyboards
 TradeEnum = Enum("TradeEnum", "BUY SELL EURO VOLUME ALL")
 
 
-# FIXME: After a while it will not get triggered by '/trade' anymore
-# FIXME: Issue should be that Kraken request times out and then we don't send a ConversationHandler.END
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 def trade_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -882,7 +880,6 @@ orders_handler = ConversationHandler(
 dispatcher.add_handler(orders_handler)
 
 
-# TODO: Maybe add own RegexHandler for "ALL"?
 # TRADE command handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
