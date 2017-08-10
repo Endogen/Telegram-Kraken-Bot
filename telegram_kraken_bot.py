@@ -516,9 +516,6 @@ def orders_close_all(bot, update):
     return ConversationHandler.END
 
 
-# TODO: How to assure that user doesnt enter bullshit here? We really need only a valid TXID
-# TODO: Maybe use RegexHandler again and check for two occurrences of '-'? --> O55BGK-VSYTV-ADZLV7 & 6-5-6
-# TODO: Or work with dynamic Enums here?
 # Close the specified order
 def orders_close_order(bot, update):
     update.message.reply_text("Closing order...")
@@ -883,7 +880,7 @@ orders_handler = ConversationHandler(
                        RegexHandler("^(CLOSE ALL)$", orders_close_all),
                        RegexHandler("^(CANCEL)$", cancel_cmd)],
         ORDERS_CLOSE_ORDER: [RegexHandler("^(CANCEL)$", cancel_cmd),
-                             MessageHandler(Filters.text, orders_close_order)]
+                             RegexHandler("^[A-Z0-9]{6}-[A-Z0-9]{5}-[A-Z0-9]{6}$", orders_close_order)]
     },
     fallbacks=[CommandHandler('cancel', cancel_cmd)]
 )
