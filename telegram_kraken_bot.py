@@ -10,12 +10,8 @@ import krakenex
 import requests
 
 from enum import Enum
-from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, replymarkup
-from telegram.ext import Updater, CommandHandler, Job, ConversationHandler, RegexHandler, MessageHandler, Filters
-
-# TODO: After a while cmds don't get triggered, have to be send twice
-# TODO: Has todo with nounce value - create a separate kraken api key for every app
-# TODO: Maybe using my own nounce will get rid of the problem?
+from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -146,8 +142,7 @@ def trim_zeros(value_to_trim):
         return value_to_trim
 
 
-# TODO: I have to add again the '/balance available' cmd to see how much € is still free to use and not
-# TODO: bound to an open order
+# TODO: Add '/balance available' cmd to see how much euro is still free to use and not bound to an open order
 # Get balance of all currencies
 def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -156,24 +151,58 @@ def balance_cmd(bot, update):
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
-    res_data = kraken.query_private("Balance")
+    res_data_balance = kraken.query_private("Balance")
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
+    if res_data_balance["error"]:
+        update.message.reply_text(beautify(res_data_balance["error"][0]))
+        return
+
+    # Send request to Kraken to get open orders
+    res_data_orders = kraken.query_private("OpenOrders")
+
+    # If Kraken replied with an error, show it
+    if res_data_orders["error"]:
+        update.message.reply_text(beautify(res_data_orders["error"][0]))
         return
 
     msg = ""
+    available_value = ""
 
-    for currency_key, currency_value in res_data["result"].items():
-        display_value = trim_zeros(currency_value)
-        if display_value is not "0":
-            if config["trade_to_currency"] in currency_key:
-                currency_key = config["trade_to_currency"]
-            if currency_key.startswith("X"):
-                currency_key = currency_key[1:]
+    for currency_key, currency_value in res_data_balance["result"].items():
+        whole_value = trim_zeros(currency_value)
 
-            msg += currency_key + ": " + display_value + "\n"
+        if currency_key.startswith("X"):
+            currency_key = currency_key[1:]
+
+        if config["trade_to_currency"] in currency_key:
+            currency_key = config["trade_to_currency"]
+        else:
+            # FIXME: What is we have more then one open order? Sum them up!
+            # Go through all open orders and check if an sell order exists for the currency
+            if res_data_orders["result"]["open"]:
+                for order in res_data_orders["result"]["open"]:
+                    order_desc = res_data_orders["result"]["open"][order]["descr"]["order"]
+                    order_desc_list = order_desc.split(" ")
+
+                    order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
+                    order_volume = order_desc_list[1]
+                    order_type = order_desc_list[0]
+
+                    if currency_key == order_currency:
+                        if order_type == "sell":
+                            cur_avail = float(currency_value) - float(order_volume)
+                            available_value = str(trim_zeros(cur_avail))
+
+        if whole_value is not "0":
+            msg += currency_key + ": " + whole_value + "\n"
+
+            # If sell orders exist for this currency, show available volume too
+            if (available_value is not whole_value) and (available_value is not ""):
+                msg = msg[:-len("\n")]
+                msg += " (Available: " + available_value + ")\n"
+
+        available_value = ""
 
     update.message.reply_text(msg)
 
@@ -411,7 +440,7 @@ def orders_cmd(bot, update):
 
     update.message.reply_text("Retrieving data...")
 
-    # Send request for open orders to Kraken
+    # Send request to Kraken to get open orders
     res_data = kraken.query_private("OpenOrders")
 
     # If Kraken replied with an error, show it

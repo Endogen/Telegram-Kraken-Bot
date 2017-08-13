@@ -53,3 +53,7 @@ TODO
 
 ### Examples  
 TODO
+
+## TODO
+* Fix `invalid nonce` error from Kraken if different clients are used
+    * Solution: Use own key-pair for every client
