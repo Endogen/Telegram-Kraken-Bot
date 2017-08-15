@@ -12,6 +12,7 @@ import requests
 from enum import Enum
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
+from uuid import getnode as mac
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -21,9 +22,21 @@ logger = logging.getLogger()
 with open("config.json") as config_file:
     config = json.load(config_file)
 
+# Read Kraken keys
+with open("kraken.json") as kraken_keys_file:
+    kraken_keys = json.load(kraken_keys_file)
+
+# Get corresponding keys for current MAC address
+if kraken_keys[str(mac())]:
+    api_key = kraken_keys[str(mac())]["api_key"]
+    private_key = kraken_keys[str(mac())]["private_key"]
+# FIXME: Why doesn't this work? How is this different from 'if res_data["error"]:'
+else:
+    api_key = kraken_keys[0]["api_key"]
+    private_key = kraken_keys[0]["private_key"]
+
 # Connect to Kraken
-kraken = krakenex.API()
-kraken.load_key("kraken.key")
+kraken = krakenex.API(key=api_key, secret=private_key)
 
 # Set bot token
 updater = Updater(token=config["bot_token"])
@@ -142,7 +155,6 @@ def trim_zeros(value_to_trim):
         return value_to_trim
 
 
-# TODO: Add '/balance available' cmd to see how much euro is still free to use and not bound to an open order
 # Get balance of all currencies
 def balance_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -167,10 +179,9 @@ def balance_cmd(bot, update):
         return
 
     msg = ""
-    available_value = ""
 
     for currency_key, currency_value in res_data_balance["result"].items():
-        whole_value = trim_zeros(currency_value)
+        available_value = currency_value
 
         if currency_key.startswith("X"):
             currency_key = currency_key[1:]
@@ -178,8 +189,7 @@ def balance_cmd(bot, update):
         if config["trade_to_currency"] in currency_key:
             currency_key = config["trade_to_currency"]
         else:
-            # FIXME: What is we have more then one open order? Sum them up!
-            # Go through all open orders and check if an sell order exists for the currency
+            # Go through all open orders and check if an sell-order exists for the currency
             if res_data_orders["result"]["open"]:
                 for order in res_data_orders["result"]["open"]:
                     order_desc = res_data_orders["result"]["open"][order]["descr"]["order"]
@@ -191,18 +201,14 @@ def balance_cmd(bot, update):
 
                     if currency_key == order_currency:
                         if order_type == "sell":
-                            cur_avail = float(currency_value) - float(order_volume)
-                            available_value = str(trim_zeros(cur_avail))
+                            available_value = str(float(available_value) - float(order_volume))
 
-        if whole_value is not "0":
-            msg += currency_key + ": " + whole_value + "\n"
+        if trim_zeros(currency_value) is not "0":
+            msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
 
             # If sell orders exist for this currency, show available volume too
-            if (available_value is not whole_value) and (available_value is not ""):
-                msg = msg[:-len("\n")]
-                msg += " (Available: " + available_value + ")\n"
-
-        available_value = ""
+            if currency_value is not available_value:
+                msg = msg[:-len("\n")] + " (Available: " + trim_zeros(available_value) + ")\n"
 
     update.message.reply_text(msg)
 
@@ -811,13 +817,15 @@ def update_cmd(bot, update):
 
 
 # Terminate this script
+# FIXME: How to properly exit? Not even this works 'os.system('kill %d' % os.getpid())'
 def shutdown_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
     update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
 
-    exit()
+    updater.stop()
+    sys.exit(0)
 
 
 # Restart this python script
@@ -886,8 +894,6 @@ def is_user_valid(bot, update):
 def beautify(text):
     if "EQuery" in text:
         return text.replace("EQuery", "Kraken Error")
-    if "null" in text:
-        return "Kraken Error: " + text
 
 
 # Log all errors
@@ -980,3 +986,8 @@ updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds(
 
 # Monitor status changes of open orders
 monitor_open_orders()
+
+# Run the bot until you press Ctrl-C or the process receives SIGINT,
+# SIGTERM or SIGABRT. This should be used most of the time, since
+# start_polling() is non-blocking and will stop the bot gracefully.
+updater.idle()

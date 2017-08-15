@@ -99,4 +99,4 @@ ENV/
 
 # Telegarm-Kraken-Bot related
 config.json
-kraken.key
+kraken.json
