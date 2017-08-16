@@ -299,32 +299,56 @@ def trade_vol_type_all(bot, update, chat_data):
         req_data["asset"] = "Z" + config["trade_to_currency"]
 
         # Send request to Kraken to get current trade balance of all currencies
-        res_data = kraken.query_private("TradeBalance", req_data)
+        res_data_balance = kraken.query_private("TradeBalance", req_data)
 
         # If Kraken replied with an error, show it
-        if res_data["error"]:
-            update.message.reply_text(beautify(res_data["error"][0]))
+        if res_data_balance["error"]:
+            update.message.reply_text(beautify(res_data_balance["error"][0]))
             return
 
-        euros = res_data["result"]["tb"]
+        euros = res_data_balance["result"]["tb"]
         # Calculate volume depending on full euro balance and round it to 8 digits
         chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
 
     if chat_data["buysell"] == TradeEnum.SELL.name:
-        # FIXME: This will give me all available BTC. But some of them are already part of a sell order.
-        # FIXME: What i need is not the balance, but the 'free' BTCs that i can still sell
-        # FIXME: Current balance of BTC minus all open BTC orders
         # Send request to Kraken to get euro balance to calculate volume
-        res_data = kraken.query_private("Balance")
+        res_data_balance = kraken.query_private("Balance")
 
         # If Kraken replied with an error, show it
-        if res_data["error"]:
-            update.message.reply_text(beautify(res_data["error"][0]))
+        if res_data_balance["error"]:
+            update.message.reply_text(beautify(res_data_balance["error"][0]))
             return
 
-        current_volume = res_data["result"][chat_data["currency"]]
+        # Send request to Kraken to get open orders
+        res_data_orders = kraken.query_private("OpenOrders")
+
+        # If Kraken replied with an error, show it
+        if res_data_orders["error"]:
+            update.message.reply_text(beautify(res_data_orders["error"][0]))
+            return
+
+        available_volume = res_data_balance["result"][chat_data["currency"]]
+
+        current_currency = chat_data["currency"]
+        if current_currency.startswith("X"):
+            current_currency = current_currency[1:]
+
+        # Go through all open orders and check if an sell-order exists for the currency
+        if res_data_orders["result"]["open"]:
+            for order in res_data_orders["result"]["open"]:
+                order_desc = res_data_orders["result"]["open"][order]["descr"]["order"]
+                order_desc_list = order_desc.split(" ")
+
+                order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
+                order_volume = order_desc_list[1]
+                order_type = order_desc_list[0]
+
+                if current_currency == order_currency:
+                    if order_type == "sell":
+                        available_volume = str(float(available_volume) - float(order_volume))
+
         # Get volume from balance and round it to 8 digits
-        chat_data["volume"] = "{0:.8f}".format(float(current_volume))
+        chat_data["volume"] = "{0:.8f}".format(float(available_volume))
 
     # Show confirmation for placing order
     trade_str = (chat_data["buysell"].lower() + " " +
@@ -881,7 +905,11 @@ def is_user_valid(bot, update):
 # Enriches or replaces text based on hardcoded patterns
 def beautify(text):
     if "EQuery" in text:
-        return text.replace("EQuery", "Kraken Error")
+        return text.replace("EQuery:", "Kraken Error: ")
+    elif "EGeneral" in text:
+        return text.replace("EGeneral:", "Kraken Error: ")
+
+    return text
 
 
 # Log all errors
@@ -978,4 +1006,4 @@ monitor_open_orders()
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
 # start_polling() is non-blocking and will stop the bot gracefully.
-updater.idle()
+updater.idle()  # TODO: Test if order-execution-notification still works

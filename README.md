@@ -47,13 +47,3 @@ Run the script with
 `python telegram_kraken_bot.py`
 
 Then start a conversation with your bot and try out some commands. For example `/balance`.
-
-### Commands  
-TODO  
-
-### Examples  
-TODO
-
-## TODO
-* Fix `invalid nonce` error from Kraken if different clients are used
-    * Solution: Use own key-pair for every client
