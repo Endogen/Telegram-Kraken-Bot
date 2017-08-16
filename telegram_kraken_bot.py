@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+import random
 
 import krakenex
 import requests
@@ -12,7 +13,6 @@ import requests
 from enum import Enum
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
-from uuid import getnode as mac
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -22,28 +22,16 @@ logger = logging.getLogger()
 with open("config.json") as config_file:
     config = json.load(config_file)
 
-# Read Kraken keys
-with open("kraken.json") as kraken_keys_file:
-    kraken_keys = json.load(kraken_keys_file)
-
-# Get corresponding keys for current MAC address
-if kraken_keys[str(mac())]:
-    api_key = kraken_keys[str(mac())]["api_key"]
-    private_key = kraken_keys[str(mac())]["private_key"]
-# FIXME: Why doesn't this work? How is this different from 'if res_data["error"]:'
-else:
-    api_key = kraken_keys[0]["api_key"]
-    private_key = kraken_keys[0]["private_key"]
-
-# Connect to Kraken
-kraken = krakenex.API(key=api_key, secret=private_key)
-
 # Set bot token
 updater = Updater(token=config["bot_token"])
 
 # Get dispatcher and job queue
 dispatcher = updater.dispatcher
 job_queue = updater.job_queue
+
+# Connect to Kraken
+kraken = krakenex.API()
+kraken.load_key("kraken.key")
 
 # General Enum for keyboard
 GeneralEnum = Enum("GeneralEnum", "YES NO CANCEL")
