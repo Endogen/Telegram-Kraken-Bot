@@ -908,6 +908,8 @@ def beautify(text):
         return text.replace("EQuery:", "Kraken Error: ")
     elif "EGeneral" in text:
         return text.replace("EGeneral:", "Kraken Error: ")
+    elif "EService" in text:
+        return text.replace("EService:", "Kraken Error: ")
 
     return text
 
