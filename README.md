@@ -44,6 +44,6 @@ Hash of the current version of the bot. **Please don't change this**. Will be se
 ## Usage
 Run the script with
 
-`python telegram_kraken_bot.py`
+`python3 telegram_kraken_bot.py &`
 
 Then start a conversation with your bot and try out some commands. For example `/balance`.

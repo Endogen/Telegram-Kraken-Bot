@@ -829,6 +829,7 @@ def update_cmd(bot, update):
 
 # Terminate this script
 # FIXME: How to properly exit? Not even this works 'os.system('kill %d' % os.getpid())'
+# FIXME: This could do the trick: 'pkill -f telegram_kraken_bot.py'
 def shutdown_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
@@ -904,11 +905,13 @@ def is_user_valid(bot, update):
 # Enriches or replaces text based on hardcoded patterns
 def beautify(text):
     if "EQuery" in text:
-        return text.replace("EQuery:", "Kraken Error: ")
+        return text.replace("EQuery:", "Kraken Error (Query): ")
     elif "EGeneral" in text:
-        return text.replace("EGeneral:", "Kraken Error: ")
+        return text.replace("EGeneral:", "Kraken Error (General): ")
     elif "EService" in text:
-        return text.replace("EService:", "Kraken Error: ")
+        return text.replace("EService:", "Kraken Error (Service): ")
+    elif "EAPI" in text:
+        return text.replace("EAPI:", "Kraken Error (API): ")
 
     return text
 
