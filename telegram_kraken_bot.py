@@ -5,7 +5,6 @@ import logging
 import os
 import sys
 import time
-import random
 
 import krakenex
 import requests
