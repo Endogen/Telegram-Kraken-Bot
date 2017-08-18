@@ -96,6 +96,7 @@ ENV/
 .ropeproject
 
 .idea/
+.DS_Store
 
 # Telegarm-Kraken-Bot related
 config.json

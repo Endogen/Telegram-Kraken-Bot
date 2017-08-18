@@ -62,6 +62,7 @@ def keyboard_cmds():
     return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
 
 
+# Generic custom keyboard that shows YES and NO
 def keyboard_confirm():
     buttons = [
         KeyboardButton(GeneralEnum.YES.name),
@@ -71,7 +72,7 @@ def keyboard_confirm():
     return ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
 
 
-# Check order status and send message if changed
+# Check order status and send message if order closed
 def monitor_order(bot, job):
     req_data = dict()
     req_data["txid"] = job.context["order_txid"]
@@ -96,7 +97,7 @@ def monitor_order(bot, job):
 
     # Check if trade was executed. If so, stop monitoring and send message
     elif order_info["status"] == "closed":
-        msg = "Trade executed: " + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
+        msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
         job.schedule_removal()
@@ -228,6 +229,7 @@ def trade_cmd(bot, update):
     return TRADE_BUY_SELL
 
 
+# Save if buy or sell order and choose the currency to trade
 def trade_buy_sell(bot, update, chat_data):
     chat_data["buysell"] = update.message.text
 
@@ -249,6 +251,7 @@ def trade_buy_sell(bot, update, chat_data):
     return TRADE_CURRENCY
 
 
+# Save currency to trade and enter price per unit to trade
 def trade_currency(bot, update, chat_data):
     chat_data["currency"] = "X" + update.message.text
 
@@ -259,6 +262,8 @@ def trade_currency(bot, update, chat_data):
     return TRADE_PRICE
 
 
+# Save price per unit and choose how to enter the
+# trade volume (euro, volume or all available funds)
 def trade_price(bot, update, chat_data):
     chat_data["price"] = update.message.text
 
@@ -280,6 +285,7 @@ def trade_price(bot, update, chat_data):
     return TRADE_VOL_TYPE
 
 
+# Save volume type decision and enter volume
 def trade_vol_type(bot, update, chat_data):
     chat_data["vol_type"] = update.message.text
 
@@ -290,6 +296,8 @@ def trade_vol_type(bot, update, chat_data):
     return TRADE_VOLUME
 
 
+# Volume type 'ALL' chosen - meaning that
+# all available EURO funds will be used
 def trade_vol_type_all(bot, update, chat_data):
     update.message.reply_text("Calculating volume...")
 
@@ -361,6 +369,7 @@ def trade_vol_type_all(bot, update, chat_data):
     return TRADE_CONFIRM
 
 
+# Calculate the volume depending on chosen volume type (EURO or VOLUME)
 def trade_volume(bot, update, chat_data):
     # Entered EURO
     if chat_data["vol_type"] == TradeEnum.EURO.name:
@@ -857,7 +866,8 @@ def cancel(bot, update):
     return ConversationHandler.END
 
 
-def error(bot, update, error):
+# Log all telegram and telegram.ext related errors
+def handle_error(bot, update, error):
     logger.error("Update '%s' caused error '%s'" % (update, error))
 
 
@@ -912,12 +922,14 @@ def beautify(text):
         return text.replace("EService:", "Kraken Error (Service): ")
     elif "EAPI" in text:
         return text.replace("EAPI:", "Kraken Error (API): ")
+    elif "EOrder" in text:
+        return text.replace("EOrder:", "Kraken Error (Order): ")
 
     return text
 
 
 # Log all errors
-dispatcher.add_error_handler(error)
+dispatcher.add_error_handler(handle_error)
 
 # Add handlers to dispatcher
 dispatcher.add_handler(CommandHandler("update", update_cmd))
@@ -1000,7 +1012,7 @@ dispatcher.add_handler(bot_handler)
 # Start the bot
 updater.start_polling()
 
-# Show welcome message, update state, keyboard for commands
+# Show welcome message, update state and keyboard for commands
 message = "KrakenBot is up and running!\n" + get_update_state()
 updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
 
@@ -1010,4 +1022,4 @@ monitor_open_orders()
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
 # start_polling() is non-blocking and will stop the bot gracefully.
-updater.idle()  # TODO: Test if order-execution-notification still works
+updater.idle()
