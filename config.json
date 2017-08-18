@@ -1,9 +1,8 @@
 {
-	"user_id" : "some_user_id",
+	"user_id" : "some_telegram_user_id",
 	"bot_token" : "some_bot_token",
 	"password_needed" : "true",
 	"password_hash" : "some_hash",
-	"confirm_action" : "false",
 	"trade_to_currency" : "EUR",
 	"check_trade" : "true",
 	"check_trade_time" : 30,
