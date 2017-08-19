@@ -736,7 +736,7 @@ def value_currency(bot, update):
         pair = list(res_data_price["result"].keys())[0]
         last_price = res_data_price["result"][pair]["c"][0]
         last_trade_price = "{0:.2f}".format(float(last_price))
-        msg += " (Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
+        msg += "\n(Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
 
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
     return ConversationHandler.END
