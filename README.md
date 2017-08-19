@@ -2,7 +2,7 @@
 Python bot to trade on Kraken via Telegram
 
 ## Installation
-Install python modules
+Install needed python modules
 
 `pip install python-telegram-bot --upgrade`  
 `pip install krakenex --upgrade`  
@@ -22,9 +22,6 @@ If you want to use the bot with a password, set this to `true`, otherwise to `fa
 
 #### password_hash
 Will be set automatically once you enable the password protection and set a new password. **Please don't change this**
-
-#### confirm_action
-If `true` the 'trade' command will ask if the entered data is correct and if you confirm it the new order will be created
 
 #### trade_to_currency
 The 'real-life' currency you are using (for example 'EUR')
