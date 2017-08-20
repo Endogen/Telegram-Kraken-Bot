@@ -592,8 +592,6 @@ def orders_close_order(bot, update):
 
 # Enum for 'price' workflow
 PRICE_CURRENCY = range(1)
-# TODO: Create dynamic Enum for currencies
-# TODO: https://stackoverflow.com/questions/33690064/dynamically-create-an-enum-with-custom-values-in-python
 
 
 # Callback for the 'price' command - choose currency
