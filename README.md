@@ -84,8 +84,9 @@ I know that it is unconventional to have the whole source code in just one file.
 [ ] Add password protection  
 [ ] Add command `/stats` that shows statistics  
 [ ] Add command `/history` that shows executed trades  
+[ ] Add command `/chart` to show TradingView Chart Widget website  
 [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)  
-[ ] Add option to auto-update (with custom update-check-time)
+[ ] Add option to auto-update (with custom update-check-time)  
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present
