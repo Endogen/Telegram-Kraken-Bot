@@ -563,7 +563,8 @@ def orders_close_all(bot, update):
             else:
                 closed_orders.append(order)
 
-        update.message.reply_text("Orders closed:\n" + "\n".join(closed_orders), reply_markup=keyboard_cmds())
+        if closed_orders:
+            update.message.reply_text("Orders closed:\n" + "\n".join(closed_orders), reply_markup=keyboard_cmds())
 
     else:
         update.message.reply_text("No open orders", reply_markup=keyboard_cmds())

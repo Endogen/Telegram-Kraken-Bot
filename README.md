@@ -84,7 +84,8 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Add password protection  
 - [ ] Add command `/stats` that shows statistics  
 - [ ] Add command `/history` that shows executed trades  
-- [ ] Add command `/chart` to show TradingView Chart Widget website  
+- [ ] Add command `/chart` to show TradingView Chart Widget website
+- [ ] Add command `/funding` to deposit / withdraw funds 
 - [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)  
 - [ ] Add option to auto-update (with custom update-check-time)  
 
