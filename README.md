@@ -52,11 +52,11 @@ In order to run the bot you need to execute the script `telegram_kraken_bot.py`.
 
 ### Prerequisites
 You have to use __Python 3__ to execute the script and you need to install the following Python modules first:
-
-`pip3 install python-telegram-bot --upgrade`  
-`pip3 install krakenex --upgrade`  
-`pip3 install requests --upgrade`
-
+```shell
+pip3 install python-telegram-bot --upgrade
+pip3 install krakenex --upgrade
+pip3 install requests --upgrade
+```
 ### Starting up
 To start the script, execute `python3 telegram_kraken_bot.py &`. If you host your script on a remote server and you are accessing it via SSH, close the connection with `exit`.
 
