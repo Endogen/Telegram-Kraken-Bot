@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+import threading
 
 import krakenex
 import requests
@@ -833,17 +834,21 @@ def update_cmd(bot, update):
     return ConversationHandler.END
 
 
+# This function needs to be run on a new thread because calling 'updater.stop()` inside a
+# handler (shutdown_cmd) causes a deadlock because it waits for itself to finish.
+def shutdown():
+    updater.stop()
+    updater.is_idle = False
+
+
 # Terminate this script
-# FIXME: How to properly exit? Not even this works 'os.system('kill %d' % os.getpid())'
-# FIXME: This could do the trick: 'pkill -f telegram_kraken_bot.py'
 def shutdown_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
     update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
 
-    updater.stop()
-    sys.exit(0)
+    threading.Thread(target=shutdown).start() # See comments on the shutdown function
 
 
 # Restart this python script
