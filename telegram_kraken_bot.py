@@ -21,10 +21,8 @@ logger = logging.getLogger()
 with open("config.json") as config_file:
     config = json.load(config_file)
 
-# Set bot token
+# Set bot token, get dispatcher and job queue
 updater = Updater(token=config["bot_token"])
-
-# Get dispatcher and job queue
 dispatcher = updater.dispatcher
 job_queue = updater.job_queue
 

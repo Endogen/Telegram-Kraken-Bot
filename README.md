@@ -5,7 +5,7 @@ Python bot to trade on Kraken via Telegram
 This script is a polling (not [webhook](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks)) based telegram bot. It can trade crypto-currencies on the [Kraken](http://kraken.com) marketplace and has a user friendly interface (custom keyboards with buttons).
 
 ### Features
-- Bound to a specific user (only this user can use it)
+- Bound to a specific Telegram user (no need to login to Kraken)
 - Integrated update mechanism (to latest version on GitHub)
 - Sends message if order is closed (successfully sold / buyed)
 
@@ -78,7 +78,7 @@ If you configured the bot correctly and execute the script, you should get a wel
 - `/shutdown`: Shuts the bot down
 
 ## Development
-I know that it is unconventional to have the whole source code in just one file. At some point i should have been switching to object orientation but i kind of like the idea to have it all in just one file. This also makes the `/update` command much simpler :)
+I know that it is unconventional to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
 
 ### Todo
 - [ ] Add password protection  
@@ -87,7 +87,8 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Add command `/chart` to show TradingView Chart Widget website
 - [ ] Add command `/funding` to deposit / withdraw funds 
 - [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)  
-- [ ] Add option to auto-update (with custom update-check-time)  
+- [ ] Add option to auto-update (with custom update-check-time)
+- [ ] Optimize code to call Kraken API les often  
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present
