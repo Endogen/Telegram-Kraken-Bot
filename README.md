@@ -64,6 +64,13 @@ pip3 install python-telegram-bot --upgrade
 pip3 install krakenex --upgrade
 pip3 install requests --upgrade
 ```
+
+##### Installing from `requirements.txt`
+Do the above to install the newest versions of the needed Python modules or install a set of module versions that is known to work together for sure with:
+```shell
+pip3 install -r requirements.txt
+```
+
 ### Starting up
 To start the script, execute `python3 telegram_kraken_bot.py &`. If you host your script on a remote server and you are accessing it via SSH, close the connection with `exit`.
 
