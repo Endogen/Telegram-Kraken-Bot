@@ -834,8 +834,8 @@ def update_cmd(bot, update):
     return ConversationHandler.END
 
 
-# This function needs to be run on a new thread because calling 'updater.stop()` inside a
-# handler (shutdown_cmd) causes a deadlock because it waits for itself to finish.
+# This needs to be run on a new thread because calling 'updater.stop()' inside a
+# handler (shutdown_cmd) causes a deadlock because it waits for itself to finish
 def shutdown():
     updater.stop()
     updater.is_idle = False
@@ -848,7 +848,8 @@ def shutdown_cmd(bot, update):
 
     update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
 
-    threading.Thread(target=shutdown).start() # See comments on the shutdown function
+    # See comments on the 'shutdown' function
+    threading.Thread(target=shutdown).start()
 
 
 # Restart this python script
