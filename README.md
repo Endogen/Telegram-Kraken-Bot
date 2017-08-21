@@ -7,7 +7,14 @@ This script is a polling (not [webhook](https://github.com/python-telegram-bot/p
 ### Features
 - Bound to a specific Telegram user (no need to login to Kraken)
 - Integrated update mechanism (to latest version on GitHub)
-- Sends message if order is closed (successfully sold / buyed)
+- Notifies you if order is closed (trade successfully executed)
+- Fully usable with buttons - no need to enter commands manually
+- Following Kraken functionality is implemented
+    - Create buy / sell order
+    - Lookup last trade price for currencies
+    - Show your balance
+    - Current market value of currencies
+    - Show / close open orders
 
 ## Configuration
 Before starting up the bot you have to take care of some settings. You need to edit two files:
@@ -17,7 +24,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 
 - __user_id__ Your user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to `userinfobot` and he will reply your ID
 
-- __bot_token__ The token that identifies your bot. You will get this from 'BotFather' when you create your bot
+- __bot_token__ The token that identifies your bot. You will get this from 'BotFather' when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
 
 - __password_needed__ (_currently not used_) If you want to use the bot with a password, set this to `true`, otherwise to `false`
 
@@ -92,4 +99,3 @@ I know that it is unconventional to have the whole source code in just one file.
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present
-- Command `/shutdown` doesn't fully shutdown the bot
