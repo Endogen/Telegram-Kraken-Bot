@@ -72,10 +72,13 @@ pip3 install -r requirements.txt
 ```
 
 ### Starting up
-To start the script, execute `python3 telegram_kraken_bot.py &`. If you host your script on a remote server and you are accessing it via SSH, close the connection with `exit`.
+To start the script, execute
+```shell
+python3 telegram_kraken_bot.py &
+```
 
 ## Usage
-If you configured the bot correctly and execute the script, you should get a welcome message from the bot along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command of type the command in directly.
+If you configured the bot correctly and execute the script, you should get a welcome message from the bot along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in directly.
 
 ### Available commands
 ##### Related to Kraken
@@ -95,14 +98,14 @@ If you configured the bot correctly and execute the script, you should get a wel
 I know that it is unconventional to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
 
 ### Todo
-- [ ] Add password protection  
-- [ ] Add command `/stats` that shows statistics  
-- [ ] Add command `/history` that shows executed trades  
+- [ ] Add password protection
+- [ ] Add command `/stats` that shows statistics
+- [ ] Add command `/history` that shows executed trades
 - [ ] Add command `/chart` to show TradingView Chart Widget website
-- [ ] Add command `/funding` to deposit / withdraw funds 
-- [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)  
+- [ ] Add command `/funding` to deposit / withdraw funds
+- [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)
 - [ ] Add option to auto-update (with custom update-check-time)
-- [ ] Optimize code to call Kraken API les often  
+- [ ] Optimize code to call Kraken API les often
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present
