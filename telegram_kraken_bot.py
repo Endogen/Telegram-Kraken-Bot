@@ -301,20 +301,21 @@ def trade_vol_type_all(bot, update, chat_data):
     update.message.reply_text("Calculating volume...")
 
     if chat_data["buysell"] == TradeEnum.BUY.name:
-        req_data = dict()
-        req_data["asset"] = "Z" + config["trade_to_currency"]
-
-        # Send request to Kraken to get current trade balance of all currencies
-        res_data_balance = kraken.query_private("TradeBalance", req_data)
+        # Send request to Kraken to get current balance of all currencies
+        res_data_balance = kraken.query_private("Balance")
 
         # If Kraken replied with an error, show it
         if res_data_balance["error"]:
             update.message.reply_text(beautify(res_data_balance["error"][0]))
             return
 
-        euros = res_data_balance["result"]["tb"]
-        # Calculate volume depending on full euro balance and round it to 8 digits
-        chat_data["volume"] = "{0:.8f}".format(float(euros) / float(chat_data["price"]))
+        for currency_key, currency_value in res_data_balance["result"].items():
+            if config["trade_to_currency"] in currency_key:
+                available_euros = currency_value
+                break
+
+        # Calculate volume depending on available euro balance and round it to 8 digits
+        chat_data["volume"] = "{0:.8f}".format(float(available_euros) / float(chat_data["price"]))
 
     if chat_data["buysell"] == TradeEnum.SELL.name:
         # Send request to Kraken to get euro balance to calculate volume
