@@ -15,6 +15,8 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, P
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
 
 # TODO: Add markdown formatting for return messages
+# TODO: Add 'sell all' to 'trade' to sell every asses to current market price
+# TODO: Show euro earned after trade was executed
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -694,6 +696,7 @@ def value_currency(bot, update):
         msg = "Overall: "
 
         for currency_name, currency_amount in res_data_balance["result"].items():
+            # TODO: Also add euro balance to ALL value!
             if currency_name.endswith(config["trade_to_currency"]):
                 continue
             # FIXME: Workaround for buggy Kraken API
