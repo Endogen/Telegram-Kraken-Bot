@@ -11,8 +11,10 @@ import krakenex
 import requests
 
 from enum import Enum
-from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
+
+# TODO: Add markdown formatting for return messages
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -55,10 +57,11 @@ def keyboard_cmds():
         KeyboardButton("/balance"),
         KeyboardButton("/price"),
         KeyboardButton("/value"),
+        KeyboardButton("/chart"),
         KeyboardButton("/bot")
     ]
 
-    return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
+    return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=4))
 
 
 # Generic custom keyboard that shows YES and NO
@@ -595,12 +598,12 @@ def orders_close_order(bot, update):
 PRICE_CURRENCY = range(1)
 
 
-# Callback for the 'price' command - choose currency
+# Show the last trade price for a currency
 def price_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    reply_msg = "Enter currency"
+    reply_msg = "Choose currency"
 
     buttons = [
         KeyboardButton("XBT"),
@@ -618,7 +621,7 @@ def price_cmd(bot, update):
     return PRICE_CURRENCY
 
 
-# Choose for which currency you want to know the last trade price
+# Choose for which currency to show the last trade price
 def price_currency(bot, update):
     update.message.reply_text("Retrieving data...")
 
@@ -794,6 +797,53 @@ def bot_sub_cmd(bot, update):
         return cancel(bot, update)
 
 
+# Enum for 'chart' workflow
+CHART_CURRENCY = range(1)
+# Enum for 'chart' keyboards
+ChartEnum = Enum("ChartEnum", "XBT BCH ETH XMR")  # TODO: These enums are useless!
+
+
+# Show links to Kraken currency charts
+def chart_cmd(bot, update):
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
+
+    reply_msg = "Choose currency"
+
+    buttons = [
+        KeyboardButton(ChartEnum.XBT.name),
+        KeyboardButton(ChartEnum.BCH.name),
+        KeyboardButton(ChartEnum.ETH.name),
+        KeyboardButton(ChartEnum.XMR.name)
+    ]
+
+    cancel_btn = [
+        KeyboardButton(GeneralEnum.CANCEL.name)
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=4, footer_buttons=cancel_btn))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    return CHART_CURRENCY
+
+
+# Choose for which currency to show a url to the chart
+def chart_currency(bot, update):
+    currency = update.message.text
+
+    if currency == ChartEnum.XBT.name:
+        url = "Kraken XBT Chart\nhttp://tinyurl.com/y9p6g5a8"
+    elif currency == ChartEnum.BCH.name:
+        url = "Kraken BCH Chart\nhttp://tinyurl.com/yas7972g"
+    elif currency == ChartEnum.ETH.name:
+        url = "Kraken ETH Chart\nhttp://tinyurl.com/ya3fkha4"
+    elif currency == ChartEnum.XMR.name:
+        url = "Kraken XMR Chart\nhttp://tinyurl.com/y98ygfuw"
+
+    update.message.reply_text(url, reply_markup=keyboard_cmds())
+    return ConversationHandler.END
+
+
 # Download newest script, update the currently running script and restart
 def update_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -940,6 +990,18 @@ dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
+
+
+# CHART command handler
+chart_handler = ConversationHandler(
+    entry_points=[CommandHandler('chart', chart_cmd)],
+    states={
+        CHART_CURRENCY: [RegexHandler("^(XBT|ETH|XMR|BCH)$", chart_currency),
+                         RegexHandler("^(CANCEL)$", cancel)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(chart_handler)
 
 
 # ORDERS command handler
