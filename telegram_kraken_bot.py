@@ -15,8 +15,8 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, P
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
 
 # TODO: Add markdown formatting for return messages
-# TODO: Add 'sell all' to 'trade' to sell every asses to current market price
-# TODO: Show euro earned after trade was executed
+# TODO: Add 'sell all' to 'trade' to sell every asses to current market price (not a 'limit' order anymore!)
+# TODO: Update README.md with new command
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -63,7 +63,7 @@ def keyboard_cmds():
         KeyboardButton("/bot")
     ]
 
-    return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=4))
+    return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
 
 
 # Generic custom keyboard that shows YES and NO
@@ -101,6 +101,7 @@ def monitor_order(bot, job):
 
     # Check if trade was executed. If so, stop monitoring and send message
     elif order_info["status"] == "closed":
+        # TODO: Show euro earned after trade was executed
         msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=job.context["chat_id"], text=msg)
         # Stop this job
@@ -111,7 +112,7 @@ def monitor_order(bot, job):
 def monitor_open_orders():
     if config["check_trade"].lower() == "true":
         # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")
+        res_data = kraken.query_private("OpenOrders")  # FIXME: Incorrect padding error???
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
@@ -131,6 +132,7 @@ def monitor_open_orders():
                 job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
 
 
+# FIXME: Euro value in 'trade' should look like '750' not '750.0'
 # Remove trailing zeros to get clean values
 def trim_zeros(value_to_trim):
     if isinstance(value_to_trim, float):
@@ -307,7 +309,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == TradeEnum.BUY.name:
         # Send request to Kraken to get current balance of all currencies
-        res_data_balance = kraken.query_private("Balance")
+        res_data_balance = kraken.query_private("Balance")  # FIXME: Incorrect padding error???
 
         # If Kraken replied with an error, show it
         if res_data_balance["error"]:
@@ -368,12 +370,17 @@ def trade_vol_type_all(bot, update, chat_data):
                  chat_data["currency"][1:] + " @ limit " +
                  chat_data["price"])
 
-    reply_msg = "Place this order?\n" + trade_str
+    # Calculate total value of order
+    total_value = float(chat_data["volume"]) * float(chat_data["price"])
+    total_value_str = "(Total value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
+
+    reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
 
     update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
     return TRADE_CONFIRM
 
 
+# TODO: Showing the message at the end is duplicated in here and in 'trade_vol_type_all'
 # Calculate the volume depending on chosen volume type (EURO or VOLUME)
 def trade_volume(bot, update, chat_data):
     # Entered EURO
@@ -392,7 +399,11 @@ def trade_volume(bot, update, chat_data):
                  chat_data["currency"][1:] + " @ limit " +
                  chat_data["price"])
 
-    reply_msg = "Place this order?\n" + trade_str
+    # Calculate total value of order
+    total_value = float(chat_data["volume"]) * float(chat_data["price"])
+    total_value_str = "(Total value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
+
+    reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
 
     update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
     return TRADE_CONFIRM
