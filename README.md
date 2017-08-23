@@ -5,12 +5,13 @@ Python bot to trade on Kraken via Telegram
 This script is a polling (not [webhook](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks)) based telegram bot. It can trade crypto-currencies on the [Kraken](http://kraken.com) marketplace and has a user friendly interface (custom keyboards with buttons).
 
 ### Features
-- Bound to a specific Telegram user (no need to login to Kraken)
-- Integrated update mechanism (to latest version on GitHub)
-- Notifies you if order is closed (trade successfully executed)
+- Bound to a specific Telegram user - only that user can use the bot
+- No need to login to Kraken - start trading immediately, always
+- Integrated update mechanism - to latest version on GitHub
+- Notifies you once order is closed - trade successfully executed
 - Fully usable with buttons - no need to enter commands manually
 - Following Kraken functionality is implemented
-    - Create a buy / sell order
+    - Create a buy / sell order (type _limit_)
     - Lookup last trade price for currencies
     - Show your assets
     - Current market value of assets
@@ -102,11 +103,16 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Add password protection
 - [ ] Add command `/stats` that shows statistics
 - [ ] Add command `/history` that shows executed trades
-- [ ] Add command `/chart` to show TradingView Chart Widget website
+- [X] Add command `/chart` to show TradingView Chart Widget website
 - [ ] Add command `/funding` to deposit / withdraw funds
+- [ ] Add command `/alert` to be notified once a specified price is reached
 - [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)
-- [ ] Add option to auto-update (with configurable update-check-time)
+- [ ] Add option to automatically check for updates (with configurable timespan)
 - [ ] Optimize code to call Kraken API les often
+- [ ] Add possibility to sell __all__ assets immediately to current market value
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present (commented out for now)
+
+## Disclaimer
+I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen to you because of bugs within this software.

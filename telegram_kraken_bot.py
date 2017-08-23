@@ -14,10 +14,6 @@ from enum import Enum, auto
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler
 
-# TODO: Add markdown formatting for return messages
-# TODO: Add 'sell all' to 'trade' to sell every asses to current market price (not a 'limit' order anymore!)
-# TODO: Add alerts --> new command, like 'orders' that notifies you if some price is reached (<= or >=)
-
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger()
@@ -130,7 +126,7 @@ def monitor_order(bot, job):
     # Check if trade was executed. If so, stop monitoring and send message
     elif order_info["status"] == "closed":
         msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
-        bot.send_message(chat_id=job.context["chat_id"], text=msg)
+        bot.send_message(chat_id=job.context["chat_id"], text=bold(msg), parse_mode=ParseMode.MARKDOWN)
         # Stop this job
         job.schedule_removal()
 
@@ -230,7 +226,7 @@ def balance_cmd(bot, update):
             if currency_value is not available_value:
                 msg = msg[:-len("\n")] + " (Available: " + trim_zeros(available_value) + ")\n"
 
-    update.message.reply_text(msg)
+    update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
 
 # Generic custom keyboard that shows YES and NO
@@ -479,7 +475,7 @@ def trade_confirm(bot, update, chat_data):
         if res_data_query_order["result"][add_order_txid]:
             order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
             msg = "Order placed:\n" + add_order_txid + "\n" + trim_zeros(order_desc)
-            update.message.reply_text(msg, reply_markup=keyboard_cmds())
+            update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
             if config["check_trade"].lower() == "true":
                 # Get time in seconds from config
@@ -518,7 +514,7 @@ def orders_cmd(bot, update):
     if res_data["result"]["open"]:
         for order in res_data["result"]["open"]:
             order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
-            update.message.reply_text(order + "\n" + order_desc)
+            update.message.reply_text(bold(order + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
 
     else:
         update.message.reply_text("No open orders")
@@ -604,7 +600,8 @@ def orders_close_all(bot, update):
                 closed_orders.append(order)
 
         if closed_orders:
-            update.message.reply_text("Orders closed:\n" + "\n".join(closed_orders), reply_markup=keyboard_cmds())
+            msg = bold("Orders closed:\n" + "\n".join(closed_orders))
+            update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     else:
         update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
@@ -627,7 +624,8 @@ def orders_close_order(bot, update):
         update.message.reply_text(beautify(res_data["error"][0]))
         return
 
-    update.message.reply_text("Order closed:\n" + req_data["txid"], reply_markup=keyboard_cmds())
+    msg = bold("Order closed:\n" + req_data["txid"])
+    update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 
 
@@ -672,7 +670,8 @@ def price_currency(bot, update):
     currency = update.message.text
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-    update.message.reply_text(currency + ": " + last_trade_price, reply_markup=keyboard_cmds())
+    msg = bold(currency + ": " + last_trade_price)
+    update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 
 
@@ -770,7 +769,7 @@ def value_currency(bot, update):
         last_trade_price = "{0:.2f}".format(float(last_price))
         msg += "\n(Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
 
-    update.message.reply_text(msg, reply_markup=keyboard_cmds())
+    update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 
 
@@ -982,6 +981,12 @@ def is_user_valid(bot, update):
         return False
     else:
         return True
+
+
+# Add asterisk as prefix and suffix for a string
+# Will make the text bold if used with markdown
+def bold(text):
+    return "*" + text + "*"
 
 
 # Enriches or replaces text based on hardcoded patterns
