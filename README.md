@@ -88,6 +88,7 @@ If you configured the bot correctly and execute the script, you should get a wel
 - `/price`: Returns the last trade price for the selected crypto-currency
 - `/value`: Shows the current market value of the whole volume for the chosen crypto-currency (or for all assets) based on the last trade price
 - `/bot`: Shows options to check for an update, update, restart and shutdown the bot
+- `/chart`: Shows a trading chart for the chosen currency
 
 ##### Related to bot
 - `/update`: Updates the bot to the latest version available on GitHub
