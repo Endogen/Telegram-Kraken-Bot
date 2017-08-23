@@ -112,7 +112,7 @@ def monitor_order(bot, job):
 def monitor_open_orders():
     if config["check_trade"].lower() == "true":
         # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")  # FIXME: Incorrect padding error???
+        res_data = kraken.query_private("OpenOrders")  # FIXME: binascii.Error: Incorrect padding
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
@@ -309,7 +309,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == TradeEnum.BUY.name:
         # Send request to Kraken to get current balance of all currencies
-        res_data_balance = kraken.query_private("Balance")  # FIXME: Incorrect padding error???
+        res_data_balance = kraken.query_private("Balance")  # FIXME: binascii.Error: Incorrect padding
 
         # If Kraken replied with an error, show it
         if res_data_balance["error"]:
