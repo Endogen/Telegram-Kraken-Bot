@@ -17,6 +17,7 @@ from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHand
 # TODO: Add markdown formatting for return messages
 # TODO: Add 'sell all' to 'trade' to sell every asses to current market price (not a 'limit' order anymore!)
 # TODO: Update README.md with new command
+# TODO: Add alerts --> new command, like 'orders' that notifies you if some price is reached (<= or >=)
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
