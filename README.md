@@ -87,18 +87,18 @@ If you configured the bot correctly and execute the script, you should get a wel
 
 ### Available commands
 ##### Related to Kraken
-- `/trade`: Starts a workflow that leads to the creation of a new order to buy or sell crypto-currencies
-- `/orders`: Shows all open orders (buy and sell) and gives the possibility to close a specific order or close all orders
-- `/balance`: Shows all your assets and also the volume available to trade if there are open orders that block some of your assets
-- `/price`: Returns the last trade price for the selected crypto-currency
-- `/value`: Shows the current market value of the whole volume for the chosen crypto-currency (or for all assets) based on the last trade price
-- `/bot`: Shows options to check for an update, update, restart and shutdown the bot
-- `/chart`: Shows a trading chart for the chosen currency
+- `/trade`: Start a workflow that leads to the creation of a new order of type _limit_ (buy or sell)
+- `/orders`: Show all open orders (buy and sell) and close a specific one or all if desired
+- `/balance`: Show all assets and the volume available to trade if open orders exist that block assets
+- `/price`: Return last trade price for the selected crypto-currency
+- `/value`: Show current market value of chosen crypto-currency or all assets, based on the last trade price
+- `/bot`: Show options to check for update, update, restart or shutdown the bot
+- `/chart`: Show a trading chart for the chosen currency
 
 ##### Related to bot
-- `/update`: Updates the bot to the latest version available on GitHub
-- `/restart`: Restarts the bot
-- `/shutdown`: Shuts the bot down
+- `/update`: Update the bot to the latest version on GitHub
+- `/restart`: Restart the bot
+- `/shutdown`: Shutdown the bot
 
 ## Development
 I know that it is unconventional to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
