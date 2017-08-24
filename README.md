@@ -110,7 +110,7 @@ I know that it is unconventional to have the whole source code in just one file.
 - [X] Add command `/chart` to show TradingView Chart Widget website
 - [ ] Add command `/funding` to deposit / withdraw funds
 - [ ] Add command `/alert` to be notified once a specified price is reached
-- [ ] Don't hardcode available crypto-currencies (after Kraken fixed it's API)
+- [ ] Don't hardcode available crypto-currencies (after Kraken fixed its API)
 - [ ] Add option to automatically check for updates (with configurable timespan)
 - [ ] Optimize code to call Kraken API les often
 - [ ] Add possibility to sell __all__ assets immediately to current market value
