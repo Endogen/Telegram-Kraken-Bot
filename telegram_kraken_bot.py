@@ -848,6 +848,7 @@ def chart_cmd(bot, update):
 def chart_currency(bot, update):
     currency = update.message.text
 
+    url = str()
     if currency == KeyboardEnum.XBT.clean():
         url = "Kraken XBT Chart\nhttp://tinyurl.com/y9p6g5a8"
     elif currency == KeyboardEnum.BCH.clean():

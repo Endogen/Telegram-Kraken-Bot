@@ -59,7 +59,11 @@ When you have your Kraken API keys, open the file `kraken.key` and replace `some
 In order to run the bot you need to execute the script `telegram_kraken_bot.py`. If you don't have any idea where to host it, take a look at [Where to host Telegram Bots](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Where-to-host-Telegram-Bots). You can also run the script locally on your computer for testing purposes.
 
 ### Prerequisites
-You have to use __Python 3__ to execute the script and you need to install the following Python modules first:
+##### Python version
+You have to use __Python 3.6__ to execute the script (because of enum method `auto()`). If you would like to use Python 3.4 or 3.5, you have to remove `auto` from imports and set the values in `WorkflowEnum` and `KeyboardEnum` yourself. Python 2.x is __not__ supported.
+
+##### Needed modules
+You need to install the following Python modules first:
 ```shell
 pip3 install python-telegram-bot -U
 pip3 install krakenex -U
@@ -67,7 +71,7 @@ pip3 install requests -U
 ```
 
 ##### Installing from `requirements.txt`
-Do the above to install the newest versions of the needed Python modules or install a set of module-versions that is known to work together for sure with:
+Do the above to install the newest versions of the needed Python modules (recommended) or if you run into issues, install a set of module-versions that is known to work together for sure with:
 ```shell
 pip3 install -r requirements.txt
 ```
@@ -112,7 +116,7 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Add possibility to sell __all__ assets immediately to current market value
 
 ### Known bugs
-- Background jobs that check order state do not send messages if `updater.idle()` is present (commented out for now)
+- Background jobs that check order state do not send messages if `updater.idle()` is present (commented out `updater.idle()` for now)
 
 ## Disclaimer
-I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen to you because of bugs within this software.
+I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
