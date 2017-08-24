@@ -398,7 +398,7 @@ def trade_vol_type_all(bot, update, chat_data):
                  chat_data["price"])
 
     # Calculate total value of order
-    total_value = trim_zeros(float(chat_data["volume"]) * float(chat_data["price"]))
+    total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
     total_value_str = "(Total value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
 
     reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
@@ -426,7 +426,7 @@ def trade_volume(bot, update, chat_data):
                  chat_data["price"])
 
     # Calculate total value of order
-    total_value = trim_zeros(float(chat_data["volume"]) * float(chat_data["price"]))
+    total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
     total_value_str = "(Total value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
 
     reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
