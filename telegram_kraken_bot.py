@@ -95,7 +95,7 @@ def keyboard_cmds():
         KeyboardButton("/price"),
         KeyboardButton("/value"),
         KeyboardButton("/chart"),
-        KeyboardButton("/history"),
+        #KeyboardButton("/history"),  # TODO: Comment in
         KeyboardButton("/bot")
     ]
 
@@ -799,7 +799,7 @@ def history_buy_sell(bot, update):
     update.message.reply_text("Retrieving history data...")
 
     req_data_history = dict()
-    req_data_history["type"] = "closed position"
+    req_data_history["type"] = "no position"
 
     # Send request to Kraken to get trades history
     res_data_trades = kraken.query_private("TradesHistory", req_data_history)
@@ -810,8 +810,8 @@ def history_buy_sell(bot, update):
         return
 
     # TODO: Show the last entry, then show keyboard with "MORE". If pressed, load more
-    for trade_key, trade_value in res_data_trades["result"].items():
-        update.message.reply_text(str(trade_key) + " " + str(trade_value))
+    for trade_id, trade_details in res_data_trades["result"]["trades"].items():
+        update.message.reply_text(str(trade_id) + " " + str(trade_details))
         break  # TODO: Remove - just for testing
 
     return WorkflowEnum.HISTORY_BUY_SELL
