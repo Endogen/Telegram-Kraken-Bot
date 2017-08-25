@@ -46,6 +46,7 @@ class WorkflowEnum(Enum):
     VALUE_CURRENCY = auto()
     BOT_SUB_CMD = auto()
     CHART_CURRENCY = auto()
+    HISTORY_BUY_SELL = auto()
 
 
 # Enum for keyboard
@@ -94,6 +95,7 @@ def keyboard_cmds():
         KeyboardButton("/price"),
         KeyboardButton("/value"),
         KeyboardButton("/chart"),
+        KeyboardButton("/history"),
         KeyboardButton("/bot")
     ]
 
@@ -261,7 +263,7 @@ def trade_cmd(bot, update):
     return WorkflowEnum.TRADE_BUY_SELL
 
 
-# Save if buy or sell order and choose the currency to trade
+# Save if BUY or SELL order and choose the currency to trade
 def trade_buy_sell(bot, update, chat_data):
     chat_data["buysell"] = update.message.text
 
@@ -698,7 +700,7 @@ def value_cmd(bot, update):
 
 # Choose for which currency you want to know the current value
 def value_currency(bot, update):
-    update.message.reply_text("Retrieving data...")
+    update.message.reply_text("Retrieving current value...")
 
     # Send request to Kraken to get current balance of all currencies
     res_data_balance = kraken.query_private("Balance")
@@ -767,6 +769,52 @@ def value_currency(bot, update):
 
     update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
+
+
+# Shows executed trades with volume and price
+def history_cmd(bot, update):
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
+
+    reply_msg = "Show _buy_ or _sell_ trade history?"
+
+    buttons = [
+        KeyboardButton(KeyboardEnum.BUY.clean()),
+        KeyboardButton(KeyboardEnum.SELL.clean())
+    ]
+
+    footer_buttons = [
+        KeyboardButton(KeyboardEnum.ALL.clean()),
+        KeyboardButton(KeyboardEnum.CANCEL.clean())
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=footer_buttons))
+
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
+    return WorkflowEnum.HISTORY_BUY_SELL
+
+
+# Save if BUY, SELL or ALL trade and choose how many to list
+def history_buy_sell(bot, update):
+    update.message.reply_text("Retrieving history data...")
+
+    req_data_history = dict()
+    req_data_history["type"] = "closed position"
+
+    # Send request to Kraken to get trades history
+    res_data_trades = kraken.query_private("TradesHistory", req_data_history)
+
+    # If Kraken replied with an error, show it
+    if res_data_trades["error"]:
+        update.message.reply_text(beautify(res_data_trades["error"][0]))
+        return
+
+    # TODO: Show the last entry, then show keyboard with "MORE". If pressed, load more
+    for trade_key, trade_value in res_data_trades["result"].items():
+        update.message.reply_text(str(trade_key) + " " + str(trade_value))
+        break  # TODO: Remove - just for testing
+
+    return WorkflowEnum.HISTORY_BUY_SELL
 
 
 # Shows sub-commands to control the bot
@@ -1010,6 +1058,19 @@ dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
+
+
+# HISTORY command handler
+history_handler = ConversationHandler(
+    entry_points=[CommandHandler('history', history_cmd)],
+    states={
+        WorkflowEnum.HISTORY_BUY_SELL:
+            [RegexHandler("^(BUY|SELL|ALL)$", history_buy_sell),
+             RegexHandler("^(CANCEL)$", cancel)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(history_handler)
 
 
 # CHART command handler
