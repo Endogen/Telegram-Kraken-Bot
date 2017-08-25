@@ -391,19 +391,8 @@ def trade_vol_type_all(bot, update, chat_data):
         # Get volume from balance and round it to 8 digits
         chat_data["volume"] = "{0:.8f}".format(float(available_volume))
 
-    # Show confirmation for placing order
-    trade_str = (chat_data["buysell"].lower() + " " +
-                 trim_zeros(chat_data["volume"]) + " " +
-                 chat_data["currency"][1:] + " @ limit " +
-                 chat_data["price"])
+    show_trade_conf(update, chat_data)
 
-    # Calculate total value of order
-    total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
-    total_value_str = "(Total value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
-
-    reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
-
-    update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
     return WorkflowEnum.TRADE_CONFIRM
 
 
@@ -419,6 +408,14 @@ def trade_volume(bot, update, chat_data):
     elif chat_data["vol_type"] == KeyboardEnum.VOLUME.clean():
         chat_data["volume"] = "{0:.8f}".format(float(update.message.text))
 
+    show_trade_conf(update, chat_data)
+
+    return WorkflowEnum.TRADE_CONFIRM
+
+
+# Calculate total value and show order description and confirmation for order creation
+# This method is used in 'trade_volume' and in 'trade_vol_type_all'
+def show_trade_conf(update, chat_data):
     # Show confirmation for placing order
     trade_str = (chat_data["buysell"].lower() + " " +
                  trim_zeros(chat_data["volume"]) + " " +
@@ -432,7 +429,6 @@ def trade_volume(bot, update, chat_data):
     reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
 
     update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
-    return WorkflowEnum.TRADE_CONFIRM
 
 
 # The user has to confirm placing the order
