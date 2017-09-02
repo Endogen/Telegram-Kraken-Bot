@@ -16,6 +16,13 @@ This script is a polling (not [webhook](https://github.com/python-telegram-bot/p
     - Show your assets
     - Current market value of assets
     - Show / close open orders
+- Supported currencies
+	- Bitcoin
+	- BitcoinClassic (no trading because of buggy Kraken API)
+	- Ether
+	- Litecoin
+	- Ripple
+	- Monero
 
 ## Configuration
 Before starting up the bot you have to take care of some settings. You need to edit two files:
