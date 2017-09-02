@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import threading
+import datetime
 
 import krakenex
 import requests
@@ -31,6 +32,10 @@ job_queue = updater.job_queue
 kraken = krakenex.API()
 kraken.load_key("kraken.key")
 
+# Lists that cache values from Kraken API calls
+trades = list()
+orders = list()
+
 
 # Enum for workflow
 class WorkflowEnum(Enum):
@@ -46,7 +51,7 @@ class WorkflowEnum(Enum):
     VALUE_CURRENCY = auto()
     BOT_SUB_CMD = auto()
     CHART_CURRENCY = auto()
-    HISTORY_BUY_SELL = auto()
+    HISTORY_NEXT = auto()
 
 
 # Enum for keyboard
@@ -69,6 +74,7 @@ class KeyboardEnum(Enum):
     BCH = auto()
     ETH = auto()
     XMR = auto()
+    NEXT = auto()
 
     def clean(self):
         return self.name.replace("_", " ")
@@ -95,7 +101,7 @@ def keyboard_cmds():
         KeyboardButton("/price"),
         KeyboardButton("/value"),
         KeyboardButton("/chart"),
-        #KeyboardButton("/history"),  # TODO: Comment in
+        KeyboardButton("/history"),
         KeyboardButton("/bot")
     ]
 
@@ -112,7 +118,7 @@ def monitor_order(bot, job):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        bot.send_message(job.context["chat_id"], text=beautify(res_data["error"][0]))
+        bot.send_message(job.context["chat_id"], text=btfy(res_data["error"][0]))
         # Stop this job
         job.schedule_removal()
         return
@@ -141,7 +147,7 @@ def monitor_open_orders():
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            updater.bot.send_message(chat_id=config["user_id"], text=beautify(res_data["error"][0]))
+            updater.bot.send_message(chat_id=config["user_id"], text=btfy(res_data["error"][0]))
             return
 
         if res_data["result"]["open"]:
@@ -185,7 +191,7 @@ def balance_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_balance["error"]:
-        update.message.reply_text(beautify(res_data_balance["error"][0]))
+        update.message.reply_text(btfy(res_data_balance["error"][0]))
         return
 
     # Send request to Kraken to get open orders
@@ -193,7 +199,7 @@ def balance_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_orders["error"]:
-        update.message.reply_text(beautify(res_data_orders["error"][0]))
+        update.message.reply_text(btfy(res_data_orders["error"][0]))
         return
 
     msg = ""
@@ -341,7 +347,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
         # If Kraken replied with an error, show it
         if res_data_balance["error"]:
-            update.message.reply_text(beautify(res_data_balance["error"][0]))
+            update.message.reply_text(btfy(res_data_balance["error"][0]))
             return
 
         available_euros = float(0)
@@ -359,7 +365,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
         # If Kraken replied with an error, show it
         if res_data_balance["error"]:
-            update.message.reply_text(beautify(res_data_balance["error"][0]))
+            update.message.reply_text(btfy(res_data_balance["error"][0]))
             return
 
         # Send request to Kraken to get open orders
@@ -367,7 +373,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
         # If Kraken replied with an error, show it
         if res_data_orders["error"]:
-            update.message.reply_text(beautify(res_data_orders["error"][0]))
+            update.message.reply_text(btfy(res_data_orders["error"][0]))
             return
 
         available_volume = res_data_balance["result"][chat_data["currency"]]
@@ -452,7 +458,7 @@ def trade_confirm(bot, update, chat_data):
 
     # If Kraken replied with an error, show it
     if res_data_add_order["error"]:
-        update.message.reply_text(beautify(res_data_add_order["error"][0]))
+        update.message.reply_text(btfy(res_data_add_order["error"][0]))
         return
 
     # If there is a transaction id then the order was placed successfully
@@ -467,7 +473,7 @@ def trade_confirm(bot, update, chat_data):
 
         # If Kraken replied with an error, show it
         if res_data_query_order["error"]:
-            update.message.reply_text(beautify(res_data_query_order["error"][0]))
+            update.message.reply_text(btfy(res_data_query_order["error"][0]))
             return
 
         if res_data_query_order["result"][add_order_txid]:
@@ -505,7 +511,7 @@ def orders_cmd(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
+        update.message.reply_text(btfy(res_data["error"][0]))
         return
 
     # Go through all open orders and show them to the user
@@ -544,7 +550,7 @@ def orders_choose_order(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
+        update.message.reply_text(btfy(res_data["error"][0]))
         return
 
     buttons = list()
@@ -579,7 +585,7 @@ def orders_close_all(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
+        update.message.reply_text(btfy(res_data["error"][0]))
         return
 
     closed_orders = list()
@@ -593,13 +599,17 @@ def orders_close_all(bot, update):
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                update.message.reply_text("Error closing order\n" + order + "\n" + beautify(res_data["error"][0]))
+                msg = "Not possible to close order\n" + order + "\n" + btfy(res_data["error"][0])
+                update.message.reply_text(msg)
             else:
                 closed_orders.append(order)
 
         if closed_orders:
             msg = bold("Orders closed:\n" + "\n".join(closed_orders))
             update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+        else:
+            update.message.reply_text("No orders closed", reply_markup=keyboard_cmds())
+            return
 
     else:
         update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
@@ -619,7 +629,7 @@ def orders_close_order(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
+        update.message.reply_text(btfy(res_data["error"][0]))
         return
 
     msg = bold("Order closed:\n" + req_data["txid"])
@@ -662,7 +672,7 @@ def price_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(beautify(res_data["error"][0]))
+        update.message.reply_text(btfy(res_data["error"][0]))
         return
 
     currency = update.message.text
@@ -707,7 +717,7 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_balance["error"]:
-        update.message.reply_text(beautify(res_data_balance["error"][0]))
+        update.message.reply_text(btfy(res_data_balance["error"][0]))
         return
 
     req_data_price = dict()
@@ -742,7 +752,7 @@ def value_currency(bot, update):
 
     # If Kraken replied with an error, show it
     if res_data_price["error"]:
-        update.message.reply_text(beautify(res_data_price["error"][0]))
+        update.message.reply_text(btfy(res_data_price["error"][0]))
         return
 
     total_value_euro = euro_balance
@@ -776,45 +786,84 @@ def history_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    reply_msg = "Show _buy_ or _sell_ trade history?"
+    # Reset trades dictionary
+    global trades
+    trades = list()
 
-    buttons = [
-        KeyboardButton(KeyboardEnum.BUY.clean()),
-        KeyboardButton(KeyboardEnum.SELL.clean())
-    ]
-
-    footer_buttons = [
-        KeyboardButton(KeyboardEnum.ALL.clean()),
-        KeyboardButton(KeyboardEnum.CANCEL.clean())
-    ]
-
-    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=footer_buttons))
-
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
-    return WorkflowEnum.HISTORY_BUY_SELL
-
-
-# Save if BUY, SELL or ALL trade and choose how many to list
-def history_buy_sell(bot, update):
     update.message.reply_text("Retrieving history data...")
 
-    req_data_history = dict()
-    req_data_history["type"] = "no position"
-
     # Send request to Kraken to get trades history
-    res_data_trades = kraken.query_private("TradesHistory", req_data_history)
+    res_data_trades = kraken.query_private("TradesHistory")
 
     # If Kraken replied with an error, show it
     if res_data_trades["error"]:
-        update.message.reply_text(beautify(res_data_trades["error"][0]))
+        update.message.reply_text(btfy(res_data_trades["error"][0]))
         return
 
-    # TODO: Show the last entry, then show keyboard with "MORE". If pressed, load more
+    # Add all trades to global list
     for trade_id, trade_details in res_data_trades["result"]["trades"].items():
-        update.message.reply_text(str(trade_id) + " " + str(trade_details))
-        break  # TODO: Remove - just for testing
+        trades.append(trade_details)
 
-    return WorkflowEnum.HISTORY_BUY_SELL
+    if trades:
+        # Sort global list with trades - on executed time
+        trades = sorted(trades, key=lambda k: k['time'], reverse=True)
+
+        buttons = [
+            KeyboardButton(KeyboardEnum.NEXT.clean())
+        ]
+
+        cancel_btn = [
+            KeyboardButton(KeyboardEnum.CANCEL.clean())
+        ]
+
+        # Get first item in list (latest trade)
+        newest_trade = next(iter(trades), None)
+
+        trade_str = (newest_trade["type"] + " " +
+                     trim_zeros(newest_trade["vol"]) + " " +
+                     newest_trade["pair"][1:] + " @ limit " +
+                     trim_zeros(newest_trade["price"]) + " on " +
+                     datetime_from_timestamp(newest_trade["time"]))
+
+        total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+
+        msg = trade_str + " (Value: " + total_value + " EUR)"
+        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=1, footer_buttons=cancel_btn))
+        update.message.reply_text(bold(msg), reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
+
+        # Remove the first item in the trades list
+        trades.remove(newest_trade)
+
+        return WorkflowEnum.HISTORY_NEXT
+    else:
+        update.message.reply_text("No item in trade history", reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+
+
+# Save if BUY, SELL or ALL trade history and choose how many entries to list
+def history_next(bot, update):
+    if trades:
+        # Get first item in list (latest trade)
+        newest_trade = next(iter(trades), None)
+
+        trade_str = (newest_trade["type"] + " " +
+                     trim_zeros(newest_trade["vol"]) + " " +
+                     newest_trade["pair"][1:] + " @ limit " +
+                     trim_zeros(newest_trade["price"]) + " on " +
+                     datetime_from_timestamp(newest_trade["time"]))
+
+        total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+
+        msg = trade_str + " (Value: " + total_value + " EUR)"
+        update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
+
+        # Remove the first item in the trades list
+        trades.remove(newest_trade)
+
+        return WorkflowEnum.HISTORY_NEXT
+    else:
+        update.message.reply_text("No item in trade history", reply_markup=keyboard_cmds())
+        return ConversationHandler.END
 
 
 # Shows sub-commands to control the bot
@@ -836,8 +885,8 @@ def bot_cmd(bot, update):
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
-
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.BOT_SUB_CMD
 
 
@@ -883,8 +932,8 @@ def chart_cmd(bot, update):
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=4, footer_buttons=cancel_btn))
-
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.CHART_CURRENCY
 
 
@@ -1028,14 +1077,19 @@ def is_user_valid(bot, update):
         return True
 
 
+# Converts a Unix timestamp to a datatime object with format 'Y-m-d H:M:S'
+def datetime_from_timestamp(unix_timestamp):
+    return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+
+
 # Add asterisk as prefix and suffix for a string
 # Will make the text bold if used with markdown
 def bold(text):
     return "*" + text + "*"
 
 
-# Enriches or replaces text based on hardcoded patterns
-def beautify(text):
+# beautify - Enriches or replaces text, based on hardcoded patterns
+def btfy(text):
     if "EQuery" in text:
         return text.replace("EQuery:", "Kraken Error (Query): ")
     elif "EGeneral" in text:
@@ -1064,8 +1118,8 @@ dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 history_handler = ConversationHandler(
     entry_points=[CommandHandler('history', history_cmd)],
     states={
-        WorkflowEnum.HISTORY_BUY_SELL:
-            [RegexHandler("^(BUY|SELL|ALL)$", history_buy_sell),
+        WorkflowEnum.HISTORY_NEXT:
+            [RegexHandler("^(NEXT)$", history_next),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]

@@ -104,17 +104,22 @@ If you configured the bot correctly and execute the script, you should get a wel
 I know that it is unconventional to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
 
 ### Todo
-- [ ] Add password protection for order creation
-- [ ] Add command `/stats` that shows statistics
-- [ ] Add command `/history` that shows executed trades
+##### Priority 1
+- [X] Add command `/history` that shows executed trades
 - [X] Add command `/chart` to show TradingView Chart Widget website
 - [ ] Add command `/funding` to deposit / withdraw funds
 - [ ] Add command `/alert` to be notified once a specified price is reached
-- [ ] Don't hardcode available crypto-currencies (after Kraken fixed its API)
-- [ ] Add option to automatically check for updates (with configurable timespan)
-- [ ] Optimize code to call Kraken API les often
 - [ ] Add possibility to sell __all__ assets immediately to current market value
+- [ ] Enable to trade every currency that Kraken supports
+
+##### Priority 2
+- [ ] Optimize code to call Kraken API les often
+- [ ] Add option to automatically check for updates (with configurable timespan)
 - [ ] Create webhook-version of this bot
+
+##### Priority 3
+- [ ] Add command `/stats` that shows statistics
+- [ ] Notificaiton: Show win / loss if association between buy and sell order can be made
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present (commented out `updater.idle()` for now)
