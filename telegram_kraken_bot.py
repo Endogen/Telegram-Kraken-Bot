@@ -72,8 +72,10 @@ class KeyboardEnum(Enum):
     SHUTDOWN = auto()
     XBT = auto()
     BCH = auto()
+    LTC = auto()
     ETH = auto()
     XMR = auto()
+    XRP = auto()
     NEXT = auto()
 
     def clean(self):
@@ -278,7 +280,9 @@ def trade_buy_sell(bot, update, chat_data):
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
-        KeyboardButton(KeyboardEnum.XMR.clean())
+        KeyboardButton(KeyboardEnum.LTC.clean()),
+        KeyboardButton(KeyboardEnum.XMR.clean()),
+        KeyboardButton(KeyboardEnum.XRP.clean())
     ]
 
     cancel_btn = [
@@ -647,7 +651,9 @@ def price_cmd(bot, update):
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
-        KeyboardButton(KeyboardEnum.XMR.clean())
+        KeyboardButton(KeyboardEnum.LTC.clean()),
+        KeyboardButton(KeyboardEnum.XMR.clean()),
+        KeyboardButton(KeyboardEnum.XRP.clean())
     ]
 
     cancel_btn = [
@@ -694,7 +700,9 @@ def value_cmd(bot, update):
         KeyboardButton(KeyboardEnum.XBT.clean()),
         KeyboardButton(KeyboardEnum.BCH.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
-        KeyboardButton(KeyboardEnum.XMR.clean())
+        KeyboardButton(KeyboardEnum.LTC.clean()),
+        KeyboardButton(KeyboardEnum.XMR.clean()),
+        KeyboardButton(KeyboardEnum.XRP.clean())
     ]
 
     footer_btns = [
@@ -702,7 +710,7 @@ def value_cmd(bot, update):
         KeyboardButton(KeyboardEnum.CANCEL.clean())
     ]
 
-    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=footer_btns))
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=footer_btns))
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
     return WorkflowEnum.VALUE_CURRENCY
@@ -924,7 +932,9 @@ def chart_cmd(bot, update):
         KeyboardButton(KeyboardEnum.XBT.clean()),
         KeyboardButton(KeyboardEnum.BCH.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
-        KeyboardButton(KeyboardEnum.XMR.clean())
+        KeyboardButton(KeyboardEnum.LTC.clean()),
+        KeyboardButton(KeyboardEnum.XMR.clean()),
+        KeyboardButton(KeyboardEnum.XRP.clean())
     ]
 
     cancel_btn = [
@@ -943,13 +953,17 @@ def chart_currency(bot, update):
 
     url = str()
     if currency == KeyboardEnum.XBT.clean():
-        url = "Kraken XBT Chart\nhttp://tinyurl.com/y9p6g5a8"
+        url = "Kraken XBT Chart\nhttps://tinyurl.com/y9p6g5a8"
     elif currency == KeyboardEnum.BCH.clean():
-        url = "Kraken BCH Chart\nhttp://tinyurl.com/yas7972g"
+        url = "Kraken BCH Chart\nhttps://tinyurl.com/yas7972g"
     elif currency == KeyboardEnum.ETH.clean():
-        url = "Kraken ETH Chart\nhttp://tinyurl.com/ya3fkha4"
+        url = "Kraken ETH Chart\nhttps://tinyurl.com/ya3fkha4"
+    elif currency == KeyboardEnum.LTC.clean():
+        url = "Kraken LTC Chart\nhttps://tinyurl.com/y8n7ohfh"
     elif currency == KeyboardEnum.XMR.clean():
-        url = "Kraken XMR Chart\nhttp://tinyurl.com/y98ygfuw"
+        url = "Kraken XMR Chart\nhttps://tinyurl.com/y98ygfuw"
+    elif currency == KeyboardEnum.XRP.clean():
+        url = "Kraken XRP Chart\nhttps://tinyurl.com/ya4wcy3h"
 
     update.message.reply_text(url, reply_markup=keyboard_cmds())
     return ConversationHandler.END
@@ -1132,7 +1146,7 @@ chart_handler = ConversationHandler(
     entry_points=[CommandHandler('chart', chart_cmd)],
     states={
         WorkflowEnum.CHART_CURRENCY:
-            [RegexHandler("^(XBT|ETH|XMR|BCH)$", chart_currency),
+            [RegexHandler("^(XBT|BCH|ETH|LTC|XMR|XRP)$", chart_currency),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
@@ -1165,7 +1179,7 @@ trade_handler = ConversationHandler(
             [RegexHandler("^(BUY|SELL)$", trade_buy_sell, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.TRADE_CURRENCY:
-            [RegexHandler("^(XBT|ETH|XMR)$", trade_currency, pass_chat_data=True),
+            [RegexHandler("^(XBT|ETH|LTC|XMR|XRP)$", trade_currency, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
@@ -1188,7 +1202,7 @@ price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
     states={
         WorkflowEnum.PRICE_CURRENCY:
-            [RegexHandler("^(XBT|ETH|XMR)$", price_currency),
+            [RegexHandler("^(XBT|ETH|LTC|XMR|XRP)$", price_currency),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
@@ -1201,7 +1215,7 @@ value_handler = ConversationHandler(
     entry_points=[CommandHandler('value', value_cmd)],
     states={
         WorkflowEnum.VALUE_CURRENCY:
-            [RegexHandler("^(XBT|BCH|ETH|XMR|ALL)$", value_currency),
+            [RegexHandler("^(XBT|BCH|LTC|ETH|XMR|XRP|ALL)$", value_currency),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
