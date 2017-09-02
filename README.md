@@ -101,6 +101,7 @@ If you configured the bot correctly and execute the script, you should get a wel
 - `/value`: Show current market value of chosen crypto-currency or all assets, based on the last trade price
 - `/bot`: Show options to check for update, update, restart or shutdown the bot
 - `/chart`: Show a trading chart for the chosen currency
+- `/history`: Show history of closed trades
 
 ##### Related to bot
 - `/update`: Update the bot to the latest version on GitHub
@@ -121,7 +122,7 @@ I know that it is unconventional to have the whole source code in just one file.
 
 ##### Priority 2
 - [ ] Optimize code to call Kraken API les often
-- [ ] Add option to automatically check for updates (with configurable timespan)
+- [ ] Automatically check for updates (configurable timespan & changelog)
 - [ ] Create webhook-version of this bot
 
 ##### Priority 3
