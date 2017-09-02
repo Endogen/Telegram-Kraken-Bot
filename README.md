@@ -72,21 +72,21 @@ You have to use __Python 3.6__ to execute the script (because of enum method `au
 ##### Needed modules
 You need to install the following Python modules first:
 ```shell
-pip3 install python-telegram-bot -U
-pip3 install krakenex -U
-pip3 install requests -U
+pip3.6 install python-telegram-bot -U
+pip3.6 install krakenex -U
+pip3.6 install requests -U
 ```
 
 ##### Installing from `requirements.txt`
 Do the above to install the newest versions of the needed Python modules (recommended) or if you run into issues, install a set of module-versions that is known to work together for sure with:
 ```shell
-pip3 install -r requirements.txt
+pip3.6 install -r requirements.txt
 ```
 
 ### Starting up
 To start the script, execute
 ```shell
-python3 telegram_kraken_bot.py &
+python3.6 telegram_kraken_bot.py &
 ```
 
 ## Usage
