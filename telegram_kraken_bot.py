@@ -266,8 +266,8 @@ def trade_cmd(bot, update):
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
-
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.TRADE_BUY_SELL
 
 
@@ -285,14 +285,65 @@ def trade_buy_sell(bot, update, chat_data):
         KeyboardButton(KeyboardEnum.XRP.clean())
     ]
 
+    # If SELL chosen, then include button 'ALL' to sell everything
+    if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
+        buttons.append(KeyboardButton(KeyboardEnum.ALL.clean()))
+
     cancel_btn = [
         KeyboardButton(KeyboardEnum.CANCEL.clean())
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
-
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.TRADE_CURRENCY
+
+
+# Sells all assets for current market value
+def trade_sell_all(bot, update):
+    update.message.reply_text("Reading current balance...")
+
+    # Send request to Kraken to get current balance of all currencies
+    res_data_balance = kraken.query_private("Balance")
+
+    # If Kraken replied with an error, show it
+    if res_data_balance["error"]:
+        update.message.reply_text(btfy(res_data_balance["error"][0]))
+        return
+
+    update.message.reply_text("Selling everything...")
+
+    overall_earned = float()
+
+    # Go over all assets and sell them
+    for asset, amount in res_data_balance["result"].items():
+        # Current asset is not a crypto-currency - skip it
+        if asset.endswith(config["trade_to_currency"]):
+            continue
+
+        req_data = dict()
+        req_data["type"] = "sell"
+        req_data["pair"] = asset + "Z" + config["trade_to_currency"]
+        req_data["ordertype"] = "market"
+        req_data["volume"] = amount
+
+        # Send request to create order to Kraken
+        res_data_add_order = kraken.query_private("AddOrder", req_data)
+
+        # If Kraken replied with an error, show it
+        if res_data_add_order["error"]:
+            update.message.reply_text(btfy(res_data_add_order["error"][0]))
+
+        # TODO: This for sure does not help to get the price of the currency was sold at
+        price = res_data_add_order["result"]
+        money_symbol = config["trade_to_currency"]
+        msg = "Sold " + amount + " " + asset + " for " + price + " " + money_symbol
+        update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
+
+    msg = "Everything sold! New balance is: " + overall_earned + " " + config["trade_to_currency"]
+    update.message.reply_text(msg, reply_markup=keyboard_cmds())
+
+    return WorkflowEnum.TRADE
 
 
 # Save currency to trade and enter price per unit to trade
@@ -661,8 +712,8 @@ def price_cmd(bot, update):
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
-
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.PRICE_CURRENCY
 
 
@@ -686,6 +737,7 @@ def price_currency(bot, update):
 
     msg = bold(currency + ": " + last_trade_price)
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+
     return ConversationHandler.END
 
 
@@ -711,8 +763,8 @@ def value_cmd(bot, update):
     ]
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=footer_btns))
-
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.VALUE_CURRENCY
 
 
@@ -786,6 +838,7 @@ def value_currency(bot, update):
         msg += "\n(Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
 
     update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+
     return ConversationHandler.END
 
 
@@ -845,6 +898,7 @@ def history_cmd(bot, update):
         return WorkflowEnum.HISTORY_NEXT
     else:
         update.message.reply_text("No item in trade history", reply_markup=keyboard_cmds())
+
         return ConversationHandler.END
 
 
@@ -871,6 +925,7 @@ def history_next(bot, update):
         return WorkflowEnum.HISTORY_NEXT
     else:
         update.message.reply_text("No item in trade history", reply_markup=keyboard_cmds())
+
         return ConversationHandler.END
 
 
@@ -966,6 +1021,7 @@ def chart_currency(bot, update):
         url = "Kraken XRP Chart\nhttps://tinyurl.com/ya4wcy3h"
 
     update.message.reply_text(url, reply_markup=keyboard_cmds())
+
     return ConversationHandler.END
 
 
@@ -1180,7 +1236,8 @@ trade_handler = ConversationHandler(
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.TRADE_CURRENCY:
             [RegexHandler("^(XBT|ETH|LTC|XMR|XRP)$", trade_currency, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)],
+             RegexHandler("^(CANCEL)$", cancel),
+             RegexHandler("^(ALL)$", trade_sell_all)],
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
