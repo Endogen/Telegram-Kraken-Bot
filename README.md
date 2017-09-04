@@ -31,18 +31,15 @@ Before starting up the bot you have to take care of some settings. You need to e
 This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__.
 
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to `userinfobot` and he will reply your ID
-
 - __bot_token__: The token that identifies your bot. You will get this from 'BotFather' when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
-
 - __trade\_to\_currency__: The fiat currency you are using (for example `EUR`)
-
-- __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) then you will be notified with a message
-
+- __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified with a message
 - __check\_trade\_time__: Time in seconds to check for order status change (see setting `check_trade`)
-
 - __update_url__: URL to the latest GitHub version of the script. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you can use the default value
-
 - __update_hash__: Hash of the latest version of the script. __Please don't change this__. Will be set automatically after updating
+- __update_check__: (_currently not used_) If `true`, then periodic update-checks (see option `update_time` for timespan) are performed. If there is a bot-update available then the bot will send a message
+- __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
+- __send_error__: If `true`, then all errors that might happen will trigger a message to the user
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered secret and you should be the only one that knows them. If you don't know where to get / how to generate the keys:
