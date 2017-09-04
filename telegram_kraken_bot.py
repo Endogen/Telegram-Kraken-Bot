@@ -34,7 +34,7 @@ kraken.load_key("kraken.key")
 
 # Lists that cache values from Kraken API calls
 trades = list()
-orders = list()
+orders = list()  # TODO: Use this variable in '/orders'
 
 
 # Enum for workflow
@@ -110,6 +110,9 @@ def keyboard_cmds():
     return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
 
 
+# TODO: See if we can combine method 'monitor_order' and 'monitor_new_order'
+# TODO: If error happens at API call, we simply get an error that seems to be out of context.
+# TODO: Log errors but don't show them.
 # Check order status and send message if order closed
 def monitor_order(bot, job):
     req_data = dict()
@@ -118,6 +121,7 @@ def monitor_order(bot, job):
     # Send request to get info on specific order
     res_data = kraken.query_private("QueryOrders", req_data)
 
+    # TODO: Try to distinguish if TXID doesn't exist or if timeout happened
     # If Kraken replied with an error, show it
     if res_data["error"]:
         bot.send_message(job.context["chat_id"], text=btfy(res_data["error"][0]))
@@ -141,8 +145,8 @@ def monitor_order(bot, job):
         job.schedule_removal()
 
 
-# Monitor status changes of open orders
-def monitor_open_orders():
+# Monitor status changes of previously created open orders
+def monitor_existing_orders():
     if config["check_trade"].lower() == "true":
         # Send request for open orders to Kraken
         res_data = kraken.query_private("OpenOrders")
@@ -163,6 +167,18 @@ def monitor_open_orders():
 
                 # Add Job to JobQueue to check status of order
                 job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
+
+
+# Monitor status change of newly created order
+def monitor_new_order(chat_id, txid):
+    if config["check_trade"].lower() == "true":
+        # Get time in seconds from config
+        check_trade_time = config["check_trade_time"]
+        # Create context object with chat ID and order TXID
+        context_data = dict(chat_id=chat_id, order_txid=txid)
+
+        # Create job to check status of newly created order
+        job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
 
 
 # Remove trailing zeros to get clean values
@@ -299,7 +315,7 @@ def trade_buy_sell(bot, update, chat_data):
     return WorkflowEnum.TRADE_CURRENCY
 
 
-# Sells all assets for current market value
+# Sells all assets for there respective current market value
 def trade_sell_all(bot, update):
     update.message.reply_text("Reading current balance...")
 
@@ -311,9 +327,7 @@ def trade_sell_all(bot, update):
         update.message.reply_text(btfy(res_data_balance["error"][0]))
         return
 
-    update.message.reply_text("Selling everything...")
-
-    overall_earned = float()
+    update.message.reply_text("Creating sell-orders for assets...")
 
     # Go over all assets and sell them
     for asset, amount in res_data_balance["result"].items():
@@ -333,17 +347,19 @@ def trade_sell_all(bot, update):
         # If Kraken replied with an error, show it
         if res_data_add_order["error"]:
             update.message.reply_text(btfy(res_data_add_order["error"][0]))
+            # TODO: Is it OK to not RETURN here? See other example where i did this already
 
-        # TODO: This for sure does not help to get the price of the currency was sold at
+        # TODO: Do we get a sold-for-price info in the reply? I don't think so...
+        # TODO: Create jobs to monitor orders
         price = res_data_add_order["result"]
         money_symbol = config["trade_to_currency"]
         msg = "Sold " + amount + " " + asset + " for " + price + " " + money_symbol
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
-    msg = "Everything sold! New balance is: " + overall_earned + " " + config["trade_to_currency"]
+    msg = "Orders to sell all assets created"
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
-    return WorkflowEnum.TRADE
+    return ConversationHandler.END
 
 
 # Save currency to trade and enter price per unit to trade
@@ -536,15 +552,7 @@ def trade_confirm(bot, update, chat_data):
             msg = "Order placed:\n" + add_order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
-            if config["check_trade"].lower() == "true":
-                # Get time in seconds from config
-                check_trade_time = config["check_trade_time"]
-                # Create context object with chat ID and order TXID
-                context_data = dict(chat_id=update.message.chat_id, order_txid=add_order_txid)
-
-                # Create job to check status of newly created order
-                job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
-
+            monitor_new_order(update.message.chat_id, add_order_txid)
         else:
             update.message.reply_text("No order with TXID " + add_order_txid)
 
@@ -847,7 +855,7 @@ def history_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    # Reset trades dictionary
+    # Reset global trades dictionary
     global trades
     trades = list()
 
@@ -1301,7 +1309,7 @@ message = "KrakenBot is up and running!\n" + get_update_state()
 updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
 
 # Monitor status changes of open orders
-monitor_open_orders()
+monitor_existing_orders()
 
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since

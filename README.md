@@ -34,10 +34,6 @@ This file holds the configuration for your bot. You have to at least edit the va
 
 - __bot_token__: The token that identifies your bot. You will get this from 'BotFather' when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
 
-- __password_needed__: (_currently not used_) If you want to use the bot with a password, set this to `true`, otherwise to `false`
-
-- __password_hash__: (_currently not used_) Will be set automatically once you enable the password protection and set a new password. __Please don't change this__
-
 - __trade\_to\_currency__: The fiat currency you are using (for example `EUR`)
 
 - __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) then you will be notified with a message
@@ -49,7 +45,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __update_hash__: Hash of the latest version of the script. __Please don't change this__. Will be set automatically after updating
 
 ### kraken.key
-This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered secret and you should be the only one that knows them. If you don't know where to get / how to gererate the keys:
+This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered secret and you should be the only one that knows them. If you don't know where to get / how to generate the keys:
 
 1. Login to Kraken
 2. Click on `Settings`
@@ -121,16 +117,20 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Enable to trade every currency that Kraken supports
 
 ##### Priority 2
-- [ ] Optimize code to call Kraken API les often
+- [ ] Optimize code to call Kraken API less often
 - [ ] Automatically check for updates (configurable timespan & changelog)
 - [ ] Create webhook-version of this bot
 
 ##### Priority 3
 - [ ] Add command `/stats` that shows statistics
-- [ ] Notificaiton: Show win / loss if association between buy and sell order can be made
+- [ ] Notification: Show win / loss if association between buy and sell order can be made
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present (commented out `updater.idle()` for now)
+
+## Troubleshooting
+In case you experience issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new).
+- __Error message `Invalid nonce`__: It might happen pretty often that Kraken replies with this error. If you want to understand what a nonce is, [read the Wikipedia article](https://en.wikipedia.org/wiki/Cryptographic_nonce). This error happens mostly if you use different Telegram clients. Maybe you issued some commands on your laptop and then switched to your smartphone? That would be a typical scenario where this might happen. Or you didn't use the bot for a long time. To resolve it, just execute the command again. It should work the second time - meaning you press the keyboard button again. Unfortunately there is not much i can do. The correct behavior would be to have one Kraken API key-pair for one device (one for your smartphone and one for your laptop). Unfortunately there is no way to identify the client. You can play around with the nonce value in your Kraken account (take a look at the settings for the generated key-pair). If you really annoyed by this then here is what you could try: Create some key-pairs (5 might do it) and then, before you call the Kraken API, randomly choose one of the keys and use it till the next Kraken API call is made.
 
 ## Disclaimer
 I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
