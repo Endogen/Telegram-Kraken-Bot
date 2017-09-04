@@ -886,7 +886,7 @@ def chart_cmd(bot, update):
         KeyboardButton(KeyboardEnum.CANCEL.clean())
     ]
 
-    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=4, footer_buttons=cancel_btn))
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
     return WorkflowEnum.CHART_CURRENCY
