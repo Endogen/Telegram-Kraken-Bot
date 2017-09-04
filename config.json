@@ -1,11 +1,12 @@
 {
 	"user_id" : "some_telegram_user_id",
 	"bot_token" : "some_bot_token",
-	"password_needed" : "true",
-	"password_hash" : "some_hash",
 	"trade_to_currency" : "EUR",
-	"check_trade" : "true",
+	"check_trade" : true,
 	"check_trade_time" : 30,
 	"update_url" : "https://raw.githubusercontent.com/endogen/Telegram-Kraken-Bot/master/telegram_kraken_bot.py",
-	"update_hash" : "some_hash"
+	"update_hash" : "some_hash",
+	"update_check" : true,
+	"update_time" : 86400,
+	"send_error" : false
 }
