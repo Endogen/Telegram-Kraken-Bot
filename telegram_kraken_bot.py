@@ -334,6 +334,9 @@ def trade_sell_all(bot, update):
         # Current asset is not a crypto-currency - skip it
         if asset.endswith(config["trade_to_currency"]):
             continue
+        # Filter out currencies that have a volume of 0
+        if trim_zeros(amount) == "0":
+            continue
 
         req_data = dict()
         req_data["type"] = "sell"
@@ -356,8 +359,8 @@ def trade_sell_all(bot, update):
         msg = "Sold " + amount + " " + asset + " for " + price + " " + money_symbol
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
-    msg = "Orders to sell all assets created"
-    update.message.reply_text(msg, reply_markup=keyboard_cmds())
+    msg = "Created orders to sell all assets"
+    update.message.reply_text(bold(msg), reply_markup=keyboard_cmds())
 
     return ConversationHandler.END
 
@@ -850,6 +853,7 @@ def value_currency(bot, update):
     return ConversationHandler.END
 
 
+# TODO: Add color to 'buy' / 'sell' with ParseMode.HTML and also make it bold there
 # Shows executed trades with volume and price
 def history_cmd(bot, update):
     if not is_user_valid(bot, update):
