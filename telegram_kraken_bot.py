@@ -32,9 +32,8 @@ job_queue = updater.job_queue
 kraken = krakenex.API()
 kraken.load_key("kraken.key")
 
-# Lists that cache values from Kraken API calls
+# List that caches trades
 trades = list()
-orders = list()  # TODO: Use this variable in '/orders'
 
 
 # Enum for workflow
@@ -80,121 +79,6 @@ class KeyboardEnum(Enum):
 
     def clean(self):
         return self.name.replace("_", " ")
-
-
-# Create a button menu to show in Telegram messages
-def build_menu(buttons, n_cols=1, header_buttons=None, footer_buttons=None):
-    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
-
-    if header_buttons:
-        menu.insert(0, header_buttons)
-    if footer_buttons:
-        menu.append(footer_buttons)
-
-    return menu
-
-
-# Custom keyboard that shows all available commands
-def keyboard_cmds():
-    command_buttons = [
-        KeyboardButton("/trade"),
-        KeyboardButton("/orders"),
-        KeyboardButton("/balance"),
-        KeyboardButton("/price"),
-        KeyboardButton("/value"),
-        KeyboardButton("/chart"),
-        KeyboardButton("/history"),
-        KeyboardButton("/bot")
-    ]
-
-    return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
-
-
-# TODO: See if we can combine method 'monitor_order' and 'monitor_new_order'
-# TODO: If error happens at API call, we simply get an error that seems to be out of context.
-# TODO: Log errors but don't show them.
-# Check order status and send message if order closed
-def monitor_order(bot, job):
-    req_data = dict()
-    req_data["txid"] = job.context["order_txid"]
-
-    # Send request to get info on specific order
-    res_data = kraken.query_private("QueryOrders", req_data)
-
-    # TODO: Try to distinguish if TXID doesn't exist or if timeout happened
-    # If Kraken replied with an error, show it
-    if res_data["error"]:
-        bot.send_message(job.context["chat_id"], text=btfy(res_data["error"][0]))
-        # Stop this job
-        job.schedule_removal()
-        return
-
-    # Save information about order
-    order_info = res_data["result"][job.context["order_txid"]]
-
-    # Check if order was canceled. If so, stop monitoring
-    if order_info["status"] == "canceled":
-        # Stop this job
-        job.schedule_removal()
-
-    # Check if trade was executed. If so, stop monitoring and send message
-    elif order_info["status"] == "closed":
-        msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
-        bot.send_message(chat_id=job.context["chat_id"], text=bold(msg), parse_mode=ParseMode.MARKDOWN)
-        # Stop this job
-        job.schedule_removal()
-
-
-# Monitor status changes of previously created open orders
-def monitor_existing_orders():
-    if config["check_trade"].lower() == "true":
-        # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")
-
-        # If Kraken replied with an error, show it
-        if res_data["error"]:
-            updater.bot.send_message(chat_id=config["user_id"], text=btfy(res_data["error"][0]))
-            return
-
-        if res_data["result"]["open"]:
-            for order in res_data["result"]["open"]:
-                order_txid = str(order)
-
-                # Get time in seconds from config
-                check_trade_time = config["check_trade_time"]
-                # Create context object with chat ID and order TXID
-                context_data = dict(chat_id=config["user_id"], order_txid=order_txid)
-
-                # Add Job to JobQueue to check status of order
-                job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
-
-
-# Monitor status change of newly created order
-def monitor_new_order(chat_id, txid):
-    if config["check_trade"].lower() == "true":
-        # Get time in seconds from config
-        check_trade_time = config["check_trade_time"]
-        # Create context object with chat ID and order TXID
-        context_data = dict(chat_id=chat_id, order_txid=txid)
-
-        # Create job to check status of newly created order
-        job_queue.run_repeating(monitor_order, check_trade_time, context=context_data)
-
-
-# Remove trailing zeros to get clean values
-def trim_zeros(value_to_trim):
-    if isinstance(value_to_trim, float):
-        return ('%.8f' % value_to_trim).rstrip('0').rstrip('.')
-    elif isinstance(value_to_trim, str):
-        str_list = value_to_trim.split(" ")
-        for i in range(len(str_list)):
-            old_str = str_list[i]
-            if old_str.replace(".", "").isdigit():
-                new_str = str(('%.8f' % float(old_str)).rstrip('0').rstrip('.'))
-                str_list[i] = new_str
-        return " ".join(str_list)
-    else:
-        return value_to_trim
 
 
 # Get balance of all currencies
@@ -255,16 +139,6 @@ def balance_cmd(bot, update):
     update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
 
-# Generic custom keyboard that shows YES and NO
-def keyboard_confirm():
-    buttons = [
-        KeyboardButton(KeyboardEnum.YES.clean()),
-        KeyboardButton(KeyboardEnum.NO.clean())
-    ]
-
-    return ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
-
-
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 def trade_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -317,7 +191,7 @@ def trade_buy_sell(bot, update, chat_data):
 
 # Sells all assets for there respective current market value
 def trade_sell_all(bot, update):
-    update.message.reply_text("Reading current balance...")
+    update.message.reply_text("Reading balance...")
 
     # Send request to Kraken to get current balance of all currencies
     res_data_balance = kraken.query_private("Balance")
@@ -327,7 +201,7 @@ def trade_sell_all(bot, update):
         update.message.reply_text(btfy(res_data_balance["error"][0]))
         return
 
-    update.message.reply_text("Creating sell-orders for assets...")
+    update.message.reply_text("Creating sell-orders...")
 
     # Go over all assets and sell them
     for asset, amount in res_data_balance["result"].items():
@@ -350,14 +224,15 @@ def trade_sell_all(bot, update):
         # If Kraken replied with an error, show it
         if res_data_add_order["error"]:
             update.message.reply_text(btfy(res_data_add_order["error"][0]))
-            # TODO: Is it OK to not RETURN here? See other example where i did this already
+            continue
 
-        # TODO: Do we get a sold-for-price info in the reply? I don't think so...
-        # TODO: Create jobs to monitor orders
-        price = res_data_add_order["result"]
-        money_symbol = config["trade_to_currency"]
-        msg = "Sold " + amount + " " + asset + " for " + price + " " + money_symbol
-        update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
+        order_txid = res_data_add_order["result"]["txid"][0]
+
+        # Add Job to JobQueue to check status of created order (if setting is enabled)
+        if config["check_trade"]:
+            trade_time = config["check_trade_time"]
+            context = dict(order_txid=order_txid)
+            job_queue.run_repeating(order_state_check, trade_time, context=context)
 
     msg = "Created orders to sell all assets"
     update.message.reply_text(bold(msg), reply_markup=keyboard_cmds())
@@ -537,10 +412,10 @@ def trade_confirm(bot, update, chat_data):
 
     # If there is a transaction id then the order was placed successfully
     if res_data_add_order["result"]["txid"]:
-        add_order_txid = res_data_add_order["result"]["txid"][0]
+        order_txid = res_data_add_order["result"]["txid"][0]
 
         req_data = dict()
-        req_data["txid"] = add_order_txid
+        req_data["txid"] = order_txid
 
         # Send request to get info on specific order
         res_data_query_order = kraken.query_private("QueryOrders", req_data)
@@ -550,14 +425,18 @@ def trade_confirm(bot, update, chat_data):
             update.message.reply_text(btfy(res_data_query_order["error"][0]))
             return
 
-        if res_data_query_order["result"][add_order_txid]:
-            order_desc = res_data_query_order["result"][add_order_txid]["descr"]["order"]
-            msg = "Order placed:\n" + add_order_txid + "\n" + trim_zeros(order_desc)
+        if res_data_query_order["result"][order_txid]:
+            order_desc = res_data_query_order["result"][order_txid]["descr"]["order"]
+            msg = "Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
-            monitor_new_order(update.message.chat_id, add_order_txid)
+            # Add Job to JobQueue to check status of created order (if setting is enabled)
+            if config["check_trade"]:
+                trade_time = config["check_trade_time"]
+                context = dict(order_txid=order_txid)
+                job_queue.run_repeating(order_state_check, trade_time, context=context)
         else:
-            update.message.reply_text("No order with TXID " + add_order_txid)
+            update.message.reply_text("No order with TXID " + order_txid)
 
     else:
         update.message.reply_text("Undefined state: no error and no TXID")
@@ -853,7 +732,6 @@ def value_currency(bot, update):
     return ConversationHandler.END
 
 
-# TODO: Add color to 'buy' / 'sell' with ParseMode.HTML and also make it bold there
 # Shows executed trades with volume and price
 def history_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -936,7 +814,7 @@ def history_next(bot, update):
 
         return WorkflowEnum.HISTORY_NEXT
     else:
-        update.message.reply_text("No item in trade history", reply_markup=keyboard_cmds())
+        update.message.reply_text("Trade history is empty", reply_markup=keyboard_cmds())
 
         return ConversationHandler.END
 
@@ -1115,7 +993,12 @@ def cancel(bot, update):
 
 # Log all telegram and telegram.ext related errors
 def handle_error(bot, update, error):
-    logger.error("Update '%s' caused error '%s'" % (update, error))
+    error_str = "Update '%s' caused error '%s'" % (update, error)
+
+    logger.error(error_str)
+
+    if config["send_error"]:
+        updater.bot.send_message(chat_id=config["user_id"], text=btfy(error_str))
 
 
 # Check if GitHub hosts a different script then the currently running one
@@ -1159,13 +1042,104 @@ def is_user_valid(bot, update):
         return True
 
 
+# Create a button menu to show in Telegram messages
+def build_menu(buttons, n_cols=1, header_buttons=None, footer_buttons=None):
+    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+
+    if header_buttons:
+        menu.insert(0, header_buttons)
+    if footer_buttons:
+        menu.append(footer_buttons)
+
+    return menu
+
+
+# Custom keyboard that shows all available commands
+def keyboard_cmds():
+    command_buttons = [
+        KeyboardButton("/trade"),
+        KeyboardButton("/orders"),
+        KeyboardButton("/balance"),
+        KeyboardButton("/price"),
+        KeyboardButton("/value"),
+        KeyboardButton("/chart"),
+        KeyboardButton("/history"),
+        KeyboardButton("/bot")
+    ]
+
+    return ReplyKeyboardMarkup(build_menu(command_buttons, n_cols=3))
+
+
+# Generic custom keyboard that shows YES and NO
+def keyboard_confirm():
+    buttons = [
+        KeyboardButton(KeyboardEnum.YES.clean()),
+        KeyboardButton(KeyboardEnum.NO.clean())
+    ]
+
+    return ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
+
+
+# Check order status and send message if order closed
+def order_state_check(bot, job):
+    req_data = dict()
+    req_data["txid"] = job.context["order_txid"]
+
+    # Send request to get info on specific order
+    res_data = kraken.query_private("QueryOrders", req_data)
+
+    # If Kraken replied with an error, return without notification
+    if res_data["error"]:
+        if config["send_error"]:
+            updater.bot.send_message(chat_id=config["user_id"], text=btfy(res_data["error"][0]))
+        return
+
+    # Save information about order
+    order_info = res_data["result"][job.context["order_txid"]]
+
+    # Check if order was canceled. If so, stop monitoring
+    if order_info["status"] == "canceled":
+        # Stop this job
+        job.schedule_removal()
+        return
+
+    # Check if trade was executed. If so, stop monitoring and send message
+    if order_info["status"] == "closed":
+        msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
+        bot.send_message(chat_id=config["user_id"], text=bold(msg), parse_mode=ParseMode.MARKDOWN)
+        # Stop this job
+        job.schedule_removal()
+
+
+# Monitor status changes of previously created open orders
+def monitor_open_orders():
+    if config["check_trade"]:
+        # Send request for open orders to Kraken
+        res_data = kraken.query_private("OpenOrders")
+
+        # If Kraken replied with an error, show it
+        if res_data["error"]:
+            updater.bot.send_message(chat_id=config["user_id"], text=btfy(res_data["error"][0]))
+            return
+
+        if res_data["result"]["open"]:
+            for order in res_data["result"]["open"]:
+                # Save order transaction ID
+                order_txid = str(order)
+                # Save time in seconds from config
+                check_trade_time = config["check_trade_time"]
+
+                # Add Job to JobQueue to check status of order
+                job_queue.run_repeating(order_state_check, check_trade_time, context=dict(order_txid=order_txid))
+
+
 # Converts a Unix timestamp to a datatime object with format 'Y-m-d H:M:S'
 def datetime_from_timestamp(unix_timestamp):
     return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
 
 # Add asterisk as prefix and suffix for a string
-# Will make the text bold if used with markdown
+# Will make the text bold if used with Markdown
 def bold(text):
     return "*" + text + "*"
 
@@ -1184,6 +1158,22 @@ def btfy(text):
         return text.replace("EOrder:", "Kraken Error (Order): ")
 
     return text
+
+
+# Remove trailing zeros to get clean values
+def trim_zeros(value_to_trim):
+    if isinstance(value_to_trim, float):
+        return ('%.8f' % value_to_trim).rstrip('0').rstrip('.')
+    elif isinstance(value_to_trim, str):
+        str_list = value_to_trim.split(" ")
+        for i in range(len(str_list)):
+            old_str = str_list[i]
+            if old_str.replace(".", "").isdigit():
+                new_str = str(('%.8f' % float(old_str)).rstrip('0').rstrip('.'))
+                str_list[i] = new_str
+        return " ".join(str_list)
+    else:
+        return value_to_trim
 
 
 # Log all errors
@@ -1309,11 +1299,11 @@ dispatcher.add_handler(bot_handler)
 updater.start_polling()
 
 # Show welcome message, update state and keyboard for commands
-message = "KrakenBot is up and running!\n" + get_update_state()
+message = "KrakenBot is running!\n" + get_update_state()
 updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
 
 # Monitor status changes of open orders
-monitor_existing_orders()
+monitor_open_orders()
 
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
