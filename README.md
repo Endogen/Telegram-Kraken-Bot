@@ -106,11 +106,11 @@ I know that it is unconventional to have the whole source code in just one file.
 
 ### Todo
 ##### Priority 1
-- [X] Add command `/history` that shows executed trades
-- [X] Add command `/chart` to show TradingView Chart Widget website
+- [x] Add command `/history` that shows executed trades
+- [x] Add command `/chart` to show TradingView Chart Widget website
 - [ ] Add command `/funding` to deposit / withdraw funds
 - [ ] Add command `/alert` to be notified once a specified price is reached
-- [X] Add possibility to sell __all__ assets immediately to current market value
+- [x] Add possibility to sell __all__ assets immediately to current market value
 - [ ] Enable to trade every currency that Kraken supports
 
 ##### Priority 2
@@ -120,7 +120,7 @@ I know that it is unconventional to have the whole source code in just one file.
 
 ##### Priority 3
 - [ ] Add command `/stats` that shows statistics
-- [ ] Notification: Show win / loss if association between buy and sell order can be made
+- [ ] Closed order notifications: Show gain / loss if association between orders possible
 
 ### Known bugs
 - Background jobs that check order state do not send messages if `updater.idle()` is present (commented out `updater.idle()` for now)
@@ -131,3 +131,9 @@ In case you experience issues, please take a look at this section to check if it
 
 ## Disclaimer
 I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
+
+## Tipping
+If you find __Telegram-Kraken-Bot__ suitable for your needs, please consider giving me a tip through Bitcoin. My Wallet address:
+```
+1M4qFuDndPXabfg2Qj69bug9V13Fja2iwT
+```

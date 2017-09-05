@@ -915,6 +915,11 @@ def chart_currency(bot, update):
     return ConversationHandler.END
 
 
+# TODO
+def funding_cmd(bot, update):
+    # TODO
+
+
 # Download newest script, update the currently running script and restart
 def update_cmd(bot, update):
     if not is_user_valid(bot, update):
@@ -948,6 +953,7 @@ def update_cmd(bot, update):
 
         # Restart the bot
         restart_cmd(bot, update)
+
     # Every other status code
     else:
         msg = "Update not executed. Unexpected status code: " + github_file.status_code
@@ -1130,7 +1136,8 @@ def monitor_open_orders():
                 check_trade_time = config["check_trade_time"]
 
                 # Add Job to JobQueue to check status of order
-                job_queue.run_repeating(order_state_check, check_trade_time, context=dict(order_txid=order_txid))
+                context = dict(order_txid=order_txid)
+                job_queue.run_repeating(order_state_check, check_trade_time, context=context)
 
 
 # Converts a Unix timestamp to a datatime object with format 'Y-m-d H:M:S'
@@ -1185,6 +1192,18 @@ dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 
+
+# FUNDING command handler
+funding_handler = ConversationHandler(
+    entry_points=[CommandHandler('funding', funding_cmd)],
+    states={
+        WorkflowEnum.HISTORY_NEXT:
+            [RegexHandler("^(NEXT)$", history_next),
+             RegexHandler("^(CANCEL)$", cancel)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(funding_handler)
 
 # HISTORY command handler
 history_handler = ConversationHandler(
