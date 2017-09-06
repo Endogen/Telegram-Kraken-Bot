@@ -51,6 +51,7 @@ class WorkflowEnum(Enum):
     BOT_SUB_CMD = auto()
     CHART_CURRENCY = auto()
     HISTORY_NEXT = auto()
+    FUNDING_CURRENCY = auto()
     FUNDING_CHOOSE = auto()
 
 
@@ -79,8 +80,8 @@ class KeyboardEnum(Enum):
     NEXT = auto()
     DEPOSIT = auto()
     WITHDRAW = auto()
-    ADD_WALLET = auto()
-    REMOVE_WALLET = auto()
+    ADD_WALLET = auto()  # TODO: Add logic
+    REMOVE_WALLET = auto()  # TODO: Add logic
 
     def clean(self):
         return self.name.replace("_", " ")
@@ -94,24 +95,24 @@ def balance_cmd(bot, update):
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
-    res_data_balance = kraken.query_private("Balance")
+    res_balance = kraken.query_private("Balance")
 
     # If Kraken replied with an error, show it
-    if res_data_balance["error"]:
-        update.message.reply_text(btfy(res_data_balance["error"][0]))
+    if res_balance["error"]:
+        update.message.reply_text(btfy(res_balance["error"][0]))
         return
 
     # Send request to Kraken to get open orders
-    res_data_orders = kraken.query_private("OpenOrders")
+    res_orders = kraken.query_private("OpenOrders")
 
     # If Kraken replied with an error, show it
-    if res_data_orders["error"]:
-        update.message.reply_text(btfy(res_data_orders["error"][0]))
+    if res_orders["error"]:
+        update.message.reply_text(btfy(res_orders["error"][0]))
         return
 
     msg = ""
 
-    for currency_key, currency_value in res_data_balance["result"].items():
+    for currency_key, currency_value in res_balance["result"].items():
         available_value = currency_value
 
         if currency_key.startswith("X"):
@@ -121,9 +122,9 @@ def balance_cmd(bot, update):
             currency_key = config["trade_to_currency"]
         else:
             # Go through all open orders and check if an sell-order exists for the currency
-            if res_data_orders["result"]["open"]:
-                for order in res_data_orders["result"]["open"]:
-                    order_desc = res_data_orders["result"]["open"][order]["descr"]["order"]
+            if res_orders["result"]["open"]:
+                for order in res_orders["result"]["open"]:
+                    order_desc = res_orders["result"]["open"][order]["descr"]["order"]
                     order_desc_list = order_desc.split(" ")
 
                     order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
@@ -170,7 +171,7 @@ def trade_cmd(bot, update):
 def trade_buy_sell(bot, update, chat_data):
     chat_data["buysell"] = update.message.text
 
-    reply_msg = "Enter currency"
+    reply_msg = "Choose currency"
 
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
@@ -199,17 +200,17 @@ def trade_sell_all(bot, update):
     update.message.reply_text("Reading balance...")
 
     # Send request to Kraken to get current balance of all currencies
-    res_data_balance = kraken.query_private("Balance")
+    res_balance = kraken.query_private("Balance")
 
     # If Kraken replied with an error, show it
-    if res_data_balance["error"]:
-        update.message.reply_text(btfy(res_data_balance["error"][0]))
+    if res_balance["error"]:
+        update.message.reply_text(btfy(res_balance["error"][0]))
         return
 
     update.message.reply_text("Creating sell-orders...")
 
     # Go over all assets and sell them
-    for asset, amount in res_data_balance["result"].items():
+    for asset, amount in res_balance["result"].items():
         # Current asset is not a crypto-currency - skip it
         if asset.endswith(config["trade_to_currency"]):
             continue
@@ -224,14 +225,14 @@ def trade_sell_all(bot, update):
         req_data["volume"] = amount
 
         # Send request to create order to Kraken
-        res_data_add_order = kraken.query_private("AddOrder", req_data)
+        res_add_order = kraken.query_private("AddOrder", req_data)
 
         # If Kraken replied with an error, show it
-        if res_data_add_order["error"]:
-            update.message.reply_text(btfy(res_data_add_order["error"][0]))
+        if res_add_order["error"]:
+            update.message.reply_text(btfy(res_add_order["error"][0]))
             continue
 
-        order_txid = res_data_add_order["result"]["txid"][0]
+        order_txid = res_add_order["result"]["txid"][0]
 
         # Add Job to JobQueue to check status of created order (if setting is enabled)
         if config["check_trade"]:
@@ -297,15 +298,15 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
-        res_data_balance = kraken.query_private("Balance")
+        res_balance = kraken.query_private("Balance")
 
         # If Kraken replied with an error, show it
-        if res_data_balance["error"]:
-            update.message.reply_text(btfy(res_data_balance["error"][0]))
+        if res_balance["error"]:
+            update.message.reply_text(btfy(res_balance["error"][0]))
             return
 
         available_euros = float(0)
-        for currency_key, currency_value in res_data_balance["result"].items():
+        for currency_key, currency_value in res_balance["result"].items():
             if config["trade_to_currency"] in currency_key:
                 available_euros = float(currency_value)
                 break
@@ -315,31 +316,31 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == KeyboardEnum.SELL.clean():
         # Send request to Kraken to get euro balance to calculate volume
-        res_data_balance = kraken.query_private("Balance")
+        res_balance = kraken.query_private("Balance")
 
         # If Kraken replied with an error, show it
-        if res_data_balance["error"]:
-            update.message.reply_text(btfy(res_data_balance["error"][0]))
+        if res_balance["error"]:
+            update.message.reply_text(btfy(res_balance["error"][0]))
             return
 
         # Send request to Kraken to get open orders
-        res_data_orders = kraken.query_private("OpenOrders")
+        res_orders = kraken.query_private("OpenOrders")
 
         # If Kraken replied with an error, show it
-        if res_data_orders["error"]:
-            update.message.reply_text(btfy(res_data_orders["error"][0]))
+        if res_orders["error"]:
+            update.message.reply_text(btfy(res_orders["error"][0]))
             return
 
-        available_volume = res_data_balance["result"][chat_data["currency"]]
+        available_volume = res_balance["result"][chat_data["currency"]]
 
         current_currency = chat_data["currency"]
         if current_currency.startswith("X"):
             current_currency = current_currency[1:]
 
         # Go through all open orders and check if an sell-order exists for the currency
-        if res_data_orders["result"]["open"]:
-            for order in res_data_orders["result"]["open"]:
-                order_desc = res_data_orders["result"]["open"][order]["descr"]["order"]
+        if res_orders["result"]["open"]:
+            for order in res_orders["result"]["open"]:
+                order_desc = res_orders["result"]["open"][order]["descr"]["order"]
                 order_desc_list = order_desc.split(" ")
 
                 order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
@@ -408,30 +409,30 @@ def trade_confirm(bot, update, chat_data):
     req_data["volume"] = chat_data["volume"]
 
     # Send request to create order to Kraken
-    res_data_add_order = kraken.query_private("AddOrder", req_data)
+    res_add_order = kraken.query_private("AddOrder", req_data)
 
     # If Kraken replied with an error, show it
-    if res_data_add_order["error"]:
-        update.message.reply_text(btfy(res_data_add_order["error"][0]))
+    if res_add_order["error"]:
+        update.message.reply_text(btfy(res_add_order["error"][0]))
         return
 
     # If there is a transaction id then the order was placed successfully
-    if res_data_add_order["result"]["txid"]:
-        order_txid = res_data_add_order["result"]["txid"][0]
+    if res_add_order["result"]["txid"]:
+        order_txid = res_add_order["result"]["txid"][0]
 
         req_data = dict()
         req_data["txid"] = order_txid
 
         # Send request to get info on specific order
-        res_data_query_order = kraken.query_private("QueryOrders", req_data)
+        res_query_order = kraken.query_private("QueryOrders", req_data)
 
         # If Kraken replied with an error, show it
-        if res_data_query_order["error"]:
-            update.message.reply_text(btfy(res_data_query_order["error"][0]))
+        if res_query_order["error"]:
+            update.message.reply_text(btfy(res_query_order["error"][0]))
             return
 
-        if res_data_query_order["result"][order_txid]:
-            order_desc = res_data_query_order["result"][order_txid]["descr"]["order"]
+        if res_query_order["result"][order_txid]:
+            order_desc = res_query_order["result"][order_txid]["descr"]["order"]
             msg = "Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
@@ -641,7 +642,7 @@ def value_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
-    reply_msg = "Enter currency"
+    reply_msg = "Choose currency"
 
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
@@ -668,15 +669,15 @@ def value_currency(bot, update):
     update.message.reply_text("Retrieving current value...")
 
     # Send request to Kraken to get current balance of all currencies
-    res_data_balance = kraken.query_private("Balance")
+    res_balance = kraken.query_private("Balance")
 
     # If Kraken replied with an error, show it
-    if res_data_balance["error"]:
-        update.message.reply_text(btfy(res_data_balance["error"][0]))
+    if res_balance["error"]:
+        update.message.reply_text(btfy(res_balance["error"][0]))
         return
 
-    req_data_price = dict()
-    req_data_price["pair"] = ""
+    req_price = dict()
+    req_price["pair"] = ""
 
     euro_balance = float(0)
 
@@ -684,7 +685,7 @@ def value_currency(bot, update):
     if update.message.text == KeyboardEnum.ALL.clean():
         msg = "Overall: "
 
-        for currency_name, currency_amount in res_data_balance["result"].items():
+        for currency_name, currency_amount in res_balance["result"].items():
             if currency_name.endswith(config["trade_to_currency"]):
                 euro_balance = float(currency_amount)
                 continue
@@ -692,30 +693,30 @@ def value_currency(bot, update):
             if "BCH" in currency_name:
                 continue
 
-            req_data_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
+            req_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
 
     # Get balance of a specific currency
     else:
         msg = update.message.text + ": "
-        req_data_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"] + ","
+        req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"] + ","
 
     # Remove last comma from 'pair' string
-    req_data_price["pair"] = req_data_price["pair"][:-1]
+    req_price["pair"] = req_price["pair"][:-1]
 
     # Send request to Kraken to get current trading price for currency-pair
-    res_data_price = kraken.query_public("Ticker", req_data_price)
+    res_price = kraken.query_public("Ticker", req_price)
 
     # If Kraken replied with an error, show it
-    if res_data_price["error"]:
-        update.message.reply_text(btfy(res_data_price["error"][0]))
+    if res_price["error"]:
+        update.message.reply_text(btfy(res_price["error"][0]))
         return
 
     total_value_euro = euro_balance
 
-    for currency_pair_name, currency_price in res_data_price["result"].items():
+    for currency_pair_name, currency_price in res_price["result"].items():
         # Remove trade-to-currency from currency pair to get the pure currency
         currency_without_pair = currency_pair_name[:-len("Z" + config["trade_to_currency"])]
-        currency_balance = res_data_balance["result"][currency_without_pair]
+        currency_balance = res_balance["result"][currency_without_pair]
 
         # Calculate total value by multiplying currency asset with last trade price
         total_value_euro += float(currency_balance) * float(currency_price["c"][0])
@@ -726,9 +727,9 @@ def value_currency(bot, update):
     msg += total_value_euro + " " + config["trade_to_currency"]
 
     # Check if we have only one currency. If true, add last trade price to msg
-    if len(res_data_price["result"]) == 1:
-        pair = list(res_data_price["result"].keys())[0]
-        last_price = res_data_price["result"][pair]["c"][0]
+    if len(res_price["result"]) == 1:
+        pair = list(res_price["result"].keys())[0]
+        last_price = res_price["result"][pair]["c"][0]
         last_trade_price = "{0:.2f}".format(float(last_price))
         msg += "\n(Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
 
@@ -749,15 +750,15 @@ def history_cmd(bot, update):
     update.message.reply_text("Retrieving history data...")
 
     # Send request to Kraken to get trades history
-    res_data_trades = kraken.query_private("TradesHistory")
+    res_trades = kraken.query_private("TradesHistory")
 
     # If Kraken replied with an error, show it
-    if res_data_trades["error"]:
-        update.message.reply_text(btfy(res_data_trades["error"][0]))
+    if res_trades["error"]:
+        update.message.reply_text(btfy(res_trades["error"][0]))
         return
 
     # Add all trades to global list
-    for trade_id, trade_details in res_data_trades["result"]["trades"].items():
+    for trade_id, trade_details in res_trades["result"]["trades"].items():
         trades.append(trade_details)
 
     if trades:
@@ -925,13 +926,34 @@ def funding_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
 
+    reply_msg = "Choose currency"
+
+    buttons = [
+        KeyboardButton(KeyboardEnum.XBT.clean()),
+        KeyboardButton(KeyboardEnum.ETH.clean()),
+        KeyboardButton(KeyboardEnum.LTC.clean()),
+        KeyboardButton(KeyboardEnum.XMR.clean()),
+        KeyboardButton(KeyboardEnum.XRP.clean())
+    ]
+
+    cancel_btn = [
+        KeyboardButton(KeyboardEnum.CANCEL.clean())
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+    return WorkflowEnum.FUNDING_CURRENCY
+
+
+def funding_currency(bot, update, chat_data):
+    chat_data["currency"] = update.message.text
+
     reply_msg = "What do you want to do?"
 
     buttons = [
         KeyboardButton(KeyboardEnum.DEPOSIT.clean()),
-        KeyboardButton(KeyboardEnum.WITHDRAW.clean()),
-        KeyboardButton(KeyboardEnum.ADD_WALLET.clean()),
-        KeyboardButton(KeyboardEnum.REMOVE_WALLET.clean())
+        KeyboardButton(KeyboardEnum.WITHDRAW.clean())
     ]
 
     cancel_btn = [
@@ -944,24 +966,39 @@ def funding_cmd(bot, update):
     return WorkflowEnum.FUNDING_CHOOSE
 
 
-# TODO
-def funding_deposit(bot, update):
-    print("WORKS")
+# TODO: Remove 'data' from request & response variable names
+def funding_deposit(bot, update, chat_data):
+    update.message.reply_text("Retrieving deposit addresses...")
+
+    req_data = dict()
+    req_data["asset"] = chat_data["currency"]
+
+    # Send request to Kraken to get trades history
+    res_dep_meth = kraken.query_private("DepositMethods", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_dep_meth["error"]:
+        update.message.reply_text(btfy(res_dep_meth["error"][0]))
+        return
+
+    req_data["method"] = res_dep_meth["result"][0]["method"]
+
+    # Send request to Kraken to get trades history
+    res_dep_addr = kraken.query_private("DepositAddresses", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_dep_addr["error"]:
+        update.message.reply_text(btfy(res_dep_addr["error"][0]))
+        return
+
+    for wallet in res_dep_addr["result"]:
+        expire_info = datetime_from_timestamp(wallet["expiretm"]) if wallet["expiretm"] != "0" else "No"
+        msg = wallet["address"] + "\nExpire: " + expire_info
+        update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
 
-# TODO
-def funding_withdraw(bot, update):
-    print("WORKS")
-
-
-# TODO
-def funding_add_wallet(bot, update):
-    print("WORKS")
-
-
-# TODO
-def funding_rem_wallet(bot, update):
-    print("WORKS")
+def funding_withdraw(bot, update, chat_data):
+    update.message.reply_text("Withdraw to which wallet?", reply_markup=ReplyKeyboardRemove())
 
 
 # Download newest script, update the currently running script and restart
@@ -1242,11 +1279,12 @@ dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 funding_handler = ConversationHandler(
     entry_points=[CommandHandler('funding', funding_cmd)],
     states={
+        WorkflowEnum.FUNDING_CURRENCY:
+            [RegexHandler("^(XBT|BCH|ETH|LTC|XMR|XRP)$", funding_currency, pass_chat_data=True),
+             RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.FUNDING_CHOOSE:
-            [RegexHandler("^(DEPOSIT)$", funding_deposit),
-             RegexHandler("^(WITHDRAW)$", funding_withdraw),
-             RegexHandler("^(ADD WALLET)$", funding_add_wallet),
-             RegexHandler("^(REMOVE WALLET)$", funding_rem_wallet),
+            [RegexHandler("^(DEPOSIT)$", funding_deposit, pass_chat_data=True),
+             RegexHandler("^(WITHDRAW)$", funding_withdraw, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
