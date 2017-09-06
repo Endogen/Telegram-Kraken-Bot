@@ -133,7 +133,7 @@ In case you experience issues, please take a look at this section to check if it
 I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
 
 ## Tipping
-If you find __Telegram-Kraken-Bot__ suitable for your needs, please consider giving me a tip through Bitcoin. My Wallet address:
+If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because you were able to trade immediately, please consider giving me a tip through Bitcoin. My Wallet address:
 ```
 1M4qFuDndPXabfg2Qj69bug9V13Fja2iwT
 ```

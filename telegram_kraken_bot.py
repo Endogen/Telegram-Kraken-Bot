@@ -51,6 +51,7 @@ class WorkflowEnum(Enum):
     BOT_SUB_CMD = auto()
     CHART_CURRENCY = auto()
     HISTORY_NEXT = auto()
+    FUNDING_CHOOSE = auto()
 
 
 # Enum for keyboard
@@ -76,6 +77,10 @@ class KeyboardEnum(Enum):
     XMR = auto()
     XRP = auto()
     NEXT = auto()
+    DEPOSIT = auto()
+    WITHDRAW = auto()
+    ADD_WALLET = auto()
+    REMOVE_WALLET = auto()
 
     def clean(self):
         return self.name.replace("_", " ")
@@ -915,9 +920,48 @@ def chart_currency(bot, update):
     return ConversationHandler.END
 
 
-# TODO
+# Choose funding related options: withdraw, deposit, add wallet and remove wallet
 def funding_cmd(bot, update):
-    # TODO
+    if not is_user_valid(bot, update):
+        return cancel(bot, update)
+
+    reply_msg = "What do you want to do?"
+
+    buttons = [
+        KeyboardButton(KeyboardEnum.DEPOSIT.clean()),
+        KeyboardButton(KeyboardEnum.WITHDRAW.clean()),
+        KeyboardButton(KeyboardEnum.ADD_WALLET.clean()),
+        KeyboardButton(KeyboardEnum.REMOVE_WALLET.clean())
+    ]
+
+    cancel_btn = [
+        KeyboardButton(KeyboardEnum.CANCEL.clean())
+    ]
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+    return WorkflowEnum.FUNDING_CHOOSE
+
+
+# TODO
+def funding_deposit(bot, update):
+    print("WORKS")
+
+
+# TODO
+def funding_withdraw(bot, update):
+    print("WORKS")
+
+
+# TODO
+def funding_add_wallet(bot, update):
+    print("WORKS")
+
+
+# TODO
+def funding_rem_wallet(bot, update):
+    print("WORKS")
 
 
 # Download newest script, update the currently running script and restart
@@ -1070,6 +1114,7 @@ def keyboard_cmds():
         KeyboardButton("/value"),
         KeyboardButton("/chart"),
         KeyboardButton("/history"),
+        KeyboardButton("/funding"),
         KeyboardButton("/bot")
     ]
 
@@ -1197,8 +1242,11 @@ dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 funding_handler = ConversationHandler(
     entry_points=[CommandHandler('funding', funding_cmd)],
     states={
-        WorkflowEnum.HISTORY_NEXT:
-            [RegexHandler("^(NEXT)$", history_next),
+        WorkflowEnum.FUNDING_CHOOSE:
+            [RegexHandler("^(DEPOSIT)$", funding_deposit),
+             RegexHandler("^(WITHDRAW)$", funding_withdraw),
+             RegexHandler("^(ADD WALLET)$", funding_add_wallet),
+             RegexHandler("^(REMOVE WALLET)$", funding_rem_wallet),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
