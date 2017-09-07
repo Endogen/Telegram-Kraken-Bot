@@ -18,7 +18,7 @@ This script is a polling (not [webhook](https://github.com/python-telegram-bot/p
     - Show / close open orders
 - Supported currencies
 	- Bitcoin
-	- BitcoinClassic (no trading because of buggy Kraken API)
+	- BitcoinClassic (no trading because Kraken doesn't allow it right now)
 	- Ether
 	- Litecoin
 	- Ripple
@@ -39,7 +39,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __update_hash__: Hash of the latest version of the script. __Please don't change this__. Will be set automatically after updating
 - __update_check__: (_currently not used_) If `true`, then periodic update-checks (see option `update_time` for timespan) are performed. If there is a bot-update available then the bot will send a message
 - __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
-- __send_error__: If `true`, then all errors that might happen will trigger a message to the user
+- __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered secret and you should be the only one that knows them. If you don't know where to get / how to generate the keys:
@@ -123,7 +123,7 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Closed order notifications: Show gain / loss if association between orders possible
 
 ### Known bugs
-- Background jobs that check order state do not send messages if `updater.idle()` is present (commented out `updater.idle()` for now)
+- Background jobs that check order state do not send messages if `updater.idle()` is present (commented `updater.idle()` out for now)
 
 ## Troubleshooting
 In case you experience issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new).
@@ -132,8 +132,8 @@ In case you experience issues, please take a look at this section to check if it
 ## Disclaimer
 I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
 
-## Tipping
-If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because you were able to trade immediately, please consider giving me a tip through Bitcoin. My Wallet address:
+## Donating
+If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because of it, please consider donating whatever amount you like to this Bitcoin wallet:
 ```
 1M4qFuDndPXabfg2Qj69bug9V13Fja2iwT
 ```
