@@ -80,8 +80,6 @@ class KeyboardEnum(Enum):
     NEXT = auto()
     DEPOSIT = auto()
     WITHDRAW = auto()
-    ADD_WALLET = auto()  # TODO: Add logic
-    REMOVE_WALLET = auto()  # TODO: Add logic
 
     def clean(self):
         return self.name.replace("_", " ")
@@ -921,7 +919,7 @@ def chart_currency(bot, update):
     return ConversationHandler.END
 
 
-# Choose funding related options: withdraw, deposit, add wallet and remove wallet
+# Choose currency to deposit or withdraw funds to / from
 def funding_cmd(bot, update):
     if not is_user_valid(bot, update):
         return cancel(bot, update)
@@ -946,6 +944,7 @@ def funding_cmd(bot, update):
     return WorkflowEnum.FUNDING_CURRENCY
 
 
+# Choose withdraw or deposit
 def funding_currency(bot, update, chat_data):
     chat_data["currency"] = update.message.text
 
@@ -966,7 +965,7 @@ def funding_currency(bot, update, chat_data):
     return WorkflowEnum.FUNDING_CHOOSE
 
 
-# TODO: Remove 'data' from request & response variable names
+# Get wallet addresses to deposit to
 def funding_deposit(bot, update, chat_data):
     update.message.reply_text("Retrieving deposit addresses...")
 
@@ -997,8 +996,39 @@ def funding_deposit(bot, update, chat_data):
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
 
+# Withdraw funds from wallet
 def funding_withdraw(bot, update, chat_data):
     update.message.reply_text("Withdraw to which wallet?", reply_markup=ReplyKeyboardRemove())
+
+    req_data = dict()
+    req_data["asset"] = chat_data["currency"]
+    req_data["key"] = "DM"
+    req_data["amount"] = "0.0001"
+
+    # Send request to Kraken to get withdrawal info
+    res_data = kraken.query_private("WithdrawInfo", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(btfy(res_data["error"][0]))
+        return
+
+    # TODO: Add fee to amount to withdraw so that after fee the entered amount is withdrawn
+    # TODO: Ask for key (to wallet address) to withdraw to
+    # TODO: Ask for amount to withdraw
+
+    # Send request to Kraken to get trades history
+    res_data = kraken.query_private("Withdraw", req_data)
+
+    # If Kraken replied with an error, show it
+    if res_data["error"]:
+        update.message.reply_text(btfy(res_data["error"][0]))
+        return
+
+    if res_data["refid"]:
+        update.message.reply_text("Withdrawal initiated\nREFID: " + res_data["refid"])
+
+    return ConversationHandler.END
 
 
 # Download newest script, update the currently running script and restart
