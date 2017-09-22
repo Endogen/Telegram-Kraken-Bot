@@ -1018,7 +1018,7 @@ def funding_withdraw(bot, update, chat_data):
     # TODO: Ask for amount to withdraw
 
     # Send request to Kraken to get trades history
-    res_data = kraken.query_private("Withdraw", req_data)
+    #res_data = kraken.query_private("Withdraw", req_data)  # TODO: Uncomment
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
