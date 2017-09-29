@@ -666,6 +666,23 @@ def value_cmd(bot, update):
 def value_currency(bot, update):
     update.message.reply_text("Retrieving current value...")
 
+    # Get balance of all currencies
+    if update.message.text == KeyboardEnum.ALL.clean():
+        # Send request to Kraken tp obtain the combined balance of all currencies
+        req_asset = {"asset": config["trade_to_currency"]}
+        trade_balance = kraken.query_private("TradeBalance", req_asset)
+
+        # If Kraken replied with an error, show it
+        if trade_balance["error"]:
+            update.message.reply_text(btfy(trade_balance["error"][0]))
+            return
+
+        msg = "Overall: "
+        total_value_euro = trade_balance["result"]["eb"]
+        msg += total_value_euro + " " + config["trade_to_currency"]
+        update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+        return ConversationHandler.END
+
     # Send request to Kraken to get current balance of all currencies
     res_balance = kraken.query_private("Balance")
 
@@ -679,19 +696,9 @@ def value_currency(bot, update):
 
     euro_balance = float(0)
 
-    # Get balance of all currencies
-    if update.message.text == KeyboardEnum.ALL.clean():
-        msg = "Overall: "
-
-        for currency_name, currency_amount in res_balance["result"].items():
-            if currency_name.endswith(config["trade_to_currency"]):
-                euro_balance = float(currency_amount)
-                continue
-            # FIXME: Workaround for buggy Kraken API
-            if "BCH" in currency_name:
-                continue
-
-            req_price["pair"] += currency_name + "Z" + config["trade_to_currency"] + ","
+    if update.message.text == KeyboardEnum.BCH.clean():
+        msg = update.message.text + ": "
+        req_price["pair"] = update.message.text + config["trade_to_currency"] + ","
 
     # Get balance of a specific currency
     else:
@@ -713,7 +720,10 @@ def value_currency(bot, update):
 
     for currency_pair_name, currency_price in res_price["result"].items():
         # Remove trade-to-currency from currency pair to get the pure currency
-        currency_without_pair = currency_pair_name[:-len("Z" + config["trade_to_currency"])]
+        if update.message.text == KeyboardEnum.BCH.clean():
+            currency_without_pair = currency_pair_name[:-len(config["trade_to_currency"])]
+        else:
+            currency_without_pair = currency_pair_name[:-len("Z" + config["trade_to_currency"])]
         currency_balance = res_balance["result"][currency_without_pair]
 
         # Calculate total value by multiplying currency asset with last trade price
