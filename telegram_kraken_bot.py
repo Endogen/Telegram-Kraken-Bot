@@ -37,7 +37,7 @@ kraken.load_key("kraken.key")
 trades = list()
 
 
-# Enum for workflow
+# Enum for workflow handler
 class WorkflowEnum(Enum):
     TRADE_BUY_SELL = auto()
     TRADE_CURRENCY = auto()
@@ -59,11 +59,10 @@ class WorkflowEnum(Enum):
     WITHDRAW_CONFIRM = auto()
 
 
-# Enum for keyboard
+# Enum for keyboard buttons
 class KeyboardEnum(Enum):
     BUY = auto()
     SELL = auto()
-    EURO = auto()
     VOLUME = auto()
     ALL = auto()
     YES = auto()
@@ -267,7 +266,7 @@ def trade_price(bot, update, chat_data):
     reply_msg = "How to enter the volume?"
 
     buttons = [
-        KeyboardButton(KeyboardEnum.EURO.clean()),
+        KeyboardButton(config["trade_to_currency"].upper()),
         KeyboardButton(KeyboardEnum.VOLUME.clean())
     ]
 
@@ -363,8 +362,8 @@ def trade_vol_type_all(bot, update, chat_data):
 
 # Calculate the volume depending on chosen volume type (EURO or VOLUME)
 def trade_volume(bot, update, chat_data):
-    # Entered EURO
-    if chat_data["vol_type"] == KeyboardEnum.EURO.clean():
+    # Entered currency from config (EUR, USD, ...)
+    if chat_data["vol_type"] == config["trade_to_currency"].upper():
         amount = float(update.message.text)
         price_per_unit = float(chat_data["price"])
         chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
@@ -1431,7 +1430,7 @@ trade_handler = ConversationHandler(
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
-            [RegexHandler("^(EURO|VOLUME)$", trade_vol_type, pass_chat_data=True),
+            [RegexHandler("^(EUR|VOLUME)$", trade_vol_type, pass_chat_data=True),
              RegexHandler("^(ALL)$", trade_vol_type_all, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.TRADE_VOLUME:

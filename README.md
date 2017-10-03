@@ -1,24 +1,24 @@
 # Telegram Kraken Bot
-Python bot to trade on Kraken via Telegram
+Python 3 bot to trade on Kraken via Telegram messanger
 
 ## Overview
-This script is a polling (not [webhook](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks)) based telegram bot. It can trade crypto-currencies on the [Kraken](http://kraken.com) marketplace and has a user friendly interface (custom keyboards with buttons).
+This Python script is a polling (not [webhook](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks)) based Telegram bot. It can trade crypto-currencies on the [Kraken](http://kraken.com) marketplace and has a user friendly interface (custom keyboards with buttons).
 
 ### Features
 - Bound to a specific Telegram user - only that user can use the bot
 - No need to login to Kraken - start trading immediately, always
 - Integrated update mechanism - to latest version on GitHub
-- Notifies you once order is closed - trade successfully executed
+- Notifies you once order is closed and trade successfully executed
 - Fully usable with buttons - no need to enter commands manually
 - Following Kraken functionality is implemented
     - Create a buy / sell order (type _limit_)
     - Lookup last trade price for currencies
     - Show your assets
-    - Current market value of assets
+    - Current market value of assets (one or all)
     - Show / close open orders
 - Supported currencies
 	- Bitcoin
-	- BitcoinClassic (no trading because Kraken doesn't allow it right now)
+	- BitcoinClassic
 	- Ether
 	- Litecoin
 	- Ripple
@@ -30,19 +30,22 @@ Before starting up the bot you have to take care of some settings. You need to e
 ### config.json
 This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__.
 
-- __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to `userinfobot` and he will reply your ID
-- __bot_token__: The token that identifies your bot. You will get this from 'BotFather' when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
-- __trade\_to\_currency__: The fiat currency you are using (for example `EUR`)
-- __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified with a message
+- __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID
+- __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
+- __trade\_to\_currency__: The "real life" currency you are using (for example `EUR` or `USD`)
+- __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified by a message
 - __check\_trade\_time__: Time in seconds to check for order status change (see setting `check_trade`)
 - __update_url__: URL to the latest GitHub version of the script. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you can use the default value
 - __update_hash__: Hash of the latest version of the script. __Please don't change this__. Will be set automatically after updating
-- __update_check__: (_currently not used_) If `true`, then periodic update-checks (see option `update_time` for timespan) are performed. If there is a bot-update available then the bot will send a message
+- __update_check__: (_currently not used_) If `true`, then periodic update-checks (see also option `update_time` for timespan) are performed. If there is a bot-update available then you will be notified by a message
 - __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
-- __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send
+- __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
 
 ### kraken.key
-This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered secret and you should be the only one that knows them. If you don't know where to get / how to generate the keys:
+This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
+
+<a name="api-keys"></a>
+If you don't know where to get / how to generate the keys:
 
 1. Login to Kraken
 2. Click on `Settings`
@@ -91,12 +94,13 @@ If you configured the bot correctly and execute the script, you should get a wel
 - `/orders`: Show all open orders (buy and sell) and close a specific one or all if desired
 - `/balance`: Show all assets and the volume available to trade if open orders exist that block assets
 - `/price`: Return last trade price for the selected crypto-currency
-- `/value`: Show current market value of chosen crypto-currency or all assets, based on the last trade price
-- `/bot`: Show options to check for update, update, restart or shutdown the bot
+- `/value`: Show current market value of chosen currency or all assets
 - `/chart`: Show a trading chart for the chosen currency
 - `/history`: Show history of closed trades
 
 ##### Related to bot
+The following commands are available as sub-commands for command `/bot`
+
 - `/update`: Update the bot to the latest version on GitHub
 - `/restart`: Restart the bot
 - `/shutdown`: Shutdown the bot
@@ -108,7 +112,7 @@ I know that it is unconventional to have the whole source code in just one file.
 ##### Priority 1
 - [x] Add command `/history` that shows executed trades
 - [x] Add command `/chart` to show TradingView Chart Widget website
-- [ ] Add command `/funding` to deposit / withdraw funds
+- [x] Add command `/funding` to deposit / withdraw funds
 - [ ] Add command `/alert` to be notified once a specified price is reached
 - [x] Add possibility to sell __all__ assets immediately to current market value
 - [ ] Enable to trade every currency that Kraken supports
@@ -126,8 +130,9 @@ I know that it is unconventional to have the whole source code in just one file.
 - Background jobs that check order state do not send messages if `updater.idle()` is present (commented `updater.idle()` out for now)
 
 ## Troubleshooting
-In case you experience issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new).
-- __Error message `Invalid nonce`__: It might happen pretty often that Kraken replies with this error. If you want to understand what a nonce is, [read the Wikipedia article](https://en.wikipedia.org/wiki/Cryptographic_nonce). This error happens mostly if you use different Telegram clients. Maybe you issued some commands on your laptop and then switched to your smartphone? That would be a typical scenario where this might happen. Or you didn't use the bot for a long time. To resolve it, just execute the command again. It should work the second time - meaning you press the keyboard button again. Unfortunately there is not much i can do. The correct behavior would be to have one Kraken API key-pair for one device (one for your smartphone and one for your laptop). Unfortunately there is no way to identify the client. You can play around with the nonce value in your Kraken account (take a look at the settings for the generated key-pair). If you are really annoyed by this then here is what you could try: Create some key-pairs (5 might do it) and then, before you call the Kraken API, randomly choose one of the keys and use it till the next Kraken API call is made.
+In case you experience issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new)
+
+- __Error `Invalid nonce`__: It might happen pretty often that Kraken replies with this error. If you want to understand what a nonce is, [read the Wikipedia article](https://en.wikipedia.org/wiki/Cryptographic_nonce). This error happens mostly if you use different Telegram clients. Maybe you issued some commands on your laptop and then switched to your smartphone? That would be a typical scenario where this might happen. Or you didn't use the bot for a long time. To resolve it, just execute the command again. It should work the second time - meaning you press the keyboard button again. Unfortunately there is not much i can do. The correct behavior would be to have one Kraken API key-pair for one device (one for your smartphone and one for your laptop). Unfortunately there is no way to identify the client. You can play around with the nonce value in your Kraken account (take a look at the [settings for the generated key-pair](#api-keys)). If you are really annoyed by this then here is what you could try: Create some key-pairs (5 might do it) and then, before you call the Kraken API, randomly choose one of the keys and use it till the next Kraken API call is made.
 
 ## Disclaimer
 I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
