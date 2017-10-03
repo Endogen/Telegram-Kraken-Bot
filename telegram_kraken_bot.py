@@ -53,6 +53,8 @@ class WorkflowEnum(Enum):
     HISTORY_NEXT = auto()
     FUNDING_CURRENCY = auto()
     FUNDING_CHOOSE = auto()
+    WITHDRAW_VOLUME = auto()
+    WITHDRAW_CONFIRM = auto()
 
 
 # Enum for keyboard
@@ -668,80 +670,70 @@ def value_currency(bot, update):
 
     # Get balance of all currencies
     if update.message.text == KeyboardEnum.ALL.clean():
+        req_asset = dict()
+        req_asset["asset"] = config["trade_to_currency"]
+
         # Send request to Kraken tp obtain the combined balance of all currencies
-        req_asset = {"asset": config["trade_to_currency"]}
-        trade_balance = kraken.query_private("TradeBalance", req_asset)
+        res_trade_balance = kraken.query_private("TradeBalance", req_asset)
 
         # If Kraken replied with an error, show it
-        if trade_balance["error"]:
-            update.message.reply_text(btfy(trade_balance["error"][0]))
+        if res_trade_balance["error"]:
+            update.message.reply_text(btfy(res_trade_balance["error"][0]))
             return
 
-        msg = "Overall: "
-        total_value_euro = trade_balance["result"]["eb"]
-        msg += total_value_euro + " " + config["trade_to_currency"]
+        # Show only 2 digits after decimal place
+        total_value_euro = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
+
+        # Generate message to user
+        msg = "Overall: " + total_value_euro + " " + config["trade_to_currency"]
+
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
-        return ConversationHandler.END
 
-    # Send request to Kraken to get current balance of all currencies
-    res_balance = kraken.query_private("Balance")
-
-    # If Kraken replied with an error, show it
-    if res_balance["error"]:
-        update.message.reply_text(btfy(res_balance["error"][0]))
-        return
-
-    req_price = dict()
-    req_price["pair"] = ""
-
-    euro_balance = float(0)
-
-    if update.message.text == KeyboardEnum.BCH.clean():
-        msg = update.message.text + ": "
-        req_price["pair"] = update.message.text + config["trade_to_currency"] + ","
-
-    # Get balance of a specific currency
+    # Get balance of a specific coin
     else:
-        msg = update.message.text + ": "
-        req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"] + ","
+        # Send request to Kraken to get current balance of all currencies
+        res_balance = kraken.query_private("Balance")
 
-    # Remove last comma from 'pair' string
-    req_price["pair"] = req_price["pair"][:-1]
+        # If Kraken replied with an error, show it
+        if res_balance["error"]:
+            update.message.reply_text(btfy(res_balance["error"][0]))
+            return
 
-    # Send request to Kraken to get current trading price for currency-pair
-    res_price = kraken.query_public("Ticker", req_price)
-
-    # If Kraken replied with an error, show it
-    if res_price["error"]:
-        update.message.reply_text(btfy(res_price["error"][0]))
-        return
-
-    total_value_euro = euro_balance
-
-    for currency_pair_name, currency_price in res_price["result"].items():
-        # Remove trade-to-currency from currency pair to get the pure currency
+        req_price = dict()
         if update.message.text == KeyboardEnum.BCH.clean():
-            currency_without_pair = currency_pair_name[:-len(config["trade_to_currency"])]
+            req_price["pair"] = update.message.text + config["trade_to_currency"]
         else:
-            currency_without_pair = currency_pair_name[:-len("Z" + config["trade_to_currency"])]
-        currency_balance = res_balance["result"][currency_without_pair]
+            req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
-        # Calculate total value by multiplying currency asset with last trade price
-        total_value_euro += float(currency_balance) * float(currency_price["c"][0])
+        # Send request to Kraken to get current trading price for currency-pair
+        res_price = kraken.query_public("Ticker", req_price)
 
-    # Show only 2 digits after decimal place
-    total_value_euro = "{0:.2f}".format(total_value_euro)
+        # If Kraken replied with an error, show it
+        if res_price["error"]:
+            update.message.reply_text(btfy(res_price["error"][0]))
+            return
 
-    msg += total_value_euro + " " + config["trade_to_currency"]
-
-    # Check if we have only one currency. If true, add last trade price to msg
-    if len(res_price["result"]) == 1:
+        # Get last trade price
         pair = list(res_price["result"].keys())[0]
         last_price = res_price["result"][pair]["c"][0]
+
+        value_euro = float(0)
+
+        for currency, currency_balance in res_balance["result"].items():
+            if update.message.text in currency:
+                # Calculate value by multiplying balance with last trade price
+                value_euro = float(currency_balance) * float(last_price)
+
+        # Show only 2 digits after decimal place
+        value_euro = "{0:.2f}".format(value_euro)
+
+        msg = update.message.text + ": " + value_euro + " " + config["trade_to_currency"]
+
+        # Add last trade price to msg
         last_trade_price = "{0:.2f}".format(float(last_price))
         msg += "\n(Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
 
-    update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
 
@@ -1006,8 +998,24 @@ def funding_deposit(bot, update, chat_data):
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
 
-# Withdraw funds from wallet
 def funding_withdraw(bot, update, chat_data):
+    update.message.reply_text("Enter wallet name", reply_markup=ReplyKeyboardRemove)
+
+    return WorkflowEnum.WITHDRAW_VOLUME
+
+
+def funding_wallet_key(bot, update, chat_data):
+    chat_data["wallet-key"] = update.message.text
+
+    update.message.reply_text("Enter volume to withdraw")
+
+    return WorkflowEnum.WITHDRAW_CONFIRM
+
+
+# Withdraw funds from wallet
+def funding_withdraw_confirm(bot, update, chat_data):
+    chat_data["volume"] = update.message.text
+
     update.message.reply_text("Withdraw to which wallet?", reply_markup=ReplyKeyboardRemove())
 
     req_data = dict()
@@ -1027,7 +1035,7 @@ def funding_withdraw(bot, update, chat_data):
     # TODO: Ask for key (to wallet address) to withdraw to
     # TODO: Ask for amount to withdraw
 
-    # Send request to Kraken to get trades history
+    # Send request to Kraken to withdraw digital currency
     #res_data = kraken.query_private("Withdraw", req_data)  # TODO: Uncomment
 
     # If Kraken replied with an error, show it
@@ -1037,6 +1045,8 @@ def funding_withdraw(bot, update, chat_data):
 
     if res_data["refid"]:
         update.message.reply_text("Withdrawal initiated\nREFID: " + res_data["refid"])
+    else:
+        update.message.reply_text("Undefined state: no error and no REFID")
 
     return ConversationHandler.END
 
@@ -1314,7 +1324,7 @@ dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 
-
+'''
 # FUNDING command handler
 funding_handler = ConversationHandler(
     entry_points=[CommandHandler('funding', funding_cmd)],
@@ -1325,11 +1335,13 @@ funding_handler = ConversationHandler(
         WorkflowEnum.FUNDING_CHOOSE:
             [RegexHandler("^(DEPOSIT)$", funding_deposit, pass_chat_data=True),
              RegexHandler("^(WITHDRAW)$", funding_withdraw, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)]
+             RegexHandler("^(CANCEL)$", cancel)],
+        WorkflowEnum.
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(funding_handler)
+'''
 
 # HISTORY command handler
 history_handler = ConversationHandler(
