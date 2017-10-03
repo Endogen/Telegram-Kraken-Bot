@@ -176,19 +176,20 @@ def trade_buy_sell(bot, update, chat_data):
 
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
+        KeyboardButton(KeyboardEnum.BCH.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
         KeyboardButton(KeyboardEnum.LTC.clean()),
         KeyboardButton(KeyboardEnum.XMR.clean()),
         KeyboardButton(KeyboardEnum.XRP.clean())
     ]
 
-    # If SELL chosen, then include button 'ALL' to sell everything
-    if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
-        buttons.append(KeyboardButton(KeyboardEnum.ALL.clean()))
-
     cancel_btn = [
         KeyboardButton(KeyboardEnum.CANCEL.clean())
     ]
+
+    # If SELL chosen, then include button 'ALL' to sell everything
+    if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
+        cancel_btn.insert(0, KeyboardButton(KeyboardEnum.ALL.clean()))
 
     reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
@@ -249,7 +250,7 @@ def trade_sell_all(bot, update):
 
 # Save currency to trade and enter price per unit to trade
 def trade_currency(bot, update, chat_data):
-    chat_data["currency"] = "X" + update.message.text
+    chat_data["currency"] = update.message.text
 
     reply_msg = "Enter price per unit"
     reply_mrk = ReplyKeyboardRemove()
@@ -404,10 +405,15 @@ def trade_confirm(bot, update, chat_data):
 
     req_data = dict()
     req_data["type"] = chat_data["buysell"].lower()
-    req_data["pair"] = chat_data["currency"] + "Z" + config["trade_to_currency"]
     req_data["price"] = chat_data["price"]
     req_data["ordertype"] = "limit"
     req_data["volume"] = chat_data["volume"]
+
+    # If currency is BCH then use different pair string
+    if chat_data["currency"] == KeyboardEnum.BCH.clean():
+        req_data["pair"] = chat_data["currency"] + config["trade_to_currency"]
+    else:
+        req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["trade_to_currency"]
 
     # Send request to create order to Kraken
     res_add_order = kraken.query_private("AddOrder", req_data)
@@ -598,6 +604,7 @@ def price_cmd(bot, update):
 
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
+        KeyboardButton(KeyboardEnum.BCH.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
         KeyboardButton(KeyboardEnum.LTC.clean()),
         KeyboardButton(KeyboardEnum.XMR.clean()),
@@ -619,7 +626,12 @@ def price_currency(bot, update):
     update.message.reply_text("Retrieving data...")
 
     req_data = dict()
-    req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
+
+    # If currency is BCH then use different pair string
+    if update.message.text == KeyboardEnum.BCH.clean():
+        req_data["pair"] = update.message.text + config["trade_to_currency"]
+    else:
+        req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken.query_public("Ticker", req_data)
@@ -632,7 +644,7 @@ def price_currency(bot, update):
     currency = update.message.text
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-    msg = bold(currency + ": " + last_trade_price)
+    msg = bold(currency + ": " + last_trade_price + " " + config["trade_to_currency"])
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -1424,7 +1436,7 @@ trade_handler = ConversationHandler(
             [RegexHandler("^(BUY|SELL)$", trade_buy_sell, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.TRADE_CURRENCY:
-            [RegexHandler("^(XBT|ETH|LTC|XMR|XRP)$", trade_currency, pass_chat_data=True),
+            [RegexHandler("^(XBT|BCH|ETH|LTC|XMR|XRP)$", trade_currency, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel),
              RegexHandler("^(ALL)$", trade_sell_all)],
         WorkflowEnum.TRADE_PRICE:
@@ -1448,7 +1460,7 @@ price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
     states={
         WorkflowEnum.PRICE_CURRENCY:
-            [RegexHandler("^(XBT|ETH|LTC|XMR|XRP)$", price_currency),
+            [RegexHandler("^(XBT|BCH|ETH|LTC|XMR|XRP)$", price_currency),
              RegexHandler("^(CANCEL)$", cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
