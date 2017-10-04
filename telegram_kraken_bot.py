@@ -197,9 +197,12 @@ def trade_buy_sell(bot, update, chat_data):
     return WorkflowEnum.TRADE_CURRENCY
 
 
+# TODO: Add confirmation before execution
+# TODO: Delete already open orders before selling all?
+# FIXME: THIS IS CURRENTLY ONLY WORKING IF NO OPEN ORDERS EXIST!
 # Sells all assets for there respective current market value
 def trade_sell_all(bot, update):
-    update.message.reply_text("Reading balance...")
+    update.message.reply_text("Preparing to sell everything...")
 
     # Send request to Kraken to get current balance of all currencies
     res_balance = kraken.query_private("Balance")
@@ -209,15 +212,13 @@ def trade_sell_all(bot, update):
         update.message.reply_text(btfy(res_balance["error"][0]))
         return
 
-    update.message.reply_text("Creating sell-orders...")
-
     # Go over all assets and sell them
     for asset, amount in res_balance["result"].items():
         # Current asset is not a crypto-currency - skip it
         if asset.endswith(config["trade_to_currency"]):
             continue
         # Filter out currencies that have a volume of 0
-        if trim_zeros(amount) == "0":
+        if amount == "0.0000000000":
             continue
 
         req_data = dict()
@@ -243,7 +244,7 @@ def trade_sell_all(bot, update):
             job_queue.run_repeating(order_state_check, trade_time, context=context)
 
     msg = "Created orders to sell all assets"
-    update.message.reply_text(bold(msg), reply_markup=keyboard_cmds())
+    update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
 
@@ -333,13 +334,14 @@ def trade_vol_type_all(bot, update, chat_data):
             update.message.reply_text(btfy(res_orders["error"][0]))
             return
 
-        available_volume = res_balance["result"][chat_data["currency"]]
+        # Lookup volume of chosen currency
+        for currency, currency_volume in res_balance["result"].items():
+            if chat_data["currency"] in currency:
+                available_volume = currency_volume
+                break
 
-        current_currency = chat_data["currency"]
-        if current_currency.startswith("X"):
-            current_currency = current_currency[1:]
-
-        # Go through all open orders and check if an sell-order exists for the currency
+        # Go through all open orders and check if sell-orders exists for the currency
+        # If yes, subtract there volume from the available volume
         if res_orders["result"]["open"]:
             for order in res_orders["result"]["open"]:
                 order_desc = res_orders["result"]["open"][order]["descr"]["order"]
@@ -349,14 +351,20 @@ def trade_vol_type_all(bot, update, chat_data):
                 order_volume = order_desc_list[1]
                 order_type = order_desc_list[0]
 
-                if current_currency == order_currency:
+                if chat_data["currency"] in order_currency:
                     if order_type == "sell":
                         available_volume = str(float(available_volume) - float(order_volume))
 
         # Get volume from balance and round it to 8 digits
         chat_data["volume"] = "{0:.8f}".format(float(available_volume))
 
-    show_trade_conf(update, chat_data)
+    # If available volume is 0, return without creating a trade
+    if chat_data["volume"] == "0.00000000":
+        msg = "Available " + chat_data["currency"] + " volume is 0"
+        update.message.reply_text(msg, reply_markup=keyboard_cmds())
+        return ConversationHandler.END
+    else:
+        show_trade_conf(update, chat_data)
 
     return WorkflowEnum.TRADE_CONFIRM
 
@@ -384,12 +392,12 @@ def show_trade_conf(update, chat_data):
     # Show confirmation for placing order
     trade_str = (chat_data["buysell"].lower() + " " +
                  trim_zeros(chat_data["volume"]) + " " +
-                 chat_data["currency"][1:] + " @ limit " +
+                 chat_data["currency"] + " @ limit " +
                  chat_data["price"])
 
     # Calculate total value of order
     total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
-    total_value_str = "(Total value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
+    total_value_str = "(Value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
 
     reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
 
@@ -1497,7 +1505,7 @@ dispatcher.add_handler(bot_handler)
 # Start the bot
 updater.start_polling()
 
-# Show welcome message, update state and keyboard for commands
+# Show welcome message, update-state and keyboard for commands
 message = "KrakenBot is running!\n" + get_update_state()
 updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
 
