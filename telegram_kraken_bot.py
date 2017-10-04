@@ -943,6 +943,7 @@ def funding_cmd(bot, update):
 
     buttons = [
         KeyboardButton(KeyboardEnum.XBT.clean()),
+        KeyboardButton(KeyboardEnum.BCH.clean()),
         KeyboardButton(KeyboardEnum.ETH.clean()),
         KeyboardButton(KeyboardEnum.LTC.clean()),
         KeyboardButton(KeyboardEnum.XMR.clean()),
