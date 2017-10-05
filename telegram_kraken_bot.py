@@ -41,6 +41,7 @@ trades = list()
 class WorkflowEnum(Enum):
     TRADE_BUY_SELL = auto()
     TRADE_CURRENCY = auto()
+    TRADE_SELL_ALL_CONFIRM = auto()
     TRADE_PRICE = auto()
     TRADE_VOL_TYPE = auto()
     TRADE_VOLUME = auto()
@@ -113,6 +114,7 @@ def balance_cmd(bot, update):
 
     msg = ""
 
+    # Go over all currencies in your balance
     for currency_key, currency_value in res_balance["result"].items():
         available_value = currency_value
 
@@ -122,7 +124,7 @@ def balance_cmd(bot, update):
         if config["trade_to_currency"] in currency_key:
             currency_key = config["trade_to_currency"]
         else:
-            # Go through all open orders and check if an sell-order exists for the currency
+            # Go through all open orders and check if a sell-order exists for the currency
             if res_orders["result"]["open"]:
                 for order in res_orders["result"]["open"]:
                     order_desc = res_orders["result"]["open"][order]["descr"]["order"]
@@ -197,12 +199,43 @@ def trade_buy_sell(bot, update, chat_data):
     return WorkflowEnum.TRADE_CURRENCY
 
 
-# TODO: Add confirmation before execution
-# TODO: Delete already open orders before selling all?
-# FIXME: THIS IS CURRENTLY ONLY WORKING IF NO OPEN ORDERS EXIST!
-# Sells all assets for there respective current market value
+# Show confirmation to sell all assets
 def trade_sell_all(bot, update):
+    msg = "Sell `all` assets to current market price? All open orders will be closed!"
+    update.message.reply_text(msg, reply_markup=keyboard_confirm(), parse_mode=ParseMode.MARKDOWN)
+
+    return WorkflowEnum.TRADE_SELL_ALL_CONFIRM
+
+
+# Sells all assets for there respective current market value
+def trade_sell_all_confirm(bot, update):
+    if update.message.text == KeyboardEnum.NO.clean():
+        return cancel(bot, update)
+
     update.message.reply_text("Preparing to sell everything...")
+
+    # Send request for open orders to Kraken
+    res_open_orders = kraken.query_private("OpenOrders")
+
+    # If Kraken replied with an error, show it
+    if res_open_orders["error"]:
+        update.message.reply_text(btfy(res_open_orders["error"][0]))
+        return
+
+    # Close all currently open orders
+    if res_open_orders["result"]["open"]:
+        for order in res_open_orders["result"]["open"]:
+            req_data = dict()
+            req_data["txid"] = order
+
+            # Send request to Kraken to cancel orders
+            res_open_orders = kraken.query_private("CancelOrder", req_data)
+
+            # If Kraken replied with an error, show it
+            if res_open_orders["error"]:
+                msg = "Not possible to close order\n" + order + "\n" + btfy(res_open_orders["error"][0])
+                update.message.reply_text(msg)
+                return
 
     # Send request to Kraken to get current balance of all currencies
     res_balance = kraken.query_private("Balance")
@@ -576,7 +609,6 @@ def orders_close_all(bot, update):
         else:
             update.message.reply_text("No orders closed", reply_markup=keyboard_cmds())
             return
-
     else:
         update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
 
@@ -1364,14 +1396,14 @@ def trim_zeros(value_to_trim):
 # Log all errors
 dispatcher.add_error_handler(handle_error)
 
-# Add handlers to dispatcher
+# Add command handlers to dispatcher
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 
 
-# FUNDING command handler
+# FUNDING conversation handler
 funding_handler = ConversationHandler(
     entry_points=[CommandHandler('funding', funding_cmd)],
     states={
@@ -1394,7 +1426,7 @@ funding_handler = ConversationHandler(
 dispatcher.add_handler(funding_handler)
 
 
-# HISTORY command handler
+# HISTORY conversation handler
 history_handler = ConversationHandler(
     entry_points=[CommandHandler('history', history_cmd)],
     states={
@@ -1407,7 +1439,7 @@ history_handler = ConversationHandler(
 dispatcher.add_handler(history_handler)
 
 
-# CHART command handler
+# CHART conversation handler
 chart_handler = ConversationHandler(
     entry_points=[CommandHandler('chart', chart_cmd)],
     states={
@@ -1420,7 +1452,7 @@ chart_handler = ConversationHandler(
 dispatcher.add_handler(chart_handler)
 
 
-# ORDERS command handler
+# ORDERS conversation handler
 orders_handler = ConversationHandler(
     entry_points=[CommandHandler('orders', orders_cmd)],
     states={
@@ -1437,7 +1469,7 @@ orders_handler = ConversationHandler(
 dispatcher.add_handler(orders_handler)
 
 
-# TRADE command handler
+# TRADE conversation handler
 trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
     states={
@@ -1448,10 +1480,12 @@ trade_handler = ConversationHandler(
             [RegexHandler("^(XBT|BCH|ETH|LTC|XMR|XRP)$", trade_currency, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel),
              RegexHandler("^(ALL)$", trade_sell_all)],
+        WorkflowEnum.TRADE_SELL_ALL_CONFIRM:
+            [RegexHandler("^(YES|NO)$", trade_sell_all_confirm)],
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
-            [RegexHandler("^(EUR|VOLUME)$", trade_vol_type, pass_chat_data=True),
+            [RegexHandler("^(EUR|USD|CAD|GBP|JPY|VOLUME)$", trade_vol_type, pass_chat_data=True),
              RegexHandler("^(ALL)$", trade_vol_type_all, pass_chat_data=True),
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.TRADE_VOLUME:
@@ -1464,7 +1498,7 @@ trade_handler = ConversationHandler(
 dispatcher.add_handler(trade_handler)
 
 
-# PRICE command handler
+# PRICE conversation handler
 price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
     states={
@@ -1477,7 +1511,7 @@ price_handler = ConversationHandler(
 dispatcher.add_handler(price_handler)
 
 
-# VALUE command handler
+# VALUE conversation handler
 value_handler = ConversationHandler(
     entry_points=[CommandHandler('value', value_cmd)],
     states={
@@ -1490,7 +1524,7 @@ value_handler = ConversationHandler(
 dispatcher.add_handler(value_handler)
 
 
-# BOT command handler
+# BOT conversation handler
 bot_handler = ConversationHandler(
     entry_points=[CommandHandler('bot', bot_cmd)],
     states={
@@ -1503,7 +1537,7 @@ bot_handler = ConversationHandler(
 dispatcher.add_handler(bot_handler)
 
 
-# Start the bot
+# Start polling to handle all user input
 updater.start_polling()
 
 # Show welcome message, update-state and keyboard for commands
