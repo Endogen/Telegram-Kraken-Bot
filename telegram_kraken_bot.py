@@ -33,7 +33,7 @@ job_queue = updater.job_queue
 kraken = krakenex.API()
 kraken.load_key("kraken.key")
 
-# List that caches trades
+# Cached trades history
 trades = list()
 
 
@@ -89,11 +89,28 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
-# Get balance of all currencies
-def balance_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
+# Restrict access if user is not the same as in config
+def restrict_access(func):
+    def _restrict_access(bot, update):
+        chat_id = get_chat_id(update)
+        if str(chat_id) != config["user_id"]:
+            # Inform user who tried to access
+            bot.send_message(chat_id, text="Access denied")
 
+            # Inform owner of bot
+            msg = "Access denied for user %s" % chat_id
+            bot.send_message(config["user_id"], text=msg)
+
+            logger.info(msg)
+            return
+        else:
+            return func(bot, update)
+    return _restrict_access
+
+
+# Get balance of all currencies
+@restrict_access
+def balance_cmd(bot, update):
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
@@ -149,10 +166,8 @@ def balance_cmd(bot, update):
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
+@restrict_access
 def trade_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     reply_msg = "Buy or sell?"
 
     buttons = [
@@ -499,10 +514,8 @@ def trade_confirm(bot, update, chat_data):
 
 
 # Show and manage orders
+@restrict_access
 def orders_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get open orders
@@ -636,10 +649,8 @@ def orders_close_order(bot, update):
 
 
 # Show the last trade price for a currency
+@restrict_access
 def price_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     reply_msg = "Choose currency"
 
     buttons = [
@@ -691,10 +702,8 @@ def price_currency(bot, update):
 
 
 # Show the current real money value for a certain asset or for all assets combined
+@restrict_access
 def value_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     reply_msg = "Choose currency"
 
     buttons = [
@@ -792,10 +801,8 @@ def value_currency(bot, update):
 
 
 # Shows executed trades with volume and price
+@restrict_access
 def history_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     # Reset global trades dictionary
     global trades
     trades = list()
@@ -879,10 +886,8 @@ def history_next(bot, update):
 
 
 # Shows sub-commands to control the bot
+@restrict_access
 def bot_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     reply_msg = "What do you want to do?"
 
     buttons = [
@@ -926,10 +931,8 @@ def bot_sub_cmd(bot, update):
 
 
 # Show links to Kraken currency charts
+@restrict_access
 def chart_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     reply_msg = "Choose currency"
 
     buttons = [
@@ -975,10 +978,8 @@ def chart_currency(bot, update):
 
 
 # Choose currency to deposit or withdraw funds to / from
+@restrict_access
 def funding_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     reply_msg = "Choose currency"
 
     buttons = [
@@ -1128,10 +1129,8 @@ def funding_withdraw_confirm(bot, update, chat_data):
 
 
 # Download newest script, update the currently running script and restart
+@restrict_access
 def update_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
     github_file = requests.get(config["update_url"], headers=headers)
@@ -1177,10 +1176,8 @@ def shutdown():
 
 
 # Terminate this script
+@restrict_access
 def shutdown_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
 
     # See comments on the 'shutdown' function
@@ -1188,10 +1185,8 @@ def shutdown_cmd(bot, update):
 
 
 # Restart this python script
+@restrict_access
 def restart_cmd(bot, update):
-    if not is_user_valid(bot, update):
-        return cancel(bot, update)
-
     update.message.reply_text("Bot is restarting...", reply_markup=ReplyKeyboardRemove())
 
     time.sleep(0.2)
@@ -1242,17 +1237,6 @@ def get_chat_id(update=None):
             return update.callback_query.from_user["id"]
     else:
         return config["user_id"]
-
-
-# Check if user is valid and send message to user if not
-def is_user_valid(bot, update):
-    chat_id = get_chat_id(update)
-    if str(chat_id) != config["user_id"]:
-        bot.send_message(chat_id, text="Access denied")
-        logger.info("Access denied for user %s" % chat_id)
-        return False
-    else:
-        return True
 
 
 # Create a button menu to show in Telegram messages
