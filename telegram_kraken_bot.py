@@ -89,7 +89,7 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
-# Restrict access if user is not the same as in config
+# Decorator to restrict access if user is not the same as in config
 def restrict_access(func):
     def _restrict_access(bot, update):
         chat_id = get_chat_id(update)
