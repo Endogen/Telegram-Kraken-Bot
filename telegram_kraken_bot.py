@@ -165,6 +165,12 @@ def balance_cmd(bot, update):
     update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
 
+# Show welcome message, update-state and keyboard for commands
+def start_cmd(bot=None, update=None):
+    msg = "Kraken-Bot is running!\n" + get_update_state()
+    updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
+
+
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
 @restrict_access
 def trade_cmd(bot, update):
@@ -1381,6 +1387,7 @@ def trim_zeros(value_to_trim):
 dispatcher.add_error_handler(handle_error)
 
 # Add command handlers to dispatcher
+dispatcher.add_handler(CommandHandler("start", start_cmd))
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
@@ -1525,8 +1532,7 @@ dispatcher.add_handler(bot_handler)
 updater.start_polling()
 
 # Show welcome message, update-state and keyboard for commands
-message = "KrakenBot is running!\n" + get_update_state()
-updater.bot.send_message(config["user_id"], message, reply_markup=keyboard_cmds())
+start_cmd()
 
 # Monitor status changes of open orders
 monitor_open_orders()
