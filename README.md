@@ -12,19 +12,14 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
 - Integrated update mechanism - to latest version on GitHub
 - Notifies you once order is closed and trade successfully executed
 - Fully usable with buttons - no need to enter commands manually
+- Supports all currencies available on Kraken (configurable)
 - Following Kraken functionality is implemented
     - Create a buy / sell order (type _limit_)
     - Lookup last trade price for currencies
     - Show your assets
     - Current market value of assets (one or all)
     - Show / close open orders
-- Supported currencies
-	- Bitcoin
-	- BitcoinClassic
-	- Ether
-	- Litecoin
-	- Ripple
-	- Monero
+    - 
 
 ## Configuration
 Before starting up the bot you have to take care of some settings. You need to edit two files:
@@ -42,6 +37,8 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __update_check__: (_currently not used_) If `true`, then periodic update-checks (see also option `update_time` for timespan) are performed. If there is a bot-update available then you will be notified by a message
 - __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
 - __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
+- __used_coins__: List of usable currencies in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
+- __coin_charts__: Dictionary of all available currencies with there corresponding chart URL
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
@@ -99,6 +96,7 @@ If you configured the bot correctly and execute the script, you should get a wel
 - `/value`: Show current market value of chosen currency or all assets
 - `/chart`: Show a trading chart for the chosen currency
 - `/history`: Show history of closed trades
+- `/funding`: Deposit or withdraw (only to wallet, not SEPA) funds
 
 ##### Related to bot
 The following commands are available as sub-commands for command `/bot`
