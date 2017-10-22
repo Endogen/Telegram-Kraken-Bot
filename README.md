@@ -94,7 +94,7 @@ If you configured the bot correctly and execute the script, you should get a wel
 ##### Related to Kraken
 - `/trade`: Start a workflow that leads to the creation of a new order of type _limit_ (buy or sell)
 - `/orders`: Show all open orders (buy and sell) and close a specific one or all if desired
-- `/balance`: Show all assets and the volume available to trade if open orders exist that block assets
+- `/balance`: Show all assets and the volume available to trade if open orders exist already
 - `/price`: Return last trade price for the selected crypto-currency
 - `/value`: Show current market value of chosen currency or all assets
 - `/chart`: Show a trading chart for the chosen currency
@@ -117,7 +117,7 @@ I know that it is unconventional to have the whole source code in just one file.
 - [x] Add command `/funding` to deposit / withdraw funds
 - [ ] Add command `/alert` to be notified once a specified price is reached
 - [x] Add possibility to sell __all__ assets immediately to current market value
-- [ ] Enable to trade every currency that Kraken supports
+- [x] Enable to trade every currency that Kraken supports
 
 ##### Priority 2
 - [ ] Optimize code to call Kraken API less often
