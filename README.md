@@ -19,7 +19,6 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
     - Show your assets
     - Current market value of assets (one or all)
     - Show / close open orders
-    - 
 
 ## Configuration
 Before starting up the bot you have to take care of some settings. You need to edit two files:
@@ -38,7 +37,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
 - __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
 - __used_coins__: List of usable currencies in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
-- __coin_charts__: Dictionary of all available currencies with there corresponding chart URL
+- __coin_charts__: Dictionary of all available currencies with their corresponding chart URL
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
