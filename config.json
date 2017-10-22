@@ -8,5 +8,16 @@
 	"update_hash" : "some_hash",
 	"update_check" : true,
 	"update_time" : 86400,
-	"send_error" : false
+	"send_error" : false,
+	"used_coins" : [
+		"XBT", "BCH", "ETH", "LTC", "XMR", "XRP"
+	],
+	"coin_charts" : {
+		"XBT" : "https://tinyurl.com/y9p6g5a8",
+		"BCH" : "https://tinyurl.com/yas7972g",
+		"ETH" : "https://tinyurl.com/ya3fkha4",
+		"LTC" : "https://tinyurl.com/y8n7ohfh",
+		"XMR" : "https://tinyurl.com/y98ygfuw",
+		"XRP" : "https://tinyurl.com/ya4wcy3h"
+	}
 }
