@@ -457,7 +457,7 @@ def trade_confirm(bot, update, chat_data):
     req_data["volume"] = chat_data["volume"]
 
     # If currency is BCH then use different pair string
-    if chat_data["currency"] == KeyboardEnum.BCH.clean():
+    if chat_data["currency"] == "BCH":
         req_data["pair"] = chat_data["currency"] + config["trade_to_currency"]
     else:
         req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["trade_to_currency"]
@@ -661,7 +661,7 @@ def price_currency(bot, update):
     req_data = dict()
 
     # If currency is BCH then use different pair string
-    if update.message.text == KeyboardEnum.BCH.clean():
+    if update.message.text == "BCH":
         req_data["pair"] = update.message.text + config["trade_to_currency"]
     else:
         req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
@@ -735,7 +735,7 @@ def value_currency(bot, update):
             return
 
         req_price = dict()
-        if update.message.text == KeyboardEnum.BCH.clean():
+        if update.message.text == "BCH":
             req_price["pair"] = update.message.text + config["trade_to_currency"]
         else:
             req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
