@@ -1,6 +1,10 @@
 # Telegram Kraken Bot
 Python 3 bot to trade on Kraken via Telegram messanger
 
+<p align="center">
+  <img src="demo.gif" alt="Demo GIF of bot">
+</p>
+
 ![](demo.gif)
 
 ## Overview
