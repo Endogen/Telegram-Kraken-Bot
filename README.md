@@ -5,8 +5,6 @@ Python 3 bot to trade on Kraken via Telegram messanger
   <img src="demo.gif" alt="Demo GIF of bot">
 </p>
 
-![](demo.gif)
-
 ## Overview
 This Python script is a polling (not [webhook](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks)) based Telegram bot. It can trade crypto-currencies on the [Kraken](http://kraken.com) marketplace and has a user friendly interface (custom keyboards with buttons).
 
