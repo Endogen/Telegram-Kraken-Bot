@@ -128,9 +128,6 @@ I know that it is unconventional to have the whole source code in just one file.
 - [ ] Add command `/stats` that shows statistics
 - [ ] Closed order notifications: Show gain / loss if association between orders possible
 
-### Known bugs
-- Background jobs that check order state do not send messages if `updater.idle()` is present (commented `updater.idle()` out for now)
-
 ## Troubleshooting
 In case you experience any issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new)
 
