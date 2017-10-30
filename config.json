@@ -9,6 +9,7 @@
 	"update_check" : true,
 	"update_time" : 86400,
 	"send_error" : false,
+	"show_access_denied" : true,
 	"used_coins" : [
 		"XBT", "BCH", "ETH", "LTC", "XMR", "XRP"
 	],
