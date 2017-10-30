@@ -38,7 +38,8 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __update_check__: (_currently not used_) If `true`, then periodic update-checks (see also option `update_time` for timespan) are performed. If there is a bot-update available then you will be notified by a message
 - __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
 - __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
-- __used_coins__: List of usable currencies in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
+- __show\_access\_denied__: If `true`, the owner and the user who tries to access the bot will both be notified. If `false`, no one will be notified. Set to `false` if you get spammed with `Access denied` messages
+- __used_coins__: List currencies to use in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
 - __coin_charts__: Dictionary of all available currencies with their corresponding chart URL
 
 ### kraken.key

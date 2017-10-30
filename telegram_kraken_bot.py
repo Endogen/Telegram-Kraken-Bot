@@ -20,9 +20,13 @@ from telegram.ext.filters import Filters
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger()
 
-# Read configuration
-with open("config.json") as config_file:
-    config = json.load(config_file)
+# Check if file 'config.json' exists. Exit if not.
+if os.path.isfile("config.json"):
+    # Read configuration
+    with open("config.json") as config_file:
+        config = json.load(config_file)
+else:
+    exit("No configuration file 'config.json' found")
 
 # Set bot token, get dispatcher and job queue
 updater = Updater(token=config["bot_token"])
@@ -88,12 +92,13 @@ def restrict_access(func):
     def _restrict_access(bot, update):
         chat_id = get_chat_id(update)
         if str(chat_id) != config["user_id"]:
-            # Inform user who tried to access
-            bot.send_message(chat_id, text="Access denied")
+            if config["show_access_denied"]:
+                # Inform user who tried to access
+                bot.send_message(chat_id, text="Access denied")
 
-            # Inform owner of bot
-            msg = "Access denied for user %s" % chat_id
-            bot.send_message(config["user_id"], text=msg)
+                # Inform owner of bot
+                msg = "Access denied for user %s" % chat_id
+                bot.send_message(config["user_id"], text=msg)
 
             logger.info(msg)
             return
@@ -1503,4 +1508,4 @@ monitor_open_orders()
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
 # start_polling() is non-blocking and will stop the bot gracefully.
-# updater.idle()
+updater.idle()
