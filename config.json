@@ -20,5 +20,6 @@
 		"LTC" : "https://tinyurl.com/y8n7ohfh",
 		"XMR" : "https://tinyurl.com/y98ygfuw",
 		"XRP" : "https://tinyurl.com/ya4wcy3h"
-	}
+	},
+	"log_to_file" : false
 }
