@@ -18,9 +18,13 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
 - Following Kraken functionality is implemented
     - Create a buy / sell order (type _limit_)
     - Lookup last trade price for currencies
-    - Show your assets
+    - Show all your assets
     - Current market value of assets (one or all)
     - Show / close open orders
+    - Sell all assets for current market price
+    - Deposit & withdraw
+    - Show real-time charts
+    - List history of closed orders
 
 ## Configuration
 Before starting up the bot you have to take care of some settings. You need to edit two files:
@@ -39,8 +43,9 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
 - __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
 - __show\_access\_denied__: If `true`, the owner and the user who tries to access the bot will both be notified. If `false`, no one will be notified. Set to `false` if you get spammed with `Access denied` messages
-- __used_coins__: List currencies to use in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
-- __coin_charts__: Dictionary of all available currencies with their corresponding chart URL
+- __used_coins__: List of currencies to use in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
+- __coin_charts__: Dictionary of all available currencies with their corresponding chart URLs. If you want to add new ones, get the plain URL of the chart, save it with [tinyurl.com](http://tinyurl.com) and add the new URL to the config file
+- __log\_to\_file__: If `true`, debug-output to console will be saved in file `debug.log`
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
@@ -108,7 +113,7 @@ The following commands are available as sub-commands for command `/bot`
 - `/shutdown`: Shutdown the bot
 
 ## Development
-I know that it is unconventional to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
+I know that it is unusual to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
 
 ### Todo
 ##### Priority 1
