@@ -16,10 +16,6 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, P
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
-logger = logging.getLogger()
-
 # Check if file 'config.json' exists. Exit if not.
 if os.path.isfile("config.json"):
     # Read configuration
@@ -27,6 +23,23 @@ if os.path.isfile("config.json"):
         config = json.load(config_file)
 else:
     exit("No configuration file 'config.json' found")
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+logger = logging.getLogger()
+
+# Add a file handlers to the logger
+if config["log_to_file"]:
+    # Create a file handler for logging
+    handler = logging.FileHandler('debug.log')
+    handler.setLevel(logging.DEBUG)
+
+    # Format file handler
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+    handler.setFormatter(formatter)
+
+    # Add file handler to logger
+    logger.addHandler(handler)
 
 # Set bot token, get dispatcher and job queue
 updater = Updater(token=config["bot_token"])
