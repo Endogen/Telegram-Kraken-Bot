@@ -1094,24 +1094,44 @@ def funding_withdraw_confirm(bot, update, chat_data):
     return ConversationHandler.END
 
 
-# Download newest script, update the currently running script and restart
+# Download newest script, update the currently running one and restart.
+# If 'config.json' changed, update it also
 @restrict_access
 def update_cmd(bot, update):
     # Get newest version of this script from GitHub
     headers = {"If-None-Match": config["update_hash"]}
-    github_file = requests.get(config["update_url"], headers=headers)
+    github_script = requests.get(config["update_url"], headers=headers)
 
     # Status code 304 = Not Modified
-    if github_file.status_code == 304:
+    if github_script.status_code == 304:
         msg = "You are running the latest version"
         update.message.reply_text(msg, reply_markup=keyboard_cmds())
     # Status code 200 = OK
-    elif github_file.status_code == 200:
-        # Save current ETag (hash) in configuration file
+    elif github_script.status_code == 200:
+        # Get github 'config.json' file
+        last_slash_index = config["update_url"].rfind("/")
+        github_config_path = config["update_url"][:last_slash_index + 1] + "config.json"
+        github_config_file = requests.get(github_config_path)
+        github_config = json.loads(github_config_file.text)
+
+        # Compare current config keys with
+        # config keys from github-config
+        if set(config) != set(github_config):
+            # Go through all keys in current config and
+            # if they are also present in github-config,
+            # set current values there. This way we get a
+            # new config but with all current values
+            for key, value in config.items():
+                if key in github_config:
+                    github_config[key] = value
+
+        # Save current ETag (hash) of bot script in github-config
+        e_tag = github_script.headers.get("ETag")
+        github_config["update_hash"] = e_tag
+
+        # Save changed github-config as new config
         with open("config.json", "w") as cfg:
-            e_tag = github_file.headers.get("ETag")
-            config["update_hash"] = e_tag
-            json.dump(config, cfg)
+            json.dump(github_config, cfg)
 
         # Get the name of the currently running script
         path_split = os.path.split(str(sys.argv[0]))
@@ -1119,7 +1139,7 @@ def update_cmd(bot, update):
 
         # Save the content of the remote file
         with open(filename, "w") as file:
-            file.write(github_file.text)
+            file.write(github_script.text)
 
         update.message.reply_text("Restarting...", reply_markup=ReplyKeyboardRemove())
 
@@ -1128,7 +1148,7 @@ def update_cmd(bot, update):
 
     # Every other status code
     else:
-        msg = "Update not executed. Unexpected status code: " + github_file.status_code
+        msg = "Update not executed. Unexpected status code: " + github_script.status_code
         update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
     return ConversationHandler.END
