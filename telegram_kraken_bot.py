@@ -75,6 +75,9 @@ class WorkflowEnum(Enum):
     WITHDRAW_WALLET = auto()
     WITHDRAW_VOLUME = auto()
     WITHDRAW_CONFIRM = auto()
+    SETTINGS_CHANGE = auto()
+    SETTINGS_SAVE = auto()
+    SETTINGS_CONFIRM = auto()
 
 
 # Enum for keyboard buttons
@@ -95,6 +98,7 @@ class KeyboardEnum(Enum):
     NEXT = auto()
     DEPOSIT = auto()
     WITHDRAW = auto()
+    SETTINGS = auto()
 
     def clean(self):
         return self.name.replace("_", " ")
@@ -885,14 +889,12 @@ def bot_cmd(bot, update):
         KeyboardButton(KeyboardEnum.UPDATE_CHECK.clean()),
         KeyboardButton(KeyboardEnum.UPDATE.clean()),
         KeyboardButton(KeyboardEnum.RESTART.clean()),
-        KeyboardButton(KeyboardEnum.SHUTDOWN.clean())
-    ]
-
-    cancel_btn = [
+        KeyboardButton(KeyboardEnum.SHUTDOWN.clean()),
+        KeyboardButton(KeyboardEnum.SETTINGS.clean()),
         KeyboardButton(KeyboardEnum.CANCEL.clean())
     ]
 
-    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
     return WorkflowEnum.BOT_SUB_CMD
@@ -917,6 +919,7 @@ def bot_sub_cmd(bot, update):
     elif update.message.text == KeyboardEnum.SHUTDOWN.clean():
         shutdown_cmd(bot, update)
 
+    # Cancel
     elif update.message.text == KeyboardEnum.CANCEL.clean():
         return cancel(bot, update)
 
@@ -1131,7 +1134,7 @@ def update_cmd(bot, update):
 
         # Save changed github-config as new config
         with open("config.json", "w") as cfg:
-            json.dump(github_config, cfg)
+            json.dump(github_config, cfg, indent=4)
 
         # Get the name of the currently running script
         path_split = os.path.split(str(sys.argv[0]))
@@ -1177,6 +1180,89 @@ def restart_cmd(bot, update):
 
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
+
+
+# Get current settings
+@restrict_access
+def settings_cmd(bot, update):
+    settings = str()
+    buttons = list()
+
+    # Go through all settings in config file
+    for key, value in config.items():
+        settings += key + " = " + str(value) + "\n\n"
+        buttons.append(KeyboardButton(key.upper()))
+
+    # Send message with all current settings (key & value)
+    update.message.reply_text(settings)
+
+    cancel_btn = [
+        KeyboardButton(KeyboardEnum.CANCEL.clean())
+    ]
+
+    msg = "Choose key to change value"
+
+    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2, footer_buttons=cancel_btn))
+    update.message.reply_text(msg, reply_markup=reply_mrk)
+
+    return WorkflowEnum.SETTINGS_CHANGE
+
+
+# Change setting
+def settings_change(bot, update, chat_data):
+    chat_data["setting"] = update.message.text.lower()
+
+    # Don't allow to change setting 'user_id'
+    if update.message.text == "USER_ID":
+        update.message.reply_text("It's not possible to change user_id value")
+        return
+
+    msg = "Enter new value"
+
+    update.message.reply_text(msg, reply_markup=ReplyKeyboardRemove())
+
+    return WorkflowEnum.SETTINGS_SAVE
+
+
+# Save now value for chosen setting
+def settings_save(bot, update, chat_data):
+    new_value = update.message.text
+
+    # Check if new value is a boolean
+    if new_value.lower() == "true":
+        chat_data["value"] = True
+    elif new_value.lower() == "false":
+        chat_data["value"] = False
+    else:
+        # Check if new value is an integer ...
+        try:
+            chat_data["value"] = int(new_value)
+        # ... if not, save as string
+        except ValueError:
+            chat_data["value"] = new_value
+
+    msg = "Save new value and restart bot?"
+    update.message.reply_text(msg, reply_markup=keyboard_confirm())
+
+    return WorkflowEnum.SETTINGS_CONFIRM
+
+
+# Confirm saving new setting and restart bot
+def settings_confirm(bot, update, chat_data):
+    if update.message.text == KeyboardEnum.NO.clean():
+        return cancel(bot, update)
+
+    # Set new value in config dictionary
+    config[chat_data["setting"]] = chat_data["value"]
+
+    # Save changed config as new one
+    with open("config.json", "w") as cfg:
+        json.dump(config, cfg, indent=4)
+
+    update.message.reply_text("New value saved")
+
+    # Restart bot to activate new setting
+    restart_cmd(bot, update)
 
 
 # Will show a cancel message, end the conversation and show the default keyboard
@@ -1383,6 +1469,16 @@ def regex_coin_or():
     return coins_regex_or[:-1]
 
 
+# Return regex representation of OR for all settings in config
+def regex_settings_or():
+    settings_regex_or = str()
+
+    for key, value in config.items():
+        settings_regex_or += key.upper() + "|"
+
+    return settings_regex_or[:-1]
+
+
 # Log all errors
 dispatcher.add_error_handler(handle_error)
 
@@ -1522,7 +1618,15 @@ bot_handler = ConversationHandler(
     states={
         WorkflowEnum.BOT_SUB_CMD:
             [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$", bot_sub_cmd),
-             RegexHandler("^(CANCEL)$", cancel)]
+             RegexHandler("^(SETTINGS)$", settings_cmd),
+             RegexHandler("^(CANCEL)$", cancel)],
+        WorkflowEnum.SETTINGS_CHANGE:
+            [RegexHandler("^(" + regex_settings_or() + ")$", settings_change, pass_chat_data=True),
+             RegexHandler("^(CANCEL)$", cancel)],
+        WorkflowEnum.SETTINGS_SAVE:
+            [MessageHandler(Filters.text, settings_save, pass_chat_data=True)],
+        WorkflowEnum.SETTINGS_CONFIRM:
+            [RegexHandler("^(YES|NO)$", settings_confirm, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )

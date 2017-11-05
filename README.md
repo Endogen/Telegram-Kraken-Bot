@@ -15,6 +15,7 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
 - Notifies you once order is closed and trade successfully executed
 - Fully usable with buttons - no need to enter commands manually
 - Supports all currencies available on Kraken (configurable)
+- Change bot settings via bot
 - Following Kraken functionality is implemented
     - Create a buy / sell order (type _limit_)
     - Lookup last trade price for currencies
@@ -111,6 +112,7 @@ The following commands are available as sub-commands for command `/bot`
 - `/update`: Update the bot to the latest version on GitHub
 - `/restart`: Restart the bot
 - `/shutdown`: Shutdown the bot
+- `/settings`: Show and change bot settings
 
 ## Development
 I know that it is unusual to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
@@ -123,6 +125,7 @@ I know that it is unusual to have the whole source code in just one file. At som
 - [ ] Add command `/alert` to be notified once a specified price is reached
 - [x] Add possibility to sell __all__ assets immediately to current market value
 - [x] Enable to trade every currency that Kraken supports
+- [x] Add possibility to change settings via bot
 
 ##### Priority 2
 - [ ] Optimize code to call Kraken API less often
