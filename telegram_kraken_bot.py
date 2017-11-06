@@ -1120,21 +1120,19 @@ def update_cmd(bot, update):
         # Compare current config keys with
         # config keys from github-config
         if set(config) != set(github_config):
-            # Go through all keys in current config and
-            # if they are also present in github-config,
-            # set current values there. This way we get a
-            # new config but with all current values
-            for key, value in config.items():
-                if key in github_config:
-                    github_config[key] = value
+            # Go through all keys in github-config and
+            # if they are not present in current config, add them
+            for key, value in github_config.items():
+                if key not in config:
+                    config[key] = value
 
         # Save current ETag (hash) of bot script in github-config
         e_tag = github_script.headers.get("ETag")
-        github_config["update_hash"] = e_tag
+        config["update_hash"] = e_tag
 
         # Save changed github-config as new config
         with open("config.json", "w") as cfg:
-            json.dump(github_config, cfg, indent=4)
+            json.dump(config, cfg, indent=4)
 
         # Get the name of the currently running script
         path_split = os.path.split(str(sys.argv[0]))
@@ -1143,8 +1141,6 @@ def update_cmd(bot, update):
         # Save the content of the remote file
         with open(filename, "w") as file:
             file.write(github_script.text)
-
-        update.message.reply_text("Restarting...", reply_markup=ReplyKeyboardRemove())
 
         # Restart the bot
         restart_cmd(bot, update)
