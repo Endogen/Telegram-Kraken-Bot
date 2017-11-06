@@ -1214,7 +1214,7 @@ def settings_change(bot, update, chat_data):
 
     # Don't allow to change setting 'user_id'
     if update.message.text == "USER_ID":
-        update.message.reply_text("It's not possible to change user_id value")
+        update.message.reply_text("It's not possible to change USER_ID value")
         return
 
     msg = "Enter new value"
@@ -1612,6 +1612,28 @@ value_handler = ConversationHandler(
 dispatcher.add_handler(value_handler)
 
 
+# Will return the SETTINGS_CHANGE state for a conversation handler
+# This way the state is reusable
+def get_settings_change_state():
+    return [WorkflowEnum.SETTINGS_CHANGE,
+            [RegexHandler("^(" + regex_settings_or() + ")$", settings_change, pass_chat_data=True),
+             RegexHandler("^(CANCEL)$", cancel)]]
+
+
+# Will return the SETTINGS_SAVE state for a conversation handler
+# This way the state is reusable
+def get_settings_save_state():
+    return [WorkflowEnum.SETTINGS_SAVE,
+            [MessageHandler(Filters.text, settings_save, pass_chat_data=True)]]
+
+
+# Will return the SETTINGS_CONFIRM state for a conversation handler
+# This way the state is reusable
+def get_settings_confirm_state():
+    return [WorkflowEnum.SETTINGS_CONFIRM,
+            [RegexHandler("^(YES|NO)$", settings_confirm, pass_chat_data=True)]]
+
+
 # BOT conversation handler
 bot_handler = ConversationHandler(
     entry_points=[CommandHandler('bot', bot_cmd)],
@@ -1620,17 +1642,26 @@ bot_handler = ConversationHandler(
             [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$", bot_sub_cmd),
              RegexHandler("^(SETTINGS)$", settings_cmd),
              RegexHandler("^(CANCEL)$", cancel)],
-        WorkflowEnum.SETTINGS_CHANGE:
-            [RegexHandler("^(" + regex_settings_or() + ")$", settings_change, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)],
-        WorkflowEnum.SETTINGS_SAVE:
-            [MessageHandler(Filters.text, settings_save, pass_chat_data=True)],
-        WorkflowEnum.SETTINGS_CONFIRM:
-            [RegexHandler("^(YES|NO)$", settings_confirm, pass_chat_data=True)]
+        get_settings_change_state()[0]: get_settings_change_state()[1],
+        get_settings_save_state()[0]: get_settings_save_state()[1],
+        get_settings_confirm_state()[0]: get_settings_confirm_state()[1]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 dispatcher.add_handler(bot_handler)
+
+
+# SETTINGS conversation handler
+settings_handler = ConversationHandler(
+    entry_points=[CommandHandler('settings', settings_cmd)],
+    states={
+        get_settings_change_state()[0]: get_settings_change_state()[1],
+        get_settings_save_state()[0]: get_settings_save_state()[1],
+        get_settings_confirm_state()[0]: get_settings_confirm_state()[1]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(settings_handler)
 
 
 # Start polling to handle all user input
