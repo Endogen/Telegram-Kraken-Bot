@@ -7,14 +7,14 @@ import sys
 import time
 import threading
 import datetime
-
-import krakenex
 import requests
+import krakenex
 
 from enum import Enum, auto
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
+
 
 # Check if file 'config.json' exists. Exit if not.
 if os.path.isfile("config.json"):
@@ -1421,22 +1421,15 @@ def bold(text):
     return "*" + text + "*"
 
 
-# beautify - Enriches or replaces text, based on hardcoded patterns
+# Beautifies Kraken error messages
 def btfy(text):
-    if "EQuery" in text:
-        return text.replace("EQuery:", "Kraken Error (Query): ")
-    elif "EGeneral" in text:
-        return text.replace("EGeneral:", "Kraken Error (General): ")
-    elif "EService" in text:
-        return text.replace("EService:", "Kraken Error (Service): ")
-    elif "EAPI" in text:
-        return text.replace("EAPI:", "Kraken Error (API): ")
-    elif "EOrder" in text:
-        return text.replace("EOrder:", "Kraken Error (Order): ")
-    elif "EFunding" in text:
-        return text.replace("EFunding:", "Kraken Error (Funding): ")
+    index = text.find(":")
 
-    return text
+    # Character wasn't found
+    if index == -1:
+        return text
+
+    return "Kraken ERROR (" + text[:index] + "): " + text[index + 1:]
 
 
 # Remove trailing zeros to get clean values

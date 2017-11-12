@@ -148,5 +148,5 @@ I use this bot personally to trade on Kraken so i guess it's kind of stable but 
 ## Donating
 If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because of it, please consider donating whatever amount you like to this Bitcoin wallet:
 ```
-1M4qFuDndPXabfg2Qj69bug9V13Fja2iwT
+1A8eQ7hA1xUH7ymoXvgRbGzRpPekSxR3DV
 ```
