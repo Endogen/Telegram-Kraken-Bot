@@ -1,3 +1,3 @@
-krakenex==1.0.0
+krakenex==2.0.0c2
 python-telegram-bot==8.1.1
 requests==2.18.4
