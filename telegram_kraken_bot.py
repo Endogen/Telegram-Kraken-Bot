@@ -11,6 +11,8 @@ import requests
 import krakenex
 
 from enum import Enum, auto
+
+from requests.exceptions import HTTPError
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
@@ -104,6 +106,18 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
+# Handle Kraken API requests
+def exec_kraken_api(method, data=None, private=False):
+    try:
+        if private:
+            return kraken.query_private(method, data)
+        else:
+            return kraken.query_public(method, data)
+    except HTTPError as error:
+        logger.error(str(error))
+        return {"error": ["HTTPError:" + str(error)]}
+
+
 # Decorator to restrict access if user is not the same as in config
 def restrict_access(func):
     def _restrict_access(bot, update):
@@ -130,19 +144,23 @@ def balance_cmd(bot, update):
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
-    res_balance = kraken.query_private("Balance")
+    res_balance = exec_kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
     if res_balance["error"]:
-        update.message.reply_text(btfy(res_balance["error"][0]))
+        error = btfy(res_balance["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Send request to Kraken to get open orders
-    res_orders = kraken.query_private("OpenOrders")
+    res_orders = exec_kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_orders["error"]:
-        update.message.reply_text(btfy(res_orders["error"][0]))
+        error = btfy(res_orders["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     msg = ""
@@ -243,11 +261,13 @@ def trade_sell_all_confirm(bot, update):
     update.message.reply_text("Preparing to sell everything...")
 
     # Send request for open orders to Kraken
-    res_open_orders = kraken.query_private("OpenOrders")
+    res_open_orders = exec_kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_open_orders["error"]:
-        update.message.reply_text(btfy(res_open_orders["error"][0]))
+        error = btfy(res_open_orders["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Close all currently open orders
@@ -257,20 +277,23 @@ def trade_sell_all_confirm(bot, update):
             req_data["txid"] = order
 
             # Send request to Kraken to cancel orders
-            res_open_orders = kraken.query_private("CancelOrder", req_data)
+            res_open_orders = exec_kraken_api("CancelOrder", data=req_data, private=True)
 
             # If Kraken replied with an error, show it
             if res_open_orders["error"]:
-                msg = "Not possible to close order\n" + order + "\n" + btfy(res_open_orders["error"][0])
-                update.message.reply_text(msg)
+                error = "Not possible to close order\n" + order + "\n" + btfy(res_open_orders["error"][0])
+                update.message.reply_text(error)
+                logger.error(error)
                 return
 
     # Send request to Kraken to get current balance of all currencies
-    res_balance = kraken.query_private("Balance")
+    res_balance = exec_kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
     if res_balance["error"]:
-        update.message.reply_text(btfy(res_balance["error"][0]))
+        error = btfy(res_balance["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Go over all assets and sell them
@@ -289,11 +312,13 @@ def trade_sell_all_confirm(bot, update):
         req_data["volume"] = amount
 
         # Send request to create order to Kraken
-        res_add_order = kraken.query_private("AddOrder", req_data)
+        res_add_order = exec_kraken_api("AddOrder", data=req_data, private=True)
 
         # If Kraken replied with an error, show it
         if res_add_order["error"]:
-            update.message.reply_text(btfy(res_add_order["error"][0]))
+            error = btfy(res_add_order["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             continue
 
         order_txid = res_add_order["result"]["txid"][0]
@@ -362,11 +387,13 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
-        res_balance = kraken.query_private("Balance")
+        res_balance = exec_kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
         if res_balance["error"]:
-            update.message.reply_text(btfy(res_balance["error"][0]))
+            error = btfy(res_balance["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         available_euros = float(0)
@@ -380,19 +407,23 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == KeyboardEnum.SELL.clean():
         # Send request to Kraken to get euro balance to calculate volume
-        res_balance = kraken.query_private("Balance")
+        res_balance = exec_kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
         if res_balance["error"]:
-            update.message.reply_text(btfy(res_balance["error"][0]))
+            error = btfy(res_balance["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         # Send request to Kraken to get open orders
-        res_orders = kraken.query_private("OpenOrders")
+        res_orders = exec_kraken_api("OpenOrders", private=True)
 
         # If Kraken replied with an error, show it
         if res_orders["error"]:
-            update.message.reply_text(btfy(res_orders["error"][0]))
+            error = btfy(res_orders["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         # Lookup volume of chosen currency
@@ -485,11 +516,13 @@ def trade_confirm(bot, update, chat_data):
         req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["trade_to_currency"]
 
     # Send request to create order to Kraken
-    res_add_order = kraken.query_private("AddOrder", req_data)
+    res_add_order = exec_kraken_api("AddOrder", req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_add_order["error"]:
-        update.message.reply_text(btfy(res_add_order["error"][0]))
+        error = btfy(res_add_order["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # If there is a transaction id then the order was placed successfully
@@ -500,11 +533,13 @@ def trade_confirm(bot, update, chat_data):
         req_data["txid"] = order_txid
 
         # Send request to get info on specific order
-        res_query_order = kraken.query_private("QueryOrders", req_data)
+        res_query_order = exec_kraken_api("QueryOrders", data=req_data, private=True)
 
         # If Kraken replied with an error, show it
         if res_query_order["error"]:
-            update.message.reply_text(btfy(res_query_order["error"][0]))
+            error = btfy(res_query_order["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         if res_query_order["result"][order_txid]:
@@ -532,11 +567,13 @@ def orders_cmd(bot, update):
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get open orders
-    res_data = kraken.query_private("OpenOrders")
+    res_data = exec_kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Go through all open orders and show them to the user
@@ -571,11 +608,13 @@ def orders_choose_order(bot, update):
     update.message.reply_text("Looking up open orders...")
 
     # Send request for open orders to Kraken
-    res_data = kraken.query_private("OpenOrders")
+    res_data = exec_kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     buttons = list()
@@ -606,11 +645,13 @@ def orders_close_all(bot, update):
     update.message.reply_text("Closing orders...")
 
     # Send request for open orders to Kraken
-    res_data = kraken.query_private("OpenOrders")
+    res_data = exec_kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     closed_orders = list()
@@ -620,12 +661,13 @@ def orders_close_all(bot, update):
             req_data["txid"] = order
 
             # Send request to Kraken to cancel orders
-            res_data = kraken.query_private("CancelOrder", req_data)
+            res_data = exec_kraken_api("CancelOrder", data=req_data, private=True)
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                msg = "Not possible to close order\n" + order + "\n" + btfy(res_data["error"][0])
-                update.message.reply_text(msg)
+                error = "Not possible to close order\n" + order + "\n" + btfy(res_data["error"][0])
+                update.message.reply_text(error)
+                logger.error(error)
             else:
                 closed_orders.append(order)
 
@@ -649,11 +691,13 @@ def orders_close_order(bot, update):
     req_data["txid"] = update.message.text
 
     # Send request to Kraken to cancel order
-    res_data = kraken.query_private("CancelOrder", req_data)
+    res_data = exec_kraken_api("CancelOrder", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     msg = bold("Order closed:\n" + req_data["txid"])
@@ -689,11 +733,13 @@ def price_currency(bot, update):
         req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
     # Send request to Kraken to get current trading price for currency-pair
-    res_data = kraken.query_public("Ticker", req_data)
+    res_data = exec_kraken_api("Ticker", data=req_data, private=False)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     currency = update.message.text
@@ -731,11 +777,13 @@ def value_currency(bot, update):
         req_asset["asset"] = config["trade_to_currency"]
 
         # Send request to Kraken tp obtain the combined balance of all currencies
-        res_trade_balance = kraken.query_private("TradeBalance", req_asset)
+        res_trade_balance = exec_kraken_api("TradeBalance", data=req_asset, private=True)
 
         # If Kraken replied with an error, show it
         if res_trade_balance["error"]:
-            update.message.reply_text(btfy(res_trade_balance["error"][0]))
+            error = btfy(res_trade_balance["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         # Show only 2 digits after decimal place
@@ -749,11 +797,13 @@ def value_currency(bot, update):
     # Get balance of a specific coin
     else:
         # Send request to Kraken to get current balance of all currencies
-        res_balance = kraken.query_private("Balance")
+        res_balance = exec_kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
         if res_balance["error"]:
-            update.message.reply_text(btfy(res_balance["error"][0]))
+            error = btfy(res_balance["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         req_price = dict()
@@ -763,11 +813,13 @@ def value_currency(bot, update):
             req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
         # Send request to Kraken to get current trading price for currency-pair
-        res_price = kraken.query_public("Ticker", req_price)
+        res_price = exec_kraken_api("Ticker", data=req_price, private=False)
 
         # If Kraken replied with an error, show it
         if res_price["error"]:
-            update.message.reply_text(btfy(res_price["error"][0]))
+            error = btfy(res_price["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
             return
 
         # Get last trade price
@@ -805,11 +857,13 @@ def history_cmd(bot, update):
     update.message.reply_text("Retrieving history data...")
 
     # Send request to Kraken to get trades history
-    res_trades = kraken.query_private("TradesHistory")
+    res_trades = exec_kraken_api("TradesHistory", private=True)
 
     # If Kraken replied with an error, show it
     if res_trades["error"]:
-        update.message.reply_text(btfy(res_trades["error"][0]))
+        error = btfy(res_trades["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Add all trades to global list
@@ -999,21 +1053,25 @@ def funding_deposit(bot, update, chat_data):
     req_data["asset"] = chat_data["currency"]
 
     # Send request to Kraken to get trades history
-    res_dep_meth = kraken.query_private("DepositMethods", req_data)
+    res_dep_meth = exec_kraken_api("DepositMethods", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_dep_meth["error"]:
-        update.message.reply_text(btfy(res_dep_meth["error"][0]))
+        error = btfy(res_dep_meth["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     req_data["method"] = res_dep_meth["result"][0]["method"]
 
     # Send request to Kraken to get trades history
-    res_dep_addr = kraken.query_private("DepositAddresses", req_data)
+    res_dep_addr = exec_kraken_api("DepositAddresses", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_dep_addr["error"]:
-        update.message.reply_text(btfy(res_dep_addr["error"][0]))
+        error = btfy(res_dep_addr["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Wallet found
@@ -1069,11 +1127,13 @@ def funding_withdraw_confirm(bot, update, chat_data):
     req_data["amount"] = chat_data["volume"]
 
     # Send request to Kraken to get withdrawal info to lookup fee
-    res_data = kraken.query_private("WithdrawInfo", req_data)
+    res_data = exec_kraken_api("WithdrawInfo", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # Add up volume and fee and set the new value as 'amount'
@@ -1081,11 +1141,13 @@ def funding_withdraw_confirm(bot, update, chat_data):
     req_data["amount"] = str(volume_and_fee)
 
     # Send request to Kraken to withdraw digital currency
-    res_data = kraken.query_private("Withdraw", req_data)
+    res_data = exec_kraken_api("Withdraw", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
-        update.message.reply_text(btfy(res_data["error"][0]))
+        error = btfy(res_data["error"][0])
+        update.message.reply_text(error)
+        logger.error(error)
         return
 
     # If a REFID exists, the withdrawal was initiated
@@ -1267,16 +1329,6 @@ def cancel(bot, update):
     return ConversationHandler.END
 
 
-# Log all telegram and telegram.ext related errors
-def handle_error(bot, update, error):
-    error_str = "Update '%s' caused error '%s'" % (update, error)
-
-    logger.error(error_str)
-
-    if config["send_error"]:
-        updater.bot.send_message(chat_id=config["user_id"], text=btfy(error_str))
-
-
 # Check if GitHub hosts a different script then the currently running one
 def get_update_state():
     # Get newest version of this script from GitHub
@@ -1362,12 +1414,14 @@ def order_state_check(bot, job):
     req_data["txid"] = job.context["order_txid"]
 
     # Send request to get info on specific order
-    res_data = kraken.query_private("QueryOrders", req_data)
+    res_data = exec_kraken_api("QueryOrders", data=req_data, private=True)
 
     # If Kraken replied with an error, return without notification
     if res_data["error"]:
         if config["send_error"]:
-            updater.bot.send_message(chat_id=config["user_id"], text=btfy(res_data["error"][0]))
+            error = btfy(res_data["error"][0])
+            updater.bot.send_message(chat_id=config["user_id"], text=error)
+            logger.error(error)
         return
 
     # Save information about order
@@ -1391,11 +1445,13 @@ def order_state_check(bot, job):
 def monitor_open_orders():
     if config["check_trade"]:
         # Send request for open orders to Kraken
-        res_data = kraken.query_private("OpenOrders")
+        res_data = exec_kraken_api("OpenOrders", private=True)
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            updater.bot.send_message(chat_id=config["user_id"], text=btfy(res_data["error"][0]))
+            error = btfy(res_data["error"][0])
+            updater.bot.send_message(chat_id=config["user_id"], text=error)
+            logger.error(error)
             return
 
         if res_data["result"]["open"]:
@@ -1415,23 +1471,6 @@ def datetime_from_timestamp(unix_timestamp):
     return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
 
-# Add asterisk as prefix and suffix for a string
-# Will make the text bold if used with Markdown
-def bold(text):
-    return "*" + text + "*"
-
-
-# Beautifies Kraken error messages
-def btfy(text):
-    index = text.find(":")
-
-    # Character wasn't found
-    if index == -1:
-        return text
-
-    return "Kraken ERROR (" + text[:index] + "): " + text[index + 1:]
-
-
 # Remove trailing zeros to get clean values
 def trim_zeros(value_to_trim):
     if isinstance(value_to_trim, float):
@@ -1446,6 +1485,37 @@ def trim_zeros(value_to_trim):
         return " ".join(str_list)
     else:
         return value_to_trim
+
+
+# Add asterisk as prefix and suffix for a string
+# Will make the text bold if used with Markdown
+def bold(text):
+    return "*" + text + "*"
+
+
+# Beautifies Kraken error messages
+def btfy(text):
+    index = text.find(":")
+
+    # Character wasn't found
+    if index == -1:
+        return text
+
+    return "ERROR (" + text[:index] + "): " + text[index + 1:]
+
+
+# Handle all telegram and telegram.ext related errors
+def handle_telegram_error(bot, update, error):
+    error_str = "Update '%s' caused error '%s'" % (update, error)
+
+    logger.error(error_str)
+
+    if config["send_error"]:
+        updater.bot.send_message(chat_id=config["user_id"], text=error_str)
+
+
+# Log all errors
+dispatcher.add_error_handler(handle_telegram_error)
 
 
 # Returns regex representation of OR for all coins in config
@@ -1466,10 +1536,6 @@ def regex_settings_or():
         settings_regex_or += key.upper() + "|"
 
     return settings_regex_or[:-1]
-
-
-# Log all errors
-dispatcher.add_error_handler(handle_error)
 
 
 # Add command handlers to dispatcher
