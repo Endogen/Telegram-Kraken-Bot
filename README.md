@@ -78,7 +78,7 @@ Install a set of module-versions that is known to work together for sure (__high
 pip3.6 install -r requirements.txt
 ```
 
-##### Install newest version of needed modules
+##### Install newest versions of needed modules
 If you want to install the newest version of the needed modules, do the following:
 ```shell
 pip3.6 install python-telegram-bot -U

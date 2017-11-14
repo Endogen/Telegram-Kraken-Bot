@@ -113,9 +113,10 @@ def exec_kraken_api(method, data=None, private=False):
             return kraken.query_private(method, data)
         else:
             return kraken.query_public(method, data)
-    except HTTPError as error:
-        logger.error(str(error))
-        return {"error": [" HTTPError:" + str(error)]}
+    except Exception as ex:
+        logger.error(str(ex))
+        ex_name = type(ex).__name__
+        return {"error": [" " + ex_name + ":" + str(ex)]}
 
 
 # Decorator to restrict access if user is not the same as in config
