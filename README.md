@@ -72,18 +72,18 @@ In order to run the bot you need to execute the script `telegram_kraken_bot.py`.
 ##### Python version
 You have to use __Python 3.6__ to execute the script (because of enum method `auto()`). If you would like to use Python 3.4 or 3.5, you have to remove `auto` from imports and set the values in `WorkflowEnum` and `KeyboardEnum` yourself. Python 2.x is __not__ supported.
 
-##### Needed modules
-You need to install the following Python modules first:
+##### Installing needed modules from `requirements.txt`
+Install a set of module-versions that is known to work together for sure (__highly recommended__):
+```shell
+pip3.6 install -r requirements.txt
+```
+
+##### Install newest version of needed modules
+If you want to install the newest version of the needed modules, do the following:
 ```shell
 pip3.6 install python-telegram-bot -U
 pip3.6 install krakenex -U
 pip3.6 install requests -U
-```
-
-##### Installing from `requirements.txt`
-Do the above to install the newest versions of the needed Python modules (recommended) or if you run into issues, install a set of module-versions that is known to work together for sure with:
-```shell
-pip3.6 install -r requirements.txt
 ```
 
 ### Starting up

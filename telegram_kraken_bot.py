@@ -115,7 +115,7 @@ def exec_kraken_api(method, data=None, private=False):
             return kraken.query_public(method, data)
     except HTTPError as error:
         logger.error(str(error))
-        return {"error": ["HTTPError:" + str(error)]}
+        return {"error": [" HTTPError:" + str(error)]}
 
 
 # Decorator to restrict access if user is not the same as in config
@@ -1501,7 +1501,7 @@ def btfy(text):
     if index == -1:
         return text
 
-    return "ERROR (" + text[:index] + "): " + text[index + 1:]
+    return "ERROR (" + text[1:index] + "): " + text[index + 1:]
 
 
 # Handle all telegram and telegram.ext related errors
