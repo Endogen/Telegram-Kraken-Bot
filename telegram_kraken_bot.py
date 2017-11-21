@@ -1282,7 +1282,7 @@ def settings_change(bot, update, chat_data):
     return WorkflowEnum.SETTINGS_SAVE
 
 
-# Save now value for chosen setting
+# Save new value for chosen setting
 def settings_save(bot, update, chat_data):
     new_value = update.message.text
 
