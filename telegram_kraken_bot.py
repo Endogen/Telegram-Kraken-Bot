@@ -12,7 +12,6 @@ import krakenex
 
 from enum import Enum, auto
 
-from requests.exceptions import HTTPError
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
