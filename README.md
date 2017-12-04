@@ -47,6 +47,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __used_coins__: List of currencies to use in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
 - __coin_charts__: Dictionary of all available currencies with their corresponding chart URLs. If you want to add new ones, get the plain URL of the chart, save it with [tinyurl.com](http://tinyurl.com) and add the new URL to the config file
 - __log\_to\_file__: If `true`, debug-output to console will be saved in file `debug.log`
+- __history_items__: Number of history trades to display simultaneously
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
