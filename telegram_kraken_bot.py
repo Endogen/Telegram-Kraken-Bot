@@ -12,7 +12,6 @@ import krakenex
 
 from enum import Enum, auto
 
-from requests.exceptions import HTTPError
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
@@ -30,6 +29,7 @@ else:
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 logger = logging.getLogger()
 
+# TODO: Add date to logfile-name. If new day starts, white to new file
 # Add a file handlers to the logger
 if config["log_to_file"]:
     # Create a file handler for logging
@@ -883,15 +883,20 @@ def history_cmd(bot, update):
             KeyboardButton(KeyboardEnum.CANCEL.clean())
         ]
 
-        # Get first item in list (latest trade)
-        for items in range(config['history_items']):
+        # Get number of first items in list (latest trades)
+        for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
+            # Format pair-string from 'XLTCZEUR' to 'LTC-EUR'
+            pair_str = newest_trade["pair"].replace("Z", "-")
+            pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
+
+            # TODO: Export to own function and reference also in 'history_next'
             trade_str = (newest_trade["type"] + " " +
-                        trim_zeros(newest_trade["vol"]) + " " +
-                        newest_trade["pair"][-7:] + " @ limit " +
-                        trim_zeros(newest_trade["price"]) + " on " +
-                        datetime_from_timestamp(newest_trade["time"]))
+                         trim_zeros(newest_trade["vol"]) + " " +
+                         pair_str + " @ limit " +
+                         trim_zeros(newest_trade["price"]) + " on " +
+                         datetime_from_timestamp(newest_trade["time"]))
 
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
 
@@ -912,15 +917,19 @@ def history_cmd(bot, update):
 # Save if BUY, SELL or ALL trade history and choose how many entries to list
 def history_next(bot, update):
     if trades:
-        # Get first item in list (latest trade)
-        for items in range(config['history_items']):
+        # Get number of first items in list (latest trades)
+        for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
+            # Format pair-string from 'XLTCZEUR' to 'LTC-EUR'
+            pair_str = newest_trade["pair"].replace("Z", "-")
+            pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
+
             trade_str = (newest_trade["type"] + " " +
-                        trim_zeros(newest_trade["vol"]) + " " +
-                        newest_trade["pair"][-7:] + " @ limit " +
-                        trim_zeros(newest_trade["price"]) + " on " +
-                        datetime_from_timestamp(newest_trade["time"]))
+                         trim_zeros(newest_trade["vol"]) + " " +
+                         pair_str + " @ limit " +
+                         trim_zeros(newest_trade["price"]) + " on " +
+                         datetime_from_timestamp(newest_trade["time"]))
 
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
 
