@@ -884,22 +884,23 @@ def history_cmd(bot, update):
         ]
 
         # Get first item in list (latest trade)
-        newest_trade = next(iter(trades), None)
+        for items in range(config['history_items']):
+            newest_trade = next(iter(trades), None)
 
-        trade_str = (newest_trade["type"] + " " +
-                     trim_zeros(newest_trade["vol"]) + " " +
-                     newest_trade["pair"][1:] + " @ limit " +
-                     trim_zeros(newest_trade["price"]) + " on " +
-                     datetime_from_timestamp(newest_trade["time"]))
+            trade_str = (newest_trade["type"] + " " +
+                        trim_zeros(newest_trade["vol"]) + " " +
+                        newest_trade["pair"][-7:] + " @ limit " +
+                        trim_zeros(newest_trade["price"]) + " on " +
+                        datetime_from_timestamp(newest_trade["time"]))
 
-        total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
 
-        msg = trade_str + " (Value: " + total_value + " EUR)"
-        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=1, footer_buttons=cancel_btn))
-        update.message.reply_text(bold(msg), reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
+            msg = trade_str + " (Value: " + total_value + " EUR)"
+            reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=1, footer_buttons=cancel_btn))
+            update.message.reply_text(bold(msg), reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
 
-        # Remove the first item in the trades list
-        trades.remove(newest_trade)
+            # Remove the first item in the trades list
+            trades.remove(newest_trade)
 
         return WorkflowEnum.HISTORY_NEXT
     else:
@@ -912,21 +913,22 @@ def history_cmd(bot, update):
 def history_next(bot, update):
     if trades:
         # Get first item in list (latest trade)
-        newest_trade = next(iter(trades), None)
+        for items in range(config['history_items']):
+            newest_trade = next(iter(trades), None)
 
-        trade_str = (newest_trade["type"] + " " +
-                     trim_zeros(newest_trade["vol"]) + " " +
-                     newest_trade["pair"][1:] + " @ limit " +
-                     trim_zeros(newest_trade["price"]) + " on " +
-                     datetime_from_timestamp(newest_trade["time"]))
+            trade_str = (newest_trade["type"] + " " +
+                        trim_zeros(newest_trade["vol"]) + " " +
+                        newest_trade["pair"][-7:] + " @ limit " +
+                        trim_zeros(newest_trade["price"]) + " on " +
+                        datetime_from_timestamp(newest_trade["time"]))
 
-        total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
 
-        msg = trade_str + " (Value: " + total_value + " EUR)"
-        update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
+            msg = trade_str + " (Value: " + total_value + " EUR)"
+            update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
-        # Remove the first item in the trades list
-        trades.remove(newest_trade)
+            # Remove the first item in the trades list
+            trades.remove(newest_trade)
 
         return WorkflowEnum.HISTORY_NEXT
     else:
