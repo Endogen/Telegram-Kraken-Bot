@@ -107,16 +107,28 @@ class KeyboardEnum(Enum):
 
 
 # Handle Kraken API requests
-def exec_kraken_api(method, data=None, private=False):
+def exec_kraken_api(method, data=None, private=False, return_error=True, retries=None):
     try:
         if private:
             return kraken.query_private(method, data)
         else:
             return kraken.query_public(method, data)
+
     except Exception as ex:
         logger.error(str(ex))
         ex_name = type(ex).__name__
-        return {"error": [" " + ex_name + ":" + str(ex)]}
+
+        if config["hidden_retries"]:
+            if retries is None:
+                retries = config["hidden_retries_counter"]
+                return exec_kraken_api(method, data, private, return_error, retries)
+            elif retries > 0:
+                retries -= 1
+                return exec_kraken_api(method, data, private, return_error, retries)
+            else:
+                return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
+        else:
+            return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
 
 
 # Decorator to restrict access if user is not the same as in config
@@ -198,12 +210,6 @@ def balance_cmd(bot, update):
                 msg = msg[:-len("\n")] + " (Available: " + trim_zeros(available_value) + ")\n"
 
     update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
-
-
-# Show welcome message, update-state and keyboard for commands
-def start_cmd(bot=None, update=None):
-    msg = "Kraken-Bot is running!\n" + get_update_state()
-    updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
@@ -848,6 +854,13 @@ def value_currency(bot, update):
     return ConversationHandler.END
 
 
+# Reloads the custom keyboard
+@restrict_access
+def reload_cmd(bot, update):
+    msg = "Reloading keyboard..."
+    update.message.reply_text(msg, reply_markup=keyboard_cmds())
+
+
 # Shows executed trades with volume and price
 @restrict_access
 def history_cmd(bot, update):
@@ -888,7 +901,7 @@ def history_cmd(bot, update):
             newest_trade = next(iter(trades), None)
 
             # Format pair-string from 'XLTCZEUR' to 'LTC-EUR'
-            pair_str = newest_trade["pair"].replace("Z", "-")
+            pair_str = newest_trade["pair"].replace("Z", "-")  # TODO: This is not save!
             pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
 
             # TODO: Export to own function and reference also in 'history_next'
@@ -1457,7 +1470,7 @@ def order_state_check(bot, job):
 def monitor_open_orders():
     if config["check_trade"]:
         # Send request for open orders to Kraken
-        res_data = exec_kraken_api("OpenOrders", private=True)
+        res_data = exec_kraken_api("OpenOrders", private=True, return_error=False)
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
@@ -1476,6 +1489,12 @@ def monitor_open_orders():
                 # Add Job to JobQueue to check status of order
                 context = dict(order_txid=order_txid)
                 job_queue.run_repeating(order_state_check, check_trade_time, context=context)
+
+
+# Show welcome message, update-state and keyboard for commands
+def init():
+    msg = "Kraken-Bot is running!\n" + get_update_state()
+    updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 
 # Converts a Unix timestamp to a datatime object with format 'Y-m-d H:M:S'
@@ -1551,11 +1570,11 @@ def regex_settings_or():
 
 
 # Add command handlers to dispatcher
-dispatcher.add_handler(CommandHandler("start", start_cmd))
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
+dispatcher.add_handler(CommandHandler("reload", reload_cmd))
 
 
 # FUNDING conversation handler
@@ -1732,10 +1751,11 @@ dispatcher.add_handler(settings_handler)
 
 
 # Start polling to handle all user input
-updater.start_polling()
+# Dismiss all still open commands
+updater.start_polling(clean=True)
 
-# Show welcome message, update-state and keyboard for commands
-start_cmd()
+# Show welcome-message, update-state and commands-keyboard
+init()
 
 # Monitor status changes of open orders
 monitor_open_orders()

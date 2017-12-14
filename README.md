@@ -114,6 +114,7 @@ The following commands are available as sub-commands for command `/bot`
 - `/restart`: Restart the bot
 - `/shutdown`: Shutdown the bot
 - `/settings`: Show and change bot settings
+- `/reload`: Reload custom command keyboard
 
 ## Development
 I know that it is unusual to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
