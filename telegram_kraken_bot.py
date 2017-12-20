@@ -29,7 +29,6 @@ else:
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 logger = logging.getLogger()
 
-# TODO: Add date to logfile-name. If new day starts, white to new file
 # Add a file handlers to the logger
 if config["log_to_file"]:
     # Create a file handler for logging
@@ -52,8 +51,9 @@ job_queue = updater.job_queue
 kraken = krakenex.API()
 kraken.load_key("kraken.key")
 
-# Cached trades history
+# Lists for cached objects
 trades = list()
+orders = list()
 
 
 # Enum for workflow handler
@@ -118,15 +118,20 @@ def exec_kraken_api(method, data=None, private=False, return_error=True, retries
         logger.error(str(ex))
         ex_name = type(ex).__name__
 
+        # Is 'retry on error' enabled?
         if config["hidden_retries"]:
+            # It's the first call, start retrying
             if retries is None:
                 retries = config["hidden_retries_counter"]
                 return exec_kraken_api(method, data, private, return_error, retries)
+            # If 'retries' is bigger then 0, decrement it and retry again
             elif retries > 0:
                 retries -= 1
                 return exec_kraken_api(method, data, private, return_error, retries)
+            # Return last error if returning of errors is enabled
             else:
                 return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
+        # Return error if returning of errors is enabled
         else:
             return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
 
@@ -554,7 +559,7 @@ def trade_confirm(bot, update, chat_data):
             msg = "Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
-            # Add Job to JobQueue to check status of created order (if setting is enabled)
+            # Add Job to JobQueue to check status of created order (if enabled)
             if config["check_trade"]:
                 trade_time = config["check_trade_time"]
                 context = dict(order_txid=order_txid)
@@ -571,7 +576,7 @@ def trade_confirm(bot, update, chat_data):
 # Show and manage orders
 @restrict_access
 def orders_cmd(bot, update):
-    update.message.reply_text("Retrieving data...")
+    update.message.reply_text("Retrieving orders...")
 
     # Send request to Kraken to get open orders
     res_data = exec_kraken_api("OpenOrders", private=True)
@@ -583,12 +588,19 @@ def orders_cmd(bot, update):
         logger.error(error)
         return
 
+    # Reset global orders list
+    global orders
+    orders = list()
+
     # Go through all open orders and show them to the user
     if res_data["result"]["open"]:
-        for order in res_data["result"]["open"]:
-            order_desc = trim_zeros(res_data["result"]["open"][order]["descr"]["order"])
-            update.message.reply_text(bold(order + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
+        for order_id, order_details in res_data["result"]["open"].items():
+            # Add order to global order list so that it can be used later
+            # without requesting data from Kraken again
+            orders.append({order_id: order_details})
 
+            order_desc = trim_zeros(order_details["descr"]["order"])
+            update.message.reply_text(bold(order_id + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
     else:
         update.message.reply_text("No open orders")
         return ConversationHandler.END
@@ -612,25 +624,13 @@ def orders_cmd(bot, update):
 
 # Choose what to do with the open orders
 def orders_choose_order(bot, update):
-    update.message.reply_text("Looking up open orders...")
-
-    # Send request for open orders to Kraken
-    res_data = exec_kraken_api("OpenOrders", private=True)
-
-    # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        logger.error(error)
-        return
-
     buttons = list()
 
     # Go through all open orders and create a button
-    if res_data["result"]["open"]:
-        for order in res_data["result"]["open"]:
-            buttons.append(KeyboardButton(order))
-
+    if orders:
+        for order in orders:
+            order_id = next(iter(order), None)
+            buttons.append(KeyboardButton(order_id))
     else:
         update.message.reply_text("No open orders")
         return ConversationHandler.END
@@ -651,32 +651,22 @@ def orders_choose_order(bot, update):
 def orders_close_all(bot, update):
     update.message.reply_text("Closing orders...")
 
-    # Send request for open orders to Kraken
-    res_data = exec_kraken_api("OpenOrders", private=True)
-
-    # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        logger.error(error)
-        return
-
     closed_orders = list()
-    if res_data["result"]["open"]:
-        for order in res_data["result"]["open"]:
-            req_data = dict()
-            req_data["txid"] = order
+
+    if orders:
+        for order in orders:
+            order_id = next(iter(order), None)
 
             # Send request to Kraken to cancel orders
-            res_data = exec_kraken_api("CancelOrder", data=req_data, private=True)
+            res_data = exec_kraken_api("CancelOrder", data={"txid": order_id}, private=True)
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                error = "Not possible to close order\n" + order + "\n" + btfy(res_data["error"][0])
+                error = "Not possible to close order\n" + order_id + "\n" + btfy(res_data["error"][0])
                 update.message.reply_text(error)
                 logger.error(error)
             else:
-                closed_orders.append(order)
+                closed_orders.append(order_id)
 
         if closed_orders:
             msg = bold("Orders closed:\n" + "\n".join(closed_orders))
@@ -861,13 +851,30 @@ def reload_cmd(bot, update):
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
 
+# Returns a string representation of a trade. Looks like this:
+# sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
+def get_trade_str(trade):
+    # Format pair-string from 'XXBTZEUR' to 'XXBT-EUR'
+    for i in range(3, 10, 1):
+        if trade["pair"][i:].startswith("Z"):
+            pair_str = trade["pair"][:i] + "-" + trade["pair"][i + 1:]
+            break
+
+    # Format pair-string from 'XXBT-EUR' to 'XBT-EUR'
+    pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
+
+    trade_str = (trade["type"] + " " +
+                 trim_zeros(trade["vol"]) + " " +
+                 pair_str + " @ limit " +
+                 trim_zeros(trade["price"]) + " on " +
+                 datetime_from_timestamp(trade["time"]))
+
+    return trade_str
+
+
 # Shows executed trades with volume and price
 @restrict_access
 def history_cmd(bot, update):
-    # Reset global trades dictionary
-    global trades
-    trades = list()
-
     update.message.reply_text("Retrieving history data...")
 
     # Send request to Kraken to get trades history
@@ -879,6 +886,10 @@ def history_cmd(bot, update):
         update.message.reply_text(error)
         logger.error(error)
         return
+
+    # Reset global trades list
+    global trades
+    trades = list()
 
     # Add all trades to global list
     for trade_id, trade_details in res_trades["result"]["trades"].items():
@@ -900,20 +911,9 @@ def history_cmd(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            # Format pair-string from 'XLTCZEUR' to 'LTC-EUR'
-            pair_str = newest_trade["pair"].replace("Z", "-")  # TODO: This is not save!
-            pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
-
-            # TODO: Export to own function and reference also in 'history_next'
-            trade_str = (newest_trade["type"] + " " +
-                         trim_zeros(newest_trade["vol"]) + " " +
-                         pair_str + " @ limit " +
-                         trim_zeros(newest_trade["price"]) + " on " +
-                         datetime_from_timestamp(newest_trade["time"]))
-
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
 
-            msg = trade_str + " (Value: " + total_value + " EUR)"
             reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=1, footer_buttons=cancel_btn))
             update.message.reply_text(bold(msg), reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
 
@@ -934,19 +934,9 @@ def history_next(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            # Format pair-string from 'XLTCZEUR' to 'LTC-EUR'
-            pair_str = newest_trade["pair"].replace("Z", "-")
-            pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
-
-            trade_str = (newest_trade["type"] + " " +
-                         trim_zeros(newest_trade["vol"]) + " " +
-                         pair_str + " @ limit " +
-                         trim_zeros(newest_trade["price"]) + " on " +
-                         datetime_from_timestamp(newest_trade["time"]))
-
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
 
-            msg = trade_str + " (Value: " + total_value + " EUR)"
             update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
             # Remove the first item in the trades list
@@ -1433,7 +1423,7 @@ def coin_buttons():
     return buttons
 
 
-# Check order status and send message if order closed
+# Check order state and send message if order closed
 def order_state_check(bot, job):
     req_data = dict()
     req_data["txid"] = job.context["order_txid"]
@@ -1444,8 +1434,9 @@ def order_state_check(bot, job):
     # If Kraken replied with an error, return without notification
     if res_data["error"]:
         if config["send_error"]:
+            src = "Order state check:\n"
             error = btfy(res_data["error"][0])
-            updater.bot.send_message(chat_id=config["user_id"], text=error)
+            updater.bot.send_message(chat_id=config["user_id"], text=src + error)
             logger.error(error)
         return
 
@@ -1474,8 +1465,9 @@ def monitor_open_orders():
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
+            src = "Monitoring open orders:\n"
             error = btfy(res_data["error"][0])
-            updater.bot.send_message(chat_id=config["user_id"], text=error)
+            updater.bot.send_message(chat_id=config["user_id"], text=src + error)
             logger.error(error)
             return
 
