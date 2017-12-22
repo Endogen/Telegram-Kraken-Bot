@@ -9,6 +9,7 @@ import threading
 import datetime
 import requests
 import krakenex
+import inspect
 
 from enum import Enum, auto
 
@@ -106,8 +107,18 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
-# Handle Kraken API requests
-def exec_kraken_api(method, data=None, private=False, return_error=True, retries=None):
+# Issue Kraken API requests
+def kraken_api(method, data=None, private=False, return_error=True, retries=None):
+    # Get arguments of this function
+    frame = inspect.currentframe()
+    args, _, _, values = inspect.getargvalues(frame)
+
+    # Get name of caller function
+    caller = inspect.currentframe().f_back.f_code.co_name
+
+    # Log caller of this function and all arguments
+    logger.debug(caller + " - Kraken API args: " + str([(i, values[i]) for i in args]))
+
     try:
         if private:
             return kraken.query_private(method, data)
@@ -118,16 +129,21 @@ def exec_kraken_api(method, data=None, private=False, return_error=True, retries
         logger.error(str(ex))
         ex_name = type(ex).__name__
 
+        # Handle specific exceptions
+        if "Incorrect padding" in str(ex):
+            msg = "Please verify that your Kraken API keys are valid"
+            return {"error": [msg]}
+
         # Is 'retry on error' enabled?
-        if config["hidden_retries"]:
+        if config["retries"]:
             # It's the first call, start retrying
             if retries is None:
-                retries = config["hidden_retries_counter"]
-                return exec_kraken_api(method, data, private, return_error, retries)
+                retries = config["retries_counter"]
+                return kraken_api(method, data, private, return_error, retries)
             # If 'retries' is bigger then 0, decrement it and retry again
             elif retries > 0:
                 retries -= 1
-                return exec_kraken_api(method, data, private, return_error, retries)
+                return kraken_api(method, data, private, return_error, retries)
             # Return last error if returning of errors is enabled
             else:
                 return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
@@ -162,7 +178,7 @@ def balance_cmd(bot, update):
     update.message.reply_text("Retrieving data...")
 
     # Send request to Kraken to get current balance of all currencies
-    res_balance = exec_kraken_api("Balance", private=True)
+    res_balance = kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
     if res_balance["error"]:
@@ -172,7 +188,7 @@ def balance_cmd(bot, update):
         return
 
     # Send request to Kraken to get open orders
-    res_orders = exec_kraken_api("OpenOrders", private=True)
+    res_orders = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_orders["error"]:
@@ -273,7 +289,7 @@ def trade_sell_all_confirm(bot, update):
     update.message.reply_text("Preparing to sell everything...")
 
     # Send request for open orders to Kraken
-    res_open_orders = exec_kraken_api("OpenOrders", private=True)
+    res_open_orders = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_open_orders["error"]:
@@ -289,7 +305,7 @@ def trade_sell_all_confirm(bot, update):
             req_data["txid"] = order
 
             # Send request to Kraken to cancel orders
-            res_open_orders = exec_kraken_api("CancelOrder", data=req_data, private=True)
+            res_open_orders = kraken_api("CancelOrder", data=req_data, private=True)
 
             # If Kraken replied with an error, show it
             if res_open_orders["error"]:
@@ -299,7 +315,7 @@ def trade_sell_all_confirm(bot, update):
                 return
 
     # Send request to Kraken to get current balance of all currencies
-    res_balance = exec_kraken_api("Balance", private=True)
+    res_balance = kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
     if res_balance["error"]:
@@ -324,7 +340,7 @@ def trade_sell_all_confirm(bot, update):
         req_data["volume"] = amount
 
         # Send request to create order to Kraken
-        res_add_order = exec_kraken_api("AddOrder", data=req_data, private=True)
+        res_add_order = kraken_api("AddOrder", data=req_data, private=True)
 
         # If Kraken replied with an error, show it
         if res_add_order["error"]:
@@ -399,7 +415,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
-        res_balance = exec_kraken_api("Balance", private=True)
+        res_balance = kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
         if res_balance["error"]:
@@ -419,7 +435,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
     if chat_data["buysell"] == KeyboardEnum.SELL.clean():
         # Send request to Kraken to get euro balance to calculate volume
-        res_balance = exec_kraken_api("Balance", private=True)
+        res_balance = kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
         if res_balance["error"]:
@@ -429,7 +445,7 @@ def trade_vol_type_all(bot, update, chat_data):
             return
 
         # Send request to Kraken to get open orders
-        res_orders = exec_kraken_api("OpenOrders", private=True)
+        res_orders = kraken_api("OpenOrders", private=True)
 
         # If Kraken replied with an error, show it
         if res_orders["error"]:
@@ -528,7 +544,7 @@ def trade_confirm(bot, update, chat_data):
         req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["trade_to_currency"]
 
     # Send request to create order to Kraken
-    res_add_order = exec_kraken_api("AddOrder", req_data, private=True)
+    res_add_order = kraken_api("AddOrder", req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_add_order["error"]:
@@ -545,7 +561,7 @@ def trade_confirm(bot, update, chat_data):
         req_data["txid"] = order_txid
 
         # Send request to get info on specific order
-        res_query_order = exec_kraken_api("QueryOrders", data=req_data, private=True)
+        res_query_order = kraken_api("QueryOrders", data=req_data, private=True)
 
         # If Kraken replied with an error, show it
         if res_query_order["error"]:
@@ -579,7 +595,7 @@ def orders_cmd(bot, update):
     update.message.reply_text("Retrieving orders...")
 
     # Send request to Kraken to get open orders
-    res_data = exec_kraken_api("OpenOrders", private=True)
+    res_data = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -658,7 +674,7 @@ def orders_close_all(bot, update):
             order_id = next(iter(order), None)
 
             # Send request to Kraken to cancel orders
-            res_data = exec_kraken_api("CancelOrder", data={"txid": order_id}, private=True)
+            res_data = kraken_api("CancelOrder", data={"txid": order_id}, private=True)
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
@@ -688,7 +704,7 @@ def orders_close_order(bot, update):
     req_data["txid"] = update.message.text
 
     # Send request to Kraken to cancel order
-    res_data = exec_kraken_api("CancelOrder", data=req_data, private=True)
+    res_data = kraken_api("CancelOrder", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -730,7 +746,7 @@ def price_currency(bot, update):
         req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
     # Send request to Kraken to get current trading price for currency-pair
-    res_data = exec_kraken_api("Ticker", data=req_data, private=False)
+    res_data = kraken_api("Ticker", data=req_data, private=False)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -774,7 +790,7 @@ def value_currency(bot, update):
         req_asset["asset"] = config["trade_to_currency"]
 
         # Send request to Kraken tp obtain the combined balance of all currencies
-        res_trade_balance = exec_kraken_api("TradeBalance", data=req_asset, private=True)
+        res_trade_balance = kraken_api("TradeBalance", data=req_asset, private=True)
 
         # If Kraken replied with an error, show it
         if res_trade_balance["error"]:
@@ -794,7 +810,7 @@ def value_currency(bot, update):
     # Get balance of a specific coin
     else:
         # Send request to Kraken to get current balance of all currencies
-        res_balance = exec_kraken_api("Balance", private=True)
+        res_balance = kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
         if res_balance["error"]:
@@ -810,7 +826,7 @@ def value_currency(bot, update):
             req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
 
         # Send request to Kraken to get current trading price for currency-pair
-        res_price = exec_kraken_api("Ticker", data=req_price, private=False)
+        res_price = kraken_api("Ticker", data=req_price, private=False)
 
         # If Kraken replied with an error, show it
         if res_price["error"]:
@@ -878,7 +894,7 @@ def history_cmd(bot, update):
     update.message.reply_text("Retrieving history data...")
 
     # Send request to Kraken to get trades history
-    res_trades = exec_kraken_api("TradesHistory", private=True)
+    res_trades = kraken_api("TradesHistory", private=True)
 
     # If Kraken replied with an error, show it
     if res_trades["error"]:
@@ -1068,7 +1084,7 @@ def funding_deposit(bot, update, chat_data):
     req_data["asset"] = chat_data["currency"]
 
     # Send request to Kraken to get trades history
-    res_dep_meth = exec_kraken_api("DepositMethods", data=req_data, private=True)
+    res_dep_meth = kraken_api("DepositMethods", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_dep_meth["error"]:
@@ -1080,7 +1096,7 @@ def funding_deposit(bot, update, chat_data):
     req_data["method"] = res_dep_meth["result"][0]["method"]
 
     # Send request to Kraken to get trades history
-    res_dep_addr = exec_kraken_api("DepositAddresses", data=req_data, private=True)
+    res_dep_addr = kraken_api("DepositAddresses", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_dep_addr["error"]:
@@ -1102,8 +1118,8 @@ def funding_deposit(bot, update, chat_data):
     return ConversationHandler.END
 
 
-def funding_withdraw(bot, update, chat_data):
-    update.message.reply_text("Enter wallet name", reply_markup=ReplyKeyboardRemove())
+def funding_withdraw(bot, update):
+    update.message.reply_text("Enter target wallet name", reply_markup=ReplyKeyboardRemove())
 
     return WorkflowEnum.WITHDRAW_WALLET
 
@@ -1142,7 +1158,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     req_data["amount"] = chat_data["volume"]
 
     # Send request to Kraken to get withdrawal info to lookup fee
-    res_data = exec_kraken_api("WithdrawInfo", data=req_data, private=True)
+    res_data = kraken_api("WithdrawInfo", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -1156,7 +1172,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     req_data["amount"] = str(volume_and_fee)
 
     # Send request to Kraken to withdraw digital currency
-    res_data = exec_kraken_api("Withdraw", data=req_data, private=True)
+    res_data = kraken_api("Withdraw", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
     if res_data["error"]:
@@ -1429,7 +1445,7 @@ def order_state_check(bot, job):
     req_data["txid"] = job.context["order_txid"]
 
     # Send request to get info on specific order
-    res_data = exec_kraken_api("QueryOrders", data=req_data, private=True)
+    res_data = kraken_api("QueryOrders", data=req_data, private=True)
 
     # If Kraken replied with an error, return without notification
     if res_data["error"]:
@@ -1461,11 +1477,11 @@ def order_state_check(bot, job):
 def monitor_open_orders():
     if config["check_trade"]:
         # Send request for open orders to Kraken
-        res_data = exec_kraken_api("OpenOrders", private=True, return_error=False)
+        res_data = kraken_api("OpenOrders", private=True, return_error=False)
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            src = "Monitoring open orders:\n"
+            src = "Monitoring orders:\n"
             error = btfy(res_data["error"][0])
             updater.bot.send_message(chat_id=config["user_id"], text=src + error)
             logger.error(error)
@@ -1578,7 +1594,7 @@ funding_handler = ConversationHandler(
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.FUNDING_CHOOSE:
             [RegexHandler("^(DEPOSIT)$", funding_deposit, pass_chat_data=True),
-             RegexHandler("^(WITHDRAW)$", funding_withdraw, pass_chat_data=True),
+             RegexHandler("^(WITHDRAW)$", funding_withdraw),
              RegexHandler("^(CANCEL)$", cancel)],
         WorkflowEnum.WITHDRAW_WALLET:
             [MessageHandler(Filters.text, funding_withdraw_wallet, pass_chat_data=True)],
