@@ -33,7 +33,7 @@ Before starting up the bot you have to take care of some settings. You need to e
 ### config.json
 This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__.
 
-- __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID
+- __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
 - __trade\_to\_currency__: The base currency you are using (for example `EUR` or `USD`)
 - __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified by a message
@@ -48,6 +48,8 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __coin_charts__: Dictionary of all available currencies with their corresponding chart URLs. If you want to add new ones, get the plain URL of the chart, save it with [tinyurl.com](http://tinyurl.com) and add the new URL to the config file
 - __log\_to\_file__: If `true`, debug-output to console will be saved in file `debug.log`
 - __history_items__: Number of history trades to display simultaneously
+- __retries__: If `true`, then issued Kraken API requests will be retried if they return any kind of server error. In most cases this is very helpfull since at the second or third time the request will most likely make it through. See also option `retries_counter` to set number of retries
+- __retries_counter__: Number of times a Kraken API call will be retried if option `retries` is enabled
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
@@ -96,6 +98,8 @@ python3.6 telegram_kraken_bot.py &
 ## Usage
 If you configured the bot correctly and execute the script, you should get a welcome message from the bot along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in manually.
 
+:warning: In general, while entering the volume, make sure that you don't use smaller values then Kraken supports. Take a look at the [order limits for various coins](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-). Otherwise the request to Kraken will lead to an error.
+
 ### Available commands
 ##### Related to Kraken
 - `/trade`: Start a workflow that leads to the creation of a new order of type _limit_ (buy or sell)
@@ -130,16 +134,21 @@ I know that it is unusual to have the whole source code in just one file. At som
 - [x] Add possibility to change settings via bot
 
 ##### Priority 2
-- [ ] Optimize code to call Kraken API less often
+- [x] Optimize code to call Kraken API less often
 - [ ] Automatically check for updates (configurable timespan & changelog)
 - [ ] Create webhook-version of this bot
 
 ##### Priority 3
 - [ ] Add command `/stats` that shows statistics
 - [ ] Closed order notifications: Show gain / loss if association between orders possible
+- [ ] Integrate other market places then Kraken
 
 ## Troubleshooting
-In case you experience any issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new)
+In case you experience any issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new).
+
+:warning: It depends on the error but it is possible that a request to Kraken will throw an error and still be executed correctly.
+
+:warning: Sometimes it happens that a specific command will not trigger any action (no response from the bot on button click). If that happens, try to restart the bot and execute the command again.
 
 - __Error `Invalid nonce`__: It might happen pretty often that Kraken replies with this error. If you want to understand what a nonce is, [read the Wikipedia article](https://en.wikipedia.org/wiki/Cryptographic_nonce). This error happens mostly if you use different Telegram clients. Maybe you issued some commands on your laptop and then switched to your smartphone? That would be a typical scenario where this might happen. Or you didn't use the bot for a long time. To resolve it, just execute the command again. It should work the second time - meaning you press the keyboard button again. Unfortunately there is not much i can do. The correct behavior would be to have one Kraken API key-pair for one device (one for your smartphone and one for your laptop). Unfortunately there is no way to identify the client. You can play around with the nonce value in your Kraken account (take a look at the [settings for the generated key-pair](#api-keys)). If you are really annoyed by this then here is what you could try: Create some key-pairs (5 might do it) and then, before you call the Kraken API, randomly choose one of the keys and use it till the next Kraken API call is made.
 - __Error `Service unavailable`__: If you get this error then because Kraken fucked up again. That happens regularly. It means that their API servers are not available or the performance is degraded because the load on the servers is too high. Nothing you can do here - try again later. If you want to have details on the API server performance, go to [Kraken Status](https://status.kraken.com).
