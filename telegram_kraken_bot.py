@@ -721,21 +721,66 @@ def orders_close_order(bot, update):
 # Show the last trade price for a currency
 @restrict_access
 def price_cmd(bot, update):
-    reply_msg = "Choose currency"
+    # If single-price option is active, get prices for all coins
+    if config["single_price"]:
+        update.message.reply_text("Retrieving prices...")
 
-    cancel_btn = [
-        KeyboardButton(KeyboardEnum.CANCEL.clean())
-    ]
+        req_data = dict()
+        req_data["pair"] = ""
 
-    reply_mrk = ReplyKeyboardMarkup(build_menu(coin_buttons(), n_cols=3, footer_buttons=cancel_btn))
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+        for coin in config["used_coins"]:
+            # If currency is BCH then use different pair string
+            if coin == "BCH":
+                req_data["pair"] += coin + config["trade_to_currency"] + ","
+            else:
+                req_data["pair"] += "X" + coin + "Z" + config["trade_to_currency"] + ","
 
-    return WorkflowEnum.PRICE_CURRENCY
+        # Get rid of last comma
+        req_data["pair"] = req_data["pair"][:-1]
+
+        # Send request to Kraken to get current trading price for currency-pair
+        res_data = kraken_api("Ticker", data=req_data, private=False)
+
+        # If Kraken replied with an error, show it
+        if res_data["error"]:
+            error = btfy(res_data["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
+            return
+
+        msg = str()
+
+        for pair, data in res_data["result"].items():
+            coin = pair[:-len(config["trade_to_currency"])]
+            if coin.endswith("Z"):
+                coin = coin[:-1]
+            if coin.startswith("X"):
+                coin = coin[1:]
+
+            last_trade_price = trim_zeros(data["c"][0])
+            msg += coin + ": " + last_trade_price + " " + config["trade_to_currency"] + "\n"
+
+        update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
+
+        return ConversationHandler.END
+
+    # Let user choose for which coin to get the price
+    else:
+        reply_msg = "Choose currency"
+
+        cancel_btn = [
+            KeyboardButton(KeyboardEnum.CANCEL.clean())
+        ]
+
+        reply_mrk = ReplyKeyboardMarkup(build_menu(coin_buttons(), n_cols=3, footer_buttons=cancel_btn))
+        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+        return WorkflowEnum.PRICE_CURRENCY
 
 
 # Choose for which currency to show the last trade price
 def price_currency(bot, update):
-    update.message.reply_text("Retrieving data...")
+    update.message.reply_text("Retrieving price...")
 
     req_data = dict()
 
