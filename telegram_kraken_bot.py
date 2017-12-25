@@ -961,10 +961,7 @@ def history_cmd(bot, update):
         trades = sorted(trades, key=lambda k: k['time'], reverse=True)
 
         buttons = [
-            KeyboardButton(KeyboardEnum.NEXT.clean())
-        ]
-
-        cancel_btn = [
+            KeyboardButton(KeyboardEnum.NEXT.clean()),
             KeyboardButton(KeyboardEnum.CANCEL.clean())
         ]
 
@@ -975,7 +972,7 @@ def history_cmd(bot, update):
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
 
-            reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=1, footer_buttons=cancel_btn))
+            reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
             update.message.reply_text(bold(msg), reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
 
             # Remove the first item in the trades list
@@ -1034,7 +1031,8 @@ def bot_cmd(bot, update):
 def bot_sub_cmd(bot, update):
     # Update check
     if update.message.text == KeyboardEnum.UPDATE_CHECK.clean():
-        update.message.reply_text(get_update_state())
+        status_code, msg = get_update_state()
+        update.message.reply_text(msg)
         return
 
     # Update
@@ -1421,7 +1419,7 @@ def get_update_state():
     else:
         msg = "Update check not possible. Unexpected status code: " + github_file.status_code
 
-    return msg
+    return github_file.status_code, msg
 
 
 # Return chat ID for an update object
@@ -1518,8 +1516,27 @@ def order_state_check(bot, job):
         job.schedule_removal()
 
 
+# Start periodical job to check if new bot version is available
+def monitor_updates():
+    if config["update_check"]:
+        # Save time in seconds from config
+        update_time = config["update_time"]
+
+        # Check if current bot version is the latest
+        def version_check(bot, job):
+            status_code, msg = get_update_state()
+
+            # Status code 200 means that the remote file is not the same
+            if status_code == 200:
+                msg = "New version available. Get it with /update"
+                bot.send_message(chat_id=config["user_id"], text=msg)
+
+        # Add Job to JobQueue to check status of order
+        job_queue.run_repeating(version_check, update_time)
+
+
 # Monitor status changes of previously created open orders
-def monitor_open_orders():
+def monitor_orders():
     if config["check_trade"]:
         # Send request for open orders to Kraken
         res_data = kraken_api("OpenOrders", private=True, return_error=False)
@@ -1544,9 +1561,10 @@ def monitor_open_orders():
                 job_queue.run_repeating(order_state_check, check_trade_time, context=context)
 
 
-# Show welcome message, update-state and keyboard for commands
+# Show: welcome message, update-state and keyboard for commands
 def init():
-    msg = "Kraken-Bot is running!\n" + get_update_state()
+    status_code, msg = get_update_state()
+    msg = "Kraken-Bot is running!\n" + msg
     updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 
@@ -1810,8 +1828,11 @@ updater.start_polling(clean=True)
 # Show welcome-message, update-state and commands-keyboard
 init()
 
+# Check for new bot version periodically
+monitor_updates()
+
 # Monitor status changes of open orders
-monitor_open_orders()
+monitor_orders()
 
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since

@@ -31,7 +31,7 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
 Before starting up the bot you have to take care of some settings. You need to edit two files:
 
 ### config.json
-This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__.
+This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__. After a value has been changed you have to restart the bot.
 
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
@@ -135,7 +135,7 @@ I know that it is unusual to have the whole source code in just one file. At som
 
 ##### Priority 2
 - [x] Optimize code to call Kraken API less often
-- [ ] Automatically check for updates (configurable timespan & changelog)
+- [x] Automatically check for updates (with configurable timespan)
 - [ ] Create webhook-version of this bot
 
 ##### Priority 3
