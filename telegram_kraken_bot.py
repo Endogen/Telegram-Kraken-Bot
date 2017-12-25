@@ -33,7 +33,8 @@ logger = logging.getLogger()
 # Add a file handlers to the logger
 if config["log_to_file"]:
     # Create a file handler for logging
-    handler = logging.FileHandler('debug.log')
+    today = datetime.datetime.now().strftime("%y%m%d")
+    handler = logging.FileHandler(today + ".log")
     handler.setLevel(logging.DEBUG)
 
     # Format file handler
