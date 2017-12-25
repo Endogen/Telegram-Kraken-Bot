@@ -24,5 +24,6 @@
     },
     "log_to_file" : false,
     "retries" : true,
-    "retries_counter" : 2
+    "retries_counter" : 2,
+    "single_price": true
 }
