@@ -1532,8 +1532,8 @@ def monitor_updates():
                 msg = "New version available. Get it with /update"
                 bot.send_message(chat_id=config["user_id"], text=msg)
 
-        # Add Job to JobQueue to check status of order
-        job_queue.run_repeating(version_check, update_time)
+        # Add Job to JobQueue to run periodically
+        job_queue.run_repeating(version_check, update_time, first=0)
 
 
 # Monitor status changes of previously created open orders
@@ -1562,10 +1562,9 @@ def monitor_orders():
                 job_queue.run_repeating(order_state_check, check_trade_time, context=context)
 
 
-# Show: welcome message, update-state and keyboard for commands
+# Show welcome message and custom keyboard for commands
 def init():
-    status_code, msg = get_update_state()
-    msg = "Kraken-Bot is running!\n" + msg
+    msg = "Kraken-Bot is running!"
     updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 
