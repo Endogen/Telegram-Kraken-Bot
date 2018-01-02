@@ -27,11 +27,30 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
     - Show real-time charts
     - List history of closed orders
 
+## Files
+In the following list you will find details about all the files that the project consists of - and if they are necessary to deploy or not.
+
+- __.gitignore__: Only relevant if you use [git](https://git-scm.com) as your Source Code Management. If you put a filename in that file, then that file will not be commited to the repository. If you don't intend to code yourself, the file is _not needed_.
+- __\_config.yml__: Automatically genereated file from GitHub that holds the theme-name for the [project page](https://endogen.github.io/Telegram-Kraken-Bot). This file is _not needed_.
+- __config.json__: The configuration file for this bot. This file is _needed_.
+- __demo.gif__: Animated image for GitHub `README.md` to demonstrate how the bot looks and behaves. This file is _not needed_.
+- __kraken.key__: The content of this file has to remain secret! _Do not tell anybody anything about the content_. The file consists of two lines. First line: API key. Second line: API secret (you get both from Kraken). This file is _needed_.
+- __Procfile__: This file is only necessary if you want to host the bot on [Heroku](https://www.heroku.com). Otherwise, this file is _not needed_.
+- __README.md__: The readme file you are reading right now. Includes instructions on how to run and use the bot. The file is _not needed_.
+- __requirements.txt__: This file holds all dependencies (Python modules) that are required to run the bot. Once all dependencies are installed, the file is _not needed_ anymore. If you need to know how to install the dependencies from this file, take a look at [the details](#dependencies).
+- __telegram\_python\_bot.py__: The bot itself. This file has to be executed with Python to run. For more details, see [the installation](#installation). This file is _needed_.
+
+So as one can see, these are the files that are important to run the bot:
+
+- `kraken.key` (API Secret)
+- `config.json` (Configuration)
+- `telegram_kraken_bot.py` (Bot itself)
+
 ## Configuration
 Before starting up the bot you have to take care of some settings. You need to edit two files:
 
 ### config.json
-This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__. After a value has been changed you have to restart the bot.
+This file holds the configuration for your bot. You have to at least edit the values for __user_id__ and __bot_token__. After a value has been changed you have to restart the bot for the applied changes to take effect.
 
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
@@ -68,6 +87,7 @@ If you don't know where to get / how to generate the keys:
 
 When you have your Kraken API keys, open the file `kraken.key` and replace `some_api_key` (first line) with the value of `API Key` and `some_private_key` (second line) with the value of `Private Key`.
 
+<a name="installation"></a>
 ## Installation
 In order to run the bot you need to execute the script `telegram_kraken_bot.py`. If you don't have any idea where to host it, take a look at [Where to host Telegram Bots](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Where-to-host-Telegram-Bots). __Since you have to provide sensitive data (Kraken API keys) to use the bot, i would only host this script on a server that you own__. You can also run the script locally on your computer for testing purposes.
 
@@ -75,6 +95,7 @@ In order to run the bot you need to execute the script `telegram_kraken_bot.py`.
 ##### Python version
 You have to use __Python 3.6__ to execute the script (because of enum method `auto()`). If you would like to use Python 3.4 or 3.5, you have to remove `auto` from imports and set the values in `WorkflowEnum` and `KeyboardEnum` yourself. Python 2.x is __not__ supported.
 
+<a name="dependencies"></a>
 ##### Installing needed modules from `requirements.txt`
 Install a set of module-versions that is known to work together for sure (__highly recommended__):
 ```shell
