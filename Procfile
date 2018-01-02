@@ -1,0 +1,1 @@
+web: python telegram_kraken_bot.py &
