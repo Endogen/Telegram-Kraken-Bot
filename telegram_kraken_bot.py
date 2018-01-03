@@ -118,7 +118,7 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
     caller = inspect.currentframe().f_back.f_code.co_name
 
     # Log caller of this function and all arguments
-    logger.debug(caller + " - Kraken API args: " + str([(i, values[i]) for i in args]))
+    logger.debug(caller + " - args: " + str([(i, values[i]) for i in args]))
 
     try:
         if private:
@@ -132,7 +132,7 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
 
         # Handle specific exceptions
         if "Incorrect padding" in str(ex):
-            msg = "Please verify that your Kraken API keys are valid"
+            msg = " Incorrect padding:please verify that your Kraken API keys are valid"
             return {"error": [msg]}
 
         # Is 'retry on error' enabled?
@@ -176,7 +176,7 @@ def restrict_access(func):
 # Get balance of all currencies
 @restrict_access
 def balance_cmd(bot, update):
-    update.message.reply_text("Retrieving data...")
+    update.message.reply_text("⏳ Retrieving balance...")
 
     # Send request to Kraken to get current balance of all currencies
     res_balance = kraken_api("Balance", private=True)
@@ -204,25 +204,28 @@ def balance_cmd(bot, update):
     for currency_key, currency_value in res_balance["result"].items():
         available_value = currency_value
 
-        if currency_key.startswith("X"):
+        if currency_key.startswith("X") or currency_key.startswith("Z"):
             currency_key = currency_key[1:]
 
-        if config["trade_to_currency"] in currency_key:
-            currency_key = config["trade_to_currency"]
-        else:
-            # Go through all open orders and check if a sell-order exists for the currency
-            if res_orders["result"]["open"]:
-                for order in res_orders["result"]["open"]:
-                    order_desc = res_orders["result"]["open"][order]["descr"]["order"]
-                    order_desc_list = order_desc.split(" ")
+        # Go through all open orders and check if an order exists for the currency
+        if res_orders["result"]["open"]:
+            for order in res_orders["result"]["open"]:
+                order_desc = res_orders["result"]["open"][order]["descr"]["order"]
+                order_desc_list = order_desc.split(" ")
 
+                order_type = order_desc_list[0]
+                order_volume = order_desc_list[1]
+                price_per_coin = order_desc_list[5]
+
+                # Check if current asset is a fiat-currency (EUR, USD, ...)
+                if currency_key == config["trade_to_currency"] and order_type == "buy":
+                    available_value = float(currency_value) - (float(order_volume) * float(price_per_coin))
+                # Current asset is a coin and not a fiat currency
+                else:
                     order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
-                    order_volume = order_desc_list[1]
-                    order_type = order_desc_list[0]
-
-                    if currency_key == order_currency:
-                        if order_type == "sell":
-                            available_value = str(float(available_value) - float(order_volume))
+                    # Reduce current volume for coin if open sell-order exists
+                    if currency_key == order_currency and order_type == "sell":
+                        available_value = str(float(available_value) - float(order_volume))
 
         if trim_zeros(currency_value) is not "0":
             msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
@@ -287,7 +290,7 @@ def trade_sell_all_confirm(bot, update):
     if update.message.text == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
-    update.message.reply_text("Preparing to sell everything...")
+    update.message.reply_text("⏳ Preparing to sell everything...")
 
     # Send request for open orders to Kraken
     res_open_orders = kraken_api("OpenOrders", private=True)
@@ -412,7 +415,7 @@ def trade_vol_type(bot, update, chat_data):
 # Volume type 'ALL' chosen - meaning that
 # all available EURO funds will be used
 def trade_vol_type_all(bot, update, chat_data):
-    update.message.reply_text("Calculating volume...")
+    update.message.reply_text("⏳ Calculating volume...")
 
     if chat_data["buysell"] == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
@@ -530,7 +533,7 @@ def trade_confirm(bot, update, chat_data):
     if update.message.text == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
-    update.message.reply_text("Placing order...")
+    update.message.reply_text("⏳ Placing order...")
 
     req_data = dict()
     req_data["type"] = chat_data["buysell"].lower()
@@ -593,7 +596,7 @@ def trade_confirm(bot, update, chat_data):
 # Show and manage orders
 @restrict_access
 def orders_cmd(bot, update):
-    update.message.reply_text("Retrieving orders...")
+    update.message.reply_text("⏳ Retrieving orders...")
 
     # Send request to Kraken to get open orders
     res_data = kraken_api("OpenOrders", private=True)
@@ -666,7 +669,7 @@ def orders_choose_order(bot, update):
 
 # Close all open orders
 def orders_close_all(bot, update):
-    update.message.reply_text("Closing orders...")
+    update.message.reply_text("⏳ Closing orders...")
 
     closed_orders = list()
 
@@ -699,7 +702,7 @@ def orders_close_all(bot, update):
 
 # Close the specified order
 def orders_close_order(bot, update):
-    update.message.reply_text("Closing order...")
+    update.message.reply_text("⏳ Closing order...")
 
     req_data = dict()
     req_data["txid"] = update.message.text
@@ -724,7 +727,7 @@ def orders_close_order(bot, update):
 def price_cmd(bot, update):
     # If single-price option is active, get prices for all coins
     if config["single_price"]:
-        update.message.reply_text("Retrieving prices...")
+        update.message.reply_text("⏳ Retrieving prices...")
 
         req_data = dict()
         req_data["pair"] = ""
@@ -781,7 +784,7 @@ def price_cmd(bot, update):
 
 # Choose for which currency to show the last trade price
 def price_currency(bot, update):
-    update.message.reply_text("Retrieving price...")
+    update.message.reply_text("⏳ Retrieving price...")
 
     req_data = dict()
 
@@ -828,7 +831,7 @@ def value_cmd(bot, update):
 
 # Choose for which currency you want to know the current value
 def value_currency(bot, update):
-    update.message.reply_text("Retrieving current value...")
+    update.message.reply_text("⏳ Retrieving current value...")
 
     # Get balance of all currencies
     if update.message.text == KeyboardEnum.ALL.clean():
@@ -909,7 +912,7 @@ def value_currency(bot, update):
 # Reloads the custom keyboard
 @restrict_access
 def reload_cmd(bot, update):
-    msg = "Reloading keyboard..."
+    msg = "⏳ Reloading keyboard..."
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
 
@@ -937,7 +940,7 @@ def get_trade_str(trade):
 # Shows executed trades with volume and price
 @restrict_access
 def history_cmd(bot, update):
-    update.message.reply_text("Retrieving history data...")
+    update.message.reply_text("⏳ Retrieving finalized trades...")
 
     # Send request to Kraken to get trades history
     res_trades = kraken_api("TradesHistory", private=True)
@@ -1122,7 +1125,7 @@ def funding_currency(bot, update, chat_data):
 
 # Get wallet addresses to deposit to
 def funding_deposit(bot, update, chat_data):
-    update.message.reply_text("Retrieving wallets to deposit...")
+    update.message.reply_text("⏳ Retrieving wallets to deposit...")
 
     req_data = dict()
     req_data["asset"] = chat_data["currency"]
@@ -1194,7 +1197,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     if update.message.text == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
-    update.message.reply_text("Withdrawal initiated...")
+    update.message.reply_text("⏳ Withdrawal initiated...")
 
     req_data = dict()
     req_data["asset"] = chat_data["currency"]
@@ -1300,7 +1303,7 @@ def shutdown():
 # Terminate this script
 @restrict_access
 def shutdown_cmd(bot, update):
-    update.message.reply_text("Shutting down...", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text("🏁 Shutting down...", reply_markup=ReplyKeyboardRemove())
 
     # See comments on the 'shutdown' function
     threading.Thread(target=shutdown).start()
@@ -1309,7 +1312,7 @@ def shutdown_cmd(bot, update):
 # Restart this python script
 @restrict_access
 def restart_cmd(bot, update):
-    update.message.reply_text("Bot is restarting...", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text("⏳ Bot is restarting...", reply_markup=ReplyKeyboardRemove())
 
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
@@ -1415,10 +1418,10 @@ def get_update_state():
         msg = "Bot is up to date"
     # Status code 200 = OK (remote file has different hash, is not the same version)
     elif github_file.status_code == 200:
-        msg = "New version available. Get it with /update"
+        msg = "🔔 New version available. Get it with /update"
     # Every other status code
     else:
-        msg = "Update check not possible. Unexpected status code: " + github_file.status_code
+        msg = "❗ Update check not possible. Unexpected status code: " + github_file.status_code
 
     return github_file.status_code, msg
 
@@ -1511,7 +1514,7 @@ def order_state_check(bot, job):
 
     # Check if trade was executed. If so, stop monitoring and send message
     if order_info["status"] == "closed":
-        msg = "Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
+        msg = "🔔 Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
         bot.send_message(chat_id=config["user_id"], text=bold(msg), parse_mode=ParseMode.MARKDOWN)
         # Stop this job
         job.schedule_removal()
@@ -1529,7 +1532,7 @@ def monitor_updates():
 
             # Status code 200 means that the remote file is not the same
             if status_code == 200:
-                msg = "New version available. Get it with /update"
+                msg = "🔔 New version available. Get it with /update"
                 bot.send_message(chat_id=config["user_id"], text=msg)
 
         # Add Job to JobQueue to run periodically
@@ -1564,11 +1567,11 @@ def monitor_orders():
 
 # Show welcome message and custom keyboard for commands
 def init():
-    msg = "Kraken-Bot is running!"
+    msg = "✨ Kraken-Bot is running!"
     updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 
-# Converts a Unix timestamp to a datatime object with format 'Y-m-d H:M:S'
+# Converts a Unix timestamp to a data-time object with format 'Y-m-d H:M:S'
 def datetime_from_timestamp(unix_timestamp):
     return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -1603,7 +1606,7 @@ def btfy(text):
     if index == -1:
         return text
 
-    return "ERROR (" + text[1:index] + "): " + text[index + 1:]
+    return "❗ " + text[1:index] + ": " + text[index + 1:]
 
 
 # Handle all telegram and telegram.ext related errors
