@@ -198,7 +198,7 @@ def balance_cmd(bot, update):
         logger.error(error)
         return
 
-    msg = ""
+    msg = str()
 
     # Go over all currencies in your balance
     for currency_key, currency_value in res_balance["result"].items():
@@ -730,7 +730,7 @@ def price_cmd(bot, update):
         update.message.reply_text("⏳ Retrieving prices...")
 
         req_data = dict()
-        req_data["pair"] = ""
+        req_data["pair"] = str()
 
         for coin in config["used_coins"]:
             # If currency is BCH then use different pair string
@@ -920,10 +920,16 @@ def reload_cmd(bot, update):
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
     # Format pair-string from 'XXBTZEUR' to 'XXBT-EUR'
-    for i in range(3, 10, 1):
+    for i in range(3, len(trade["pair"]), 1):
         if trade["pair"][i:].startswith("Z"):
             pair_str = trade["pair"][:i] + "-" + trade["pair"][i + 1:]
             break
+
+    # Check if variable 'pair_str' is defined
+    # No definition means that the string doesn't have any 'Z' in it
+    if "pair_str" not in locals():
+        logger.warning("Can't replace 'Z' in '" + trade["pair"] + "' ")
+        pair_str = trade["pair"]
 
     # Format pair-string from 'XXBT-EUR' to 'XBT-EUR'
     pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
