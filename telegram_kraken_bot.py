@@ -130,12 +130,12 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
         logger.error(str(ex))
         ex_name = type(ex).__name__
 
-        # Handle specific exceptions
+        # Handle specific exceptions immediately without retrying
         if "Incorrect padding" in str(ex):
-            msg = " Incorrect padding:please verify that your Kraken API keys are valid"
+            msg = "Incorrect padding:please verify that your Kraken API keys are valid"
             return {"error": [msg]}
         elif "Service:Unavailable" in str(ex):  # TODO: Test it
-            msg = " Service:Unavailable"
+            msg = "Service:Unavailable"
             return {"error": [msg]}
 
         # Is 'retry on error' enabled?
@@ -150,10 +150,10 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
                 return kraken_api(method, data, private, return_error, retries)
             # Return last error if returning of errors is enabled
             else:
-                return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
+                return {"error": [ex_name + ":" + str(ex)]} if return_error else None
         # Return error if returning of errors is enabled
         else:
-            return {"error": [" " + ex_name + ":" + str(ex)]} if return_error else None
+            return {"error": [ex_name + ":" + str(ex)]} if return_error else None
 
 
 # Decorator to restrict access if user is not the same as in config
@@ -946,7 +946,7 @@ def get_trade_str(trade):
             break
 
     # Check if variable 'pair_str' is defined
-    # No definition means that the string doesn't have any 'Z' in it
+    # No definition means that we didn't find any 'Z' in it
     if "pair_str" not in locals():
         logger.warning("Can't replace 'Z' in '" + trade["pair"] + "'")
         pair_str = trade["pair"]
@@ -1626,13 +1626,17 @@ def bold(text):
 
 # Beautifies Kraken error messages
 def btfy(text):
+    # Remove whitespaces
+    text = text.strip()
+
+    # Find first ':' in the text
     index = text.find(":")
 
     # Character wasn't found
     if index == -1:
-        return text
+        return "❗ " + text
 
-    return "❗ " + text[1:index] + ": " + text[index + 1:]
+    return "❗ " + text[:index] + ": " + text[index + 1:].strip()
 
 
 # Handle all telegram and telegram.ext related errors
