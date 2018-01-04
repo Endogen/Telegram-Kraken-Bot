@@ -134,6 +134,9 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
         if "Incorrect padding" in str(ex):
             msg = " Incorrect padding:please verify that your Kraken API keys are valid"
             return {"error": [msg]}
+        elif "Service:Unavailable" in str(ex):  # TODO: Test it
+            msg = " Service:Unavailable"
+            return {"error": [msg]}
 
         # Is 'retry on error' enabled?
         if config["retries"]:
@@ -333,8 +336,25 @@ def trade_sell_all_confirm(bot, update):
         # Current asset is not a crypto-currency - skip it
         if asset.endswith(config["trade_to_currency"]):
             continue
+
         # Filter out currencies that have a volume of 0
         if amount == "0.0000000000":
+            continue
+
+        # Remove leading 'X' to look up the coin-name in the config
+        clean_asset = asset[1:] if asset.startswith("X") else asset
+
+        # Make sure that the order size is at least the minimum order limit
+        if clean_asset in config["min_order_size"]:
+            if float(amount) < float(config["min_order_size"][clean_asset]):
+                msg_error = "❗ Not possible to sell " + clean_asset + ": volume to low"
+                msg_next = "⏳ Selling next asset..."
+
+                update.message.reply_text(msg_error + "\n" + msg_next)
+                logger.warning(msg_error)
+                continue
+        else:
+            logger.warning("No minimum order limit in config for coin " + clean_asset)
             continue
 
         req_data = dict()
@@ -928,7 +948,7 @@ def get_trade_str(trade):
     # Check if variable 'pair_str' is defined
     # No definition means that the string doesn't have any 'Z' in it
     if "pair_str" not in locals():
-        logger.warning("Can't replace 'Z' in '" + trade["pair"] + "' ")
+        logger.warning("Can't replace 'Z' in '" + trade["pair"] + "'")
         pair_str = trade["pair"]
 
     # Format pair-string from 'XXBT-EUR' to 'XBT-EUR'
