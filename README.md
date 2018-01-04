@@ -54,7 +54,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
-- __trade\_to\_currency__: The base currency you are using (for example `EUR` or `USD`)
+- __trade\_to\_currency__: The base fiat currency you are trading from / to. Theoretically you could enter any coin here but right now only fiat currencies are supported by this bot. Currently the following are supported by Kraken: `EUR`, `USD`, `CAD`, `GBR`, `JPY` and `KRW`.
 - __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified by a message
 - __check\_trade\_time__: Time in seconds to check for order status change (see setting `check_trade`)
 - __update_url__: URL to the latest GitHub version of the script. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you can use the default value
@@ -119,7 +119,7 @@ python3.6 telegram_kraken_bot.py &
 ## Usage
 If you configured the bot correctly and execute the script, you should get a welcome message from the bot along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in manually.
 
-:warning: In general, while entering the volume, make sure that you don't use smaller values then Kraken supports. Take a look at the [order limits for various coins](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-). Otherwise the request to Kraken will lead to an error.
+:warning: In general, while entering the volume, make sure that you don't use smaller values then Kraken supports. Take a look at the [order limits for various coins](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-). Otherwise the request to Kraken will lead to an error. These values are also present in the configuration file at key `min_order_size`.
 
 ### Available commands
 ##### Related to Kraken
