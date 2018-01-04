@@ -17,6 +17,12 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, P
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
 
+# Emojis for messages
+emo_e = "❗"  # Error
+emo_w = "⏳"  # Wait
+emo_d = "🏁"  # Done
+emo_n = "🔔"  # Notify
+emo_s = "✨"  # Start
 
 # Check if file 'config.json' exists. Exit if not.
 if os.path.isfile("config.json"):
@@ -179,7 +185,7 @@ def restrict_access(func):
 # Get balance of all currencies
 @restrict_access
 def balance_cmd(bot, update):
-    update.message.reply_text("⏳ Retrieving balance...")
+    update.message.reply_text(emo_w + " Retrieving balance...")
 
     # Send request to Kraken to get current balance of all currencies
     res_balance = kraken_api("Balance", private=True)
@@ -293,7 +299,7 @@ def trade_sell_all_confirm(bot, update):
     if update.message.text == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
-    update.message.reply_text("⏳ Preparing to sell everything...")
+    update.message.reply_text(emo_w + " Preparing to sell everything...")
 
     # Send request for open orders to Kraken
     res_open_orders = kraken_api("OpenOrders", private=True)
@@ -347,8 +353,8 @@ def trade_sell_all_confirm(bot, update):
         # Make sure that the order size is at least the minimum order limit
         if clean_asset in config["min_order_size"]:
             if float(amount) < float(config["min_order_size"][clean_asset]):
-                msg_error = "❗ Not possible to sell " + clean_asset + ": volume to low"
-                msg_next = "⏳ Selling next asset..."
+                msg_error = emo_e + " Not possible to sell " + clean_asset + ": volume to low"
+                msg_next = emo_w + " Selling next asset..."
 
                 update.message.reply_text(msg_error + "\n" + msg_next)
                 logger.warning(msg_error)
@@ -435,7 +441,7 @@ def trade_vol_type(bot, update, chat_data):
 # Volume type 'ALL' chosen - meaning that
 # all available EURO funds will be used
 def trade_vol_type_all(bot, update, chat_data):
-    update.message.reply_text("⏳ Calculating volume...")
+    update.message.reply_text(emo_w + " Calculating volume...")
 
     if chat_data["buysell"] == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
@@ -553,7 +559,7 @@ def trade_confirm(bot, update, chat_data):
     if update.message.text == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
-    update.message.reply_text("⏳ Placing order...")
+    update.message.reply_text(emo_w + " Placing order...")
 
     req_data = dict()
     req_data["type"] = chat_data["buysell"].lower()
@@ -616,7 +622,7 @@ def trade_confirm(bot, update, chat_data):
 # Show and manage orders
 @restrict_access
 def orders_cmd(bot, update):
-    update.message.reply_text("⏳ Retrieving orders...")
+    update.message.reply_text(emo_w + " Retrieving orders...")
 
     # Send request to Kraken to get open orders
     res_data = kraken_api("OpenOrders", private=True)
@@ -689,7 +695,7 @@ def orders_choose_order(bot, update):
 
 # Close all open orders
 def orders_close_all(bot, update):
-    update.message.reply_text("⏳ Closing orders...")
+    update.message.reply_text(emo_w + " Closing orders...")
 
     closed_orders = list()
 
@@ -722,7 +728,7 @@ def orders_close_all(bot, update):
 
 # Close the specified order
 def orders_close_order(bot, update):
-    update.message.reply_text("⏳ Closing order...")
+    update.message.reply_text(emo_w + " Closing order...")
 
     req_data = dict()
     req_data["txid"] = update.message.text
@@ -747,7 +753,7 @@ def orders_close_order(bot, update):
 def price_cmd(bot, update):
     # If single-price option is active, get prices for all coins
     if config["single_price"]:
-        update.message.reply_text("⏳ Retrieving prices...")
+        update.message.reply_text(emo_w + " Retrieving prices...")
 
         req_data = dict()
         req_data["pair"] = str()
@@ -804,7 +810,7 @@ def price_cmd(bot, update):
 
 # Choose for which currency to show the last trade price
 def price_currency(bot, update):
-    update.message.reply_text("⏳ Retrieving price...")
+    update.message.reply_text(emo_w + " Retrieving price...")
 
     req_data = dict()
 
@@ -851,7 +857,7 @@ def value_cmd(bot, update):
 
 # Choose for which currency you want to know the current value
 def value_currency(bot, update):
-    update.message.reply_text("⏳ Retrieving current value...")
+    update.message.reply_text(emo_w + " Retrieving current value...")
 
     # Get balance of all currencies
     if update.message.text == KeyboardEnum.ALL.clean():
@@ -932,7 +938,7 @@ def value_currency(bot, update):
 # Reloads the custom keyboard
 @restrict_access
 def reload_cmd(bot, update):
-    msg = "⏳ Reloading keyboard..."
+    msg = emo_w + " Reloading keyboard..."
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
 
@@ -966,7 +972,7 @@ def get_trade_str(trade):
 # Shows executed trades with volume and price
 @restrict_access
 def history_cmd(bot, update):
-    update.message.reply_text("⏳ Retrieving finalized trades...")
+    update.message.reply_text(emo_w + " Retrieving finalized trades...")
 
     # Send request to Kraken to get trades history
     res_trades = kraken_api("TradesHistory", private=True)
@@ -1151,7 +1157,7 @@ def funding_currency(bot, update, chat_data):
 
 # Get wallet addresses to deposit to
 def funding_deposit(bot, update, chat_data):
-    update.message.reply_text("⏳ Retrieving wallets to deposit...")
+    update.message.reply_text(emo_w + " Retrieving wallets to deposit...")
 
     req_data = dict()
     req_data["asset"] = chat_data["currency"]
@@ -1223,7 +1229,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     if update.message.text == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
-    update.message.reply_text("⏳ Withdrawal initiated...")
+    update.message.reply_text(emo_w + " Withdrawal initiated...")
 
     req_data = dict()
     req_data["asset"] = chat_data["currency"]
@@ -1329,7 +1335,7 @@ def shutdown():
 # Terminate this script
 @restrict_access
 def shutdown_cmd(bot, update):
-    update.message.reply_text("🏁 Shutting down...", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(emo_d + " Shutting down...", reply_markup=ReplyKeyboardRemove())
 
     # See comments on the 'shutdown' function
     threading.Thread(target=shutdown).start()
@@ -1338,7 +1344,7 @@ def shutdown_cmd(bot, update):
 # Restart this python script
 @restrict_access
 def restart_cmd(bot, update):
-    update.message.reply_text("⏳ Bot is restarting...", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(emo_w + " Bot is restarting...", reply_markup=ReplyKeyboardRemove())
 
     time.sleep(0.2)
     os.execl(sys.executable, sys.executable, *sys.argv)
@@ -1444,10 +1450,10 @@ def get_update_state():
         msg = "Bot is up to date"
     # Status code 200 = OK (remote file has different hash, is not the same version)
     elif github_file.status_code == 200:
-        msg = "🔔 New version available. Get it with /update"
+        msg = emo_n + " New version available. Get it with /update"
     # Every other status code
     else:
-        msg = "❗ Update check not possible. Unexpected status code: " + github_file.status_code
+        msg = emo_e + " Update check not possible. Unexpected status code: " + github_file.status_code
 
     return github_file.status_code, msg
 
@@ -1540,8 +1546,8 @@ def order_state_check(bot, job):
 
     # Check if trade was executed. If so, stop monitoring and send message
     if order_info["status"] == "closed":
-        msg = "🔔 Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
-        bot.send_message(chat_id=config["user_id"], text=bold(msg), parse_mode=ParseMode.MARKDOWN)
+        msg = " Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
+        bot.send_message(chat_id=config["user_id"], text=bold(emo_n + msg), parse_mode=ParseMode.MARKDOWN)
         # Stop this job
         job.schedule_removal()
 
@@ -1558,7 +1564,7 @@ def monitor_updates():
 
             # Status code 200 means that the remote file is not the same
             if status_code == 200:
-                msg = "🔔 New version available. Get it with /update"
+                msg = emo_n + " New version available. Get it with /update"
                 bot.send_message(chat_id=config["user_id"], text=msg)
 
         # Add Job to JobQueue to run periodically
@@ -1593,7 +1599,7 @@ def monitor_orders():
 
 # Show welcome message and custom keyboard for commands
 def init():
-    msg = "✨ Kraken-Bot is running!"
+    msg = emo_s + " Kraken-Bot is running!"
     updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
 
 
@@ -1634,9 +1640,9 @@ def btfy(text):
 
     # Character wasn't found
     if index == -1:
-        return "❗ " + text
+        return emo_e + " " + text
 
-    return "❗ " + text[:index] + ": " + text[index + 1:].strip()
+    return emo_e + " " + text[:index] + ": " + text[index + 1:].strip()
 
 
 # Handle all telegram and telegram.ext related errors
