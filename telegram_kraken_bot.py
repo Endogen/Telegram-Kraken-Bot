@@ -10,6 +10,7 @@ import datetime
 import requests
 import krakenex
 import inspect
+import re
 
 from enum import Enum, auto
 
@@ -136,10 +137,13 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
         logger.error(str(ex))
         ex_name = type(ex).__name__
 
-        # Handle specific exceptions immediately without retrying
+        # Handle the following exceptions immediately without retrying
+
+        # Mostly this means that the API keys are not correct
         if "Incorrect padding" in str(ex):
             msg = "Incorrect padding:please verify that your Kraken API keys are valid"
             return {"error": [msg]}
+        # No need to retry if the API service is not available right now
         elif "Service:Unavailable" in str(ex):  # TODO: Test it
             msg = "Service:Unavailable"
             return {"error": [msg]}
@@ -227,11 +231,11 @@ def balance_cmd(bot, update):
                 price_per_coin = order_desc_list[5]
 
                 # Check if current asset is a fiat-currency (EUR, USD, ...)
-                if currency_key == config["trade_to_currency"] and order_type == "buy":
+                if currency_key == config["base_currency"] and order_type == "buy":
                     available_value = float(currency_value) - (float(order_volume) * float(price_per_coin))
                 # Current asset is a coin and not a fiat currency
                 else:
-                    order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
+                    order_currency = order_desc_list[2][:-len(config["base_currency"])]
                     # Reduce current volume for coin if open sell-order exists
                     if currency_key == order_currency and order_type == "sell":
                         available_value = str(float(available_value) - float(order_volume))
@@ -296,7 +300,7 @@ def trade_sell_all(bot, update):
 
 # Sells all assets for there respective current market value
 def trade_sell_all_confirm(bot, update):
-    if update.message.text == KeyboardEnum.NO.clean():
+    if update.message.text.upper() == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
     update.message.reply_text(emo_w + " Preparing to sell everything...")
@@ -340,7 +344,7 @@ def trade_sell_all_confirm(bot, update):
     # Go over all assets and sell them
     for asset, amount in res_balance["result"].items():
         # Current asset is not a crypto-currency - skip it
-        if asset.endswith(config["trade_to_currency"]):
+        if asset.endswith(config["base_currency"]):
             continue
 
         # Filter out currencies that have a volume of 0
@@ -365,7 +369,7 @@ def trade_sell_all_confirm(bot, update):
 
         req_data = dict()
         req_data["type"] = "sell"
-        req_data["pair"] = asset + "Z" + config["trade_to_currency"]
+        req_data["pair"] = asset + "Z" + config["base_currency"]
         req_data["ordertype"] = "market"
         req_data["volume"] = amount
 
@@ -412,7 +416,7 @@ def trade_price(bot, update, chat_data):
     reply_msg = "How to enter the volume?"
 
     buttons = [
-        KeyboardButton(config["trade_to_currency"].upper()),
+        KeyboardButton(config["base_currency"].upper()),
         KeyboardButton(KeyboardEnum.VOLUME.clean())
     ]
 
@@ -456,7 +460,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
         available_euros = float(0)
         for currency_key, currency_value in res_balance["result"].items():
-            if config["trade_to_currency"] in currency_key:
+            if config["base_currency"] in currency_key:
                 available_euros = float(currency_value)
                 break
 
@@ -497,7 +501,7 @@ def trade_vol_type_all(bot, update, chat_data):
                 order_desc = res_orders["result"]["open"][order]["descr"]["order"]
                 order_desc_list = order_desc.split(" ")
 
-                order_currency = order_desc_list[2][:-len(config["trade_to_currency"])]
+                order_currency = order_desc_list[2][:-len(config["base_currency"])]
                 order_volume = order_desc_list[1]
                 order_type = order_desc_list[0]
 
@@ -522,7 +526,7 @@ def trade_vol_type_all(bot, update, chat_data):
 # Calculate the volume depending on chosen volume type (EURO or VOLUME)
 def trade_volume(bot, update, chat_data):
     # Entered currency from config (EUR, USD, ...)
-    if chat_data["vol_type"] == config["trade_to_currency"].upper():
+    if chat_data["vol_type"] == config["base_currency"].upper():
         amount = float(update.message.text)
         price_per_unit = float(chat_data["price"])
         chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
@@ -547,7 +551,7 @@ def show_trade_conf(update, chat_data):
 
     # Calculate total value of order
     total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
-    total_value_str = "(Value: " + str(total_value) + " " + config["trade_to_currency"] + ")"
+    total_value_str = "(Value: " + str(total_value) + " " + config["base_currency"] + ")"
 
     reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
 
@@ -556,7 +560,7 @@ def show_trade_conf(update, chat_data):
 
 # The user has to confirm placing the order
 def trade_confirm(bot, update, chat_data):
-    if update.message.text == KeyboardEnum.NO.clean():
+    if update.message.text.upper() == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
     update.message.reply_text(emo_w + " Placing order...")
@@ -569,9 +573,9 @@ def trade_confirm(bot, update, chat_data):
 
     # If currency is BCH then use different pair string
     if chat_data["currency"] == "BCH":
-        req_data["pair"] = chat_data["currency"] + config["trade_to_currency"]
+        req_data["pair"] = chat_data["currency"] + config["base_currency"]
     else:
-        req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["trade_to_currency"]
+        req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["base_currency"]
 
     # Send request to create order to Kraken
     res_add_order = kraken_api("AddOrder", req_data, private=True)
@@ -761,9 +765,9 @@ def price_cmd(bot, update):
         for coin in config["used_coins"]:
             # If currency is BCH then use different pair string
             if coin == "BCH":
-                req_data["pair"] += coin + config["trade_to_currency"] + ","
+                req_data["pair"] += coin + config["base_currency"] + ","
             else:
-                req_data["pair"] += "X" + coin + "Z" + config["trade_to_currency"] + ","
+                req_data["pair"] += "X" + coin + "Z" + config["base_currency"] + ","
 
         # Get rid of last comma
         req_data["pair"] = req_data["pair"][:-1]
@@ -781,14 +785,14 @@ def price_cmd(bot, update):
         msg = str()
 
         for pair, data in res_data["result"].items():
-            coin = pair[:-len(config["trade_to_currency"])]
+            coin = pair[:-len(config["base_currency"])]
             if coin.endswith("Z"):
                 coin = coin[:-1]
             if coin.startswith("X"):
                 coin = coin[1:]
 
             last_trade_price = trim_zeros(data["c"][0])
-            msg += coin + ": " + last_trade_price + " " + config["trade_to_currency"] + "\n"
+            msg += coin + ": " + last_trade_price + " " + config["base_currency"] + "\n"
 
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
@@ -815,10 +819,10 @@ def price_currency(bot, update):
     req_data = dict()
 
     # If currency is BCH then use different pair string
-    if update.message.text == "BCH":
-        req_data["pair"] = update.message.text + config["trade_to_currency"]
+    if update.message.text.upper() == "BCH":  # TODO: Why this special case?
+        req_data["pair"] = update.message.text + config["base_currency"]
     else:
-        req_data["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
+        req_data["pair"] = "X" + update.message.text + "Z" + config["base_currency"]
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken_api("Ticker", data=req_data, private=False)
@@ -833,7 +837,7 @@ def price_currency(bot, update):
     currency = update.message.text
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-    msg = bold(currency + ": " + last_trade_price + " " + config["trade_to_currency"])
+    msg = bold(currency + ": " + last_trade_price + " " + config["base_currency"])
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -860,9 +864,9 @@ def value_currency(bot, update):
     update.message.reply_text(emo_w + " Retrieving current value...")
 
     # Get balance of all currencies
-    if update.message.text == KeyboardEnum.ALL.clean():
+    if update.message.text.upper() == KeyboardEnum.ALL.clean():
         req_asset = dict()
-        req_asset["asset"] = config["trade_to_currency"]
+        req_asset["asset"] = config["base_currency"]
 
         # Send request to Kraken tp obtain the combined balance of all currencies
         res_trade_balance = kraken_api("TradeBalance", data=req_asset, private=True)
@@ -878,7 +882,7 @@ def value_currency(bot, update):
         total_value_euro = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
 
         # Generate message to user
-        msg = "Overall: " + total_value_euro + " " + config["trade_to_currency"]
+        msg = "Overall: " + total_value_euro + " " + config["base_currency"]
 
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
@@ -895,10 +899,10 @@ def value_currency(bot, update):
             return
 
         req_price = dict()
-        if update.message.text == "BCH":
-            req_price["pair"] = update.message.text + config["trade_to_currency"]
+        if update.message.text.upper() == "BCH":  # TODO: Why this special case?
+            req_price["pair"] = update.message.text + config["base_currency"]
         else:
-            req_price["pair"] = "X" + update.message.text + "Z" + config["trade_to_currency"]
+            req_price["pair"] = "X" + update.message.text + "Z" + config["base_currency"]
 
         # Send request to Kraken to get current trading price for currency-pair
         res_price = kraken_api("Ticker", data=req_price, private=False)
@@ -924,11 +928,11 @@ def value_currency(bot, update):
         # Show only 2 digits after decimal place
         value_euro = "{0:.2f}".format(value_euro)
 
-        msg = update.message.text + ": " + value_euro + " " + config["trade_to_currency"]
+        msg = update.message.text + ": " + value_euro + " " + config["base_currency"]
 
         # Add last trade price to msg
         last_trade_price = "{0:.2f}".format(float(last_price))
-        msg += "\n(Ticker: " + last_trade_price + " " + config["trade_to_currency"] + ")"
+        msg += "\n(Ticker: " + last_trade_price + " " + config["base_currency"] + ")"
 
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
@@ -1066,25 +1070,25 @@ def bot_cmd(bot, update):
 # Execute chosen sub-cmd of 'bot' cmd
 def bot_sub_cmd(bot, update):
     # Update check
-    if update.message.text == KeyboardEnum.UPDATE_CHECK.clean():
+    if update.message.text.upper() == KeyboardEnum.UPDATE_CHECK.clean():
         status_code, msg = get_update_state()
         update.message.reply_text(msg)
         return
 
     # Update
-    elif update.message.text == KeyboardEnum.UPDATE.clean():
+    elif update.message.text.upper() == KeyboardEnum.UPDATE.clean():
         return update_cmd(bot, update)
 
     # Restart
-    elif update.message.text == KeyboardEnum.RESTART.clean():
+    elif update.message.text.upper() == KeyboardEnum.RESTART.clean():
         restart_cmd(bot, update)
 
     # Shutdown
-    elif update.message.text == KeyboardEnum.SHUTDOWN.clean():
+    elif update.message.text.upper() == KeyboardEnum.SHUTDOWN.clean():
         shutdown_cmd(bot, update)
 
     # Cancel
-    elif update.message.text == KeyboardEnum.CANCEL.clean():
+    elif update.message.text.upper() == KeyboardEnum.CANCEL.clean():
         return cancel(bot, update)
 
 
@@ -1226,7 +1230,7 @@ def funding_withdraw_volume(bot, update, chat_data):
 
 # Withdraw funds from wallet
 def funding_withdraw_confirm(bot, update, chat_data):
-    if update.message.text == KeyboardEnum.NO.clean():
+    if update.message.text.upper() == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
     update.message.reply_text(emo_w + " Withdrawal initiated...")
@@ -1381,7 +1385,7 @@ def settings_change(bot, update, chat_data):
     chat_data["setting"] = update.message.text.lower()
 
     # Don't allow to change setting 'user_id'
-    if update.message.text == "USER_ID":
+    if update.message.text.upper() == "USER_ID":
         update.message.reply_text("It's not possible to change USER_ID value")
         return
 
@@ -1417,7 +1421,7 @@ def settings_save(bot, update, chat_data):
 
 # Confirm saving new setting and restart bot
 def settings_confirm(bot, update, chat_data):
-    if update.message.text == KeyboardEnum.NO.clean():
+    if update.message.text.upper() == KeyboardEnum.NO.clean():
         return cancel(bot, update)
 
     # Set new value in config dictionary
@@ -1659,6 +1663,11 @@ def handle_telegram_error(bot, update, error):
 dispatcher.add_error_handler(handle_telegram_error)
 
 
+# Returns a pre compiled Regex pattern to ignore case
+def comp(pattern):
+    return re.compile(pattern, re.IGNORECASE)
+
+
 # Returns regex representation of OR for all coins in config
 def regex_coin_or():
     coins_regex_or = str()
@@ -1692,18 +1701,18 @@ funding_handler = ConversationHandler(
     entry_points=[CommandHandler('funding', funding_cmd)],
     states={
         WorkflowEnum.FUNDING_CURRENCY:
-            [RegexHandler("^(" + regex_coin_or() + ")$", funding_currency, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)],
+            [RegexHandler(comp("^(" + regex_coin_or() + ")$"), funding_currency, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.FUNDING_CHOOSE:
-            [RegexHandler("^(DEPOSIT)$", funding_deposit, pass_chat_data=True),
-             RegexHandler("^(WITHDRAW)$", funding_withdraw),
-             RegexHandler("^(CANCEL)$", cancel)],
+            [RegexHandler(comp("^(DEPOSIT)$"), funding_deposit, pass_chat_data=True),
+             RegexHandler(comp("^(WITHDRAW)$"), funding_withdraw),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.WITHDRAW_WALLET:
             [MessageHandler(Filters.text, funding_withdraw_wallet, pass_chat_data=True)],
         WorkflowEnum.WITHDRAW_VOLUME:
             [MessageHandler(Filters.text, funding_withdraw_volume, pass_chat_data=True)],
         WorkflowEnum.WITHDRAW_CONFIRM:
-            [RegexHandler("^(YES|NO)$", funding_withdraw_confirm, pass_chat_data=True)]
+            [RegexHandler(comp("^(YES|NO)$"), funding_withdraw_confirm, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1715,8 +1724,8 @@ history_handler = ConversationHandler(
     entry_points=[CommandHandler('history', history_cmd)],
     states={
         WorkflowEnum.HISTORY_NEXT:
-            [RegexHandler("^(NEXT)$", history_next),
-             RegexHandler("^(CANCEL)$", cancel)]
+            [RegexHandler(comp("^(NEXT)$"), history_next),
+             RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1728,8 +1737,8 @@ chart_handler = ConversationHandler(
     entry_points=[CommandHandler('chart', chart_cmd)],
     states={
         WorkflowEnum.CHART_CURRENCY:
-            [RegexHandler("^(" + regex_coin_or() + ")$", chart_currency),
-             RegexHandler("^(CANCEL)$", cancel)]
+            [RegexHandler(comp("^(" + regex_coin_or() + ")$"), chart_currency),
+             RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1741,12 +1750,12 @@ orders_handler = ConversationHandler(
     entry_points=[CommandHandler('orders', orders_cmd)],
     states={
         WorkflowEnum.ORDERS_CLOSE:
-            [RegexHandler("^(CLOSE ORDER)$", orders_choose_order),
-             RegexHandler("^(CLOSE ALL)$", orders_close_all),
-             RegexHandler("^(CANCEL)$", cancel)],
+            [RegexHandler(comp("^(CLOSE ORDER)$"), orders_choose_order),
+             RegexHandler(comp("^(CLOSE ALL)$"), orders_close_all),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.ORDERS_CLOSE_ORDER:
-            [RegexHandler("^(CANCEL)$", cancel),
-             RegexHandler("^[A-Z0-9]{6}-[A-Z0-9]{5}-[A-Z0-9]{6}$", orders_close_order)]
+            [RegexHandler(comp("^(CANCEL)$"), cancel),
+             RegexHandler(comp("^[A-Z0-9]{6}-[A-Z0-9]{5}-[A-Z0-9]{6}$"), orders_close_order)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1758,24 +1767,24 @@ trade_handler = ConversationHandler(
     entry_points=[CommandHandler('trade', trade_cmd)],
     states={
         WorkflowEnum.TRADE_BUY_SELL:
-            [RegexHandler("^(BUY|SELL)$", trade_buy_sell, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)],
+            [RegexHandler(comp("^(BUY|SELL)$"), trade_buy_sell, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_CURRENCY:
-            [RegexHandler("^(" + regex_coin_or() + ")$", trade_currency, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel),
-             RegexHandler("^(ALL)$", trade_sell_all)],
+            [RegexHandler(comp("^(" + regex_coin_or() + ")$"), trade_currency, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel),
+             RegexHandler(comp("^(ALL)$"), trade_sell_all)],
         WorkflowEnum.TRADE_SELL_ALL_CONFIRM:
-            [RegexHandler("^(YES|NO)$", trade_sell_all_confirm)],
+            [RegexHandler(comp("^(YES|NO)$"), trade_sell_all_confirm)],
         WorkflowEnum.TRADE_PRICE:
-            [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_price, pass_chat_data=True)],
+            [RegexHandler(comp("^((?=.*?\d)\d*[.]?\d*)$"), trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
-            [RegexHandler("^(EUR|USD|CAD|GBP|JPY|VOLUME)$", trade_vol_type, pass_chat_data=True),
-             RegexHandler("^(ALL)$", trade_vol_type_all, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)],
+            [RegexHandler(comp("^(EUR|USD|CAD|GBP|JPY|KRW|VOLUME)$"), trade_vol_type, pass_chat_data=True),
+             RegexHandler(comp("^(ALL)$"), trade_vol_type_all, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOLUME:
-            [RegexHandler("^((?=.*?\d)\d*[.]?\d*)$", trade_volume, pass_chat_data=True)],
+            [RegexHandler(comp("^((?=.*?\d)\d*[.]?\d*)$"), trade_volume, pass_chat_data=True)],
         WorkflowEnum.TRADE_CONFIRM:
-            [RegexHandler("^(YES|NO)$", trade_confirm, pass_chat_data=True)]
+            [RegexHandler(comp("^(YES|NO)$"), trade_confirm, pass_chat_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1787,8 +1796,8 @@ price_handler = ConversationHandler(
     entry_points=[CommandHandler('price', price_cmd)],
     states={
         WorkflowEnum.PRICE_CURRENCY:
-            [RegexHandler("^(" + regex_coin_or() + ")$", price_currency),
-             RegexHandler("^(CANCEL)$", cancel)]
+            [RegexHandler(comp("^(" + regex_coin_or() + ")$"), price_currency),
+             RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1800,8 +1809,8 @@ value_handler = ConversationHandler(
     entry_points=[CommandHandler('value', value_cmd)],
     states={
         WorkflowEnum.VALUE_CURRENCY:
-            [RegexHandler("^(" + regex_coin_or() + "|ALL)$", value_currency),
-             RegexHandler("^(CANCEL)$", cancel)]
+            [RegexHandler(comp("^(" + regex_coin_or() + "|ALL)$"), value_currency),
+             RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1812,8 +1821,8 @@ dispatcher.add_handler(value_handler)
 # This way the state is reusable
 def get_settings_change_state():
     return [WorkflowEnum.SETTINGS_CHANGE,
-            [RegexHandler("^(" + regex_settings_or() + ")$", settings_change, pass_chat_data=True),
-             RegexHandler("^(CANCEL)$", cancel)]]
+            [RegexHandler(comp("^(" + regex_settings_or() + ")$"), settings_change, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)]]
 
 
 # Will return the SETTINGS_SAVE state for a conversation handler
@@ -1827,7 +1836,7 @@ def get_settings_save_state():
 # This way the state is reusable
 def get_settings_confirm_state():
     return [WorkflowEnum.SETTINGS_CONFIRM,
-            [RegexHandler("^(YES|NO)$", settings_confirm, pass_chat_data=True)]]
+            [RegexHandler(comp("^(YES|NO)$"), settings_confirm, pass_chat_data=True)]]
 
 
 # BOT conversation handler
@@ -1835,9 +1844,9 @@ bot_handler = ConversationHandler(
     entry_points=[CommandHandler('bot', bot_cmd)],
     states={
         WorkflowEnum.BOT_SUB_CMD:
-            [RegexHandler("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$", bot_sub_cmd),
-             RegexHandler("^(SETTINGS)$", settings_cmd),
-             RegexHandler("^(CANCEL)$", cancel)],
+            [RegexHandler(comp("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$"), bot_sub_cmd),
+             RegexHandler(comp("^(SETTINGS)$"), settings_cmd),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         get_settings_change_state()[0]: get_settings_change_state()[1],
         get_settings_save_state()[0]: get_settings_save_state()[1],
         get_settings_confirm_state()[0]: get_settings_confirm_state()[1]
