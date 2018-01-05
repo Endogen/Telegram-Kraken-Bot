@@ -148,7 +148,7 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
         # No need to retry if the API service is not available right now
         elif "Service:Unavailable" in str(ex):  # TODO: Test it
             msg = "Service: Unavailable"
-            return {"error": [msg]}
+            return {"error": [msg]} if return_error else None
 
         # Is 'retry on error' enabled?
         if config["retries"]:
