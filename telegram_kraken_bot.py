@@ -141,7 +141,7 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
 
         # Mostly this means that the API keys are not correct
         if "Incorrect padding" in str(ex):
-            msg = "Incorrect padding:please verify that your Kraken API keys are valid"
+            msg = "Incorrect padding: please verify that your Kraken API keys are valid"
             return {"error": [msg]}
         # No need to retry if the API service is not available right now
         elif "Service:Unavailable" in str(ex):  # TODO: Test it
@@ -232,13 +232,13 @@ def balance_cmd(bot, update):
 
                 # Check if current asset is a fiat-currency (EUR, USD, ...)
                 if currency_key == config["base_currency"] and order_type == "buy":
-                    available_value = float(currency_value) - (float(order_volume) * float(price_per_coin))
+                    available_value = float(available_value) - (float(order_volume) * float(price_per_coin))
                 # Current asset is a coin and not a fiat currency
                 else:
                     order_currency = order_desc_list[2][:-len(config["base_currency"])]
                     # Reduce current volume for coin if open sell-order exists
                     if currency_key == order_currency and order_type == "sell":
-                        available_value = str(float(available_value) - float(order_volume))
+                        available_value = float(available_value) - float(order_volume)
 
         if trim_zeros(currency_value) is not "0":
             msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
@@ -818,8 +818,9 @@ def price_currency(bot, update):
 
     req_data = dict()
 
+    # TODO: Use automatically the correct coin name
     # If currency is BCH then use different pair string
-    if update.message.text.upper() == "BCH":  # TODO: Why this special case?
+    if update.message.text.upper() == "BCH":
         req_data["pair"] = update.message.text + config["base_currency"]
     else:
         req_data["pair"] = "X" + update.message.text + "Z" + config["base_currency"]
@@ -898,8 +899,9 @@ def value_currency(bot, update):
             logger.error(error)
             return
 
+        # TODO: Use automatically the correct coin name
         req_price = dict()
-        if update.message.text.upper() == "BCH":  # TODO: Why this special case?
+        if update.message.text.upper() == "BCH":
             req_price["pair"] = update.message.text + config["base_currency"]
         else:
             req_price["pair"] = "X" + update.message.text + "Z" + config["base_currency"]
