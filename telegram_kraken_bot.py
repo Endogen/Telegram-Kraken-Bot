@@ -24,6 +24,8 @@ emo_w = "⏳"  # Wait
 emo_d = "🏁"  # Done
 emo_n = "🔔"  # Notify
 emo_s = "✨"  # Start
+emo_c = "❌"  # Cancel
+emo_t = "👍"  # Top
 
 # Check if file 'config.json' exists. Exit if not.
 if os.path.isfile("config.json"):
@@ -145,7 +147,7 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
             return {"error": [msg]}
         # No need to retry if the API service is not available right now
         elif "Service:Unavailable" in str(ex):  # TODO: Test it
-            msg = "Service:Unavailable"
+            msg = "Service: Unavailable"
             return {"error": [msg]}
 
         # Is 'retry on error' enabled?
@@ -391,7 +393,7 @@ def trade_sell_all_confirm(bot, update):
             context = dict(order_txid=order_txid)
             job_queue.run_repeating(order_state_check, trade_time, context=context)
 
-    msg = "Created orders to sell all assets"
+    msg = emo_d + " Created orders to sell all assets"
     update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -631,7 +633,7 @@ def trade_confirm(bot, update, chat_data):
 
         if res_query_order["result"][order_txid]:
             order_desc = res_query_order["result"][order_txid]["descr"]["order"]
-            msg = "Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
+            msg = emo_d + " Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
             # Add Job to JobQueue to check status of created order (if enabled)
@@ -729,17 +731,22 @@ def orders_close_all(bot, update):
     closed_orders = list()
 
     if orders:
-        for order in orders:
-            order_id = next(iter(order), None)
+        for x in range(0, len(orders)):
+            order_id = next(iter(orders[x]), None)
 
             # Send request to Kraken to cancel orders
             res_data = kraken_api("CancelOrder", data={"txid": order_id}, private=True)
 
             # If Kraken replied with an error, show it
             if res_data["error"]:
-                error = "Not possible to close order\n" + order_id + "\n" + btfy(res_data["error"][0])
-                update.message.reply_text(error)
+                error = "Order not closed:\n" + order_id + "\n" + res_data["error"][0]
+                update.message.reply_text(btfy(error))
                 logger.error(error)
+
+                # If we are currently not closing the last order,
+                # show message that we a continuing with the next one
+                if x+1 != len(orders):
+                    update.message.reply_text(emo_w + " Closing next order...")
             else:
                 closed_orders.append(order_id)
 
@@ -1350,7 +1357,7 @@ def update_cmd(bot, update):
 
     # Every other status code
     else:
-        msg = "Update not executed. Unexpected status code: " + github_script.status_code
+        msg = emo_e + " Update not executed. Unexpected status code: " + github_script.status_code
         update.message.reply_text(msg, reply_markup=keyboard_cmds())
 
     return ConversationHandler.END
@@ -1458,7 +1465,7 @@ def settings_confirm(bot, update, chat_data):
     with open("config.json", "w") as cfg:
         json.dump(config, cfg, indent=4)
 
-    update.message.reply_text("New value saved")
+    update.message.reply_text(emo_d + bold(" New value saved"))
 
     # Restart bot to activate new setting
     restart_cmd(bot, update)
@@ -1466,7 +1473,7 @@ def settings_confirm(bot, update, chat_data):
 
 # Will show a cancel message, end the conversation and show the default keyboard
 def cancel(bot, update):
-    update.message.reply_text("Canceled...", reply_markup=keyboard_cmds())
+    update.message.reply_text(emo_c + " Canceled...", reply_markup=keyboard_cmds())
     return ConversationHandler.END
 
 
@@ -1478,7 +1485,7 @@ def get_update_state():
 
     # Status code 304 = Not Modified (remote file has same hash, is the same version)
     if github_file.status_code == 304:
-        msg = "Bot is up to date"
+        msg = emo_t + " Bot is up to date"
     # Status code 200 = OK (remote file has different hash, is not the same version)
     elif github_file.status_code == 200:
         msg = emo_n + " New version available. Get it with /update"
@@ -1673,7 +1680,7 @@ def btfy(text):
     if index == -1:
         return emo_e + " " + text
 
-    return emo_e + " " + text[:index] + ": " + text[index + 1:].strip()
+    return emo_e + " " + text[:index] + ": " + text[index + 1:].strip(" ")
 
 
 # Handle all telegram and telegram.ext related errors
