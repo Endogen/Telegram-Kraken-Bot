@@ -1,29 +1,53 @@
 {
-    "user_id" : "some_telegram_user_id",
-    "bot_token" : "some_bot_token",
-    "trade_to_currency" : "EUR",
-    "check_trade" : true,
-    "check_trade_time" : 30,
+    "user_id": "some_telegram_user_id",
+    "bot_token": "some_bot_token",
+    "base_currency": "EUR",
+    "check_trade": true,
+    "check_trade_time": 30,
     "history_items": 3,
-    "update_url" : "https://raw.githubusercontent.com/endogen/Telegram-Kraken-Bot/master/telegram_kraken_bot.py",
-    "update_hash" : "some_hash",
-    "update_check" : true,
-    "update_time" : 86400,
-    "send_error" : false,
-    "show_access_denied" : true,
-    "used_coins" : [
-        "XBT", "BCH", "ETH", "LTC", "XMR", "XRP"
+    "update_url": "https://raw.githubusercontent.com/endogen/Telegram-Kraken-Bot/master/telegram_kraken_bot.py",
+    "update_hash": "some_hash",
+    "update_check": true,
+    "update_time": 86400,
+    "send_error": false,
+    "show_access_denied": true,
+    "used_coins": [
+        "XBT",
+        "BCH",
+        "ETH",
+        "LTC",
+        "XMR",
+        "XRP"
     ],
-    "coin_charts" : {
-        "XBT" : "https://tinyurl.com/y9p6g5a8",
-        "BCH" : "https://tinyurl.com/yas7972g",
-        "ETH" : "https://tinyurl.com/ya3fkha4",
-        "LTC" : "https://tinyurl.com/y8n7ohfh",
-        "XMR" : "https://tinyurl.com/y98ygfuw",
-        "XRP" : "https://tinyurl.com/ya4wcy3h"
+    "coin_charts": {
+        "XBT": "https://tinyurl.com/y9p6g5a8",
+        "BCH": "https://tinyurl.com/yas7972g",
+        "ETH": "https://tinyurl.com/ya3fkha4",
+        "LTC": "https://tinyurl.com/y8n7ohfh",
+        "XMR": "https://tinyurl.com/y98ygfuw",
+        "XRP": "https://tinyurl.com/ya4wcy3h"
     },
-    "log_to_file" : false,
-    "retries" : true,
-    "retries_counter" : 2,
-    "single_price": true
+    "log_to_file": false,
+    "retries": true,
+    "retries_counter": 2,
+    "single_price": true,
+    "min_order_size": {
+        "REP": "0.3",
+        "XBT": "0.002",
+        "BCH": "0.002",
+        "DASH": "0.03",
+        "DOGE": "3000",
+        "EOS": "3",
+        "ETH": "0.02",
+        "ETC": "0.3",
+        "GNO": "0.03",
+        "ICN": "2",
+        "LTC": "0.1",
+        "MLN": "0.1",
+        "XMR": "0.2",
+        "XRP": "0.1",
+        "XLM": "300",
+        "ZEC": "0.03",
+        "USDT": "5"
+    }
 }
