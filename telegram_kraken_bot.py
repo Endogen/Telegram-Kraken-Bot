@@ -117,6 +117,11 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
+# TODO: Erledigen
+# Will log an event and save it in a file with the current date as a name
+#def log(msg, severity):
+
+
 # Issue Kraken API requests
 def kraken_api(method, data=None, private=False, return_error=True, retries=None):
     # Get arguments of this function
@@ -1465,7 +1470,7 @@ def settings_confirm(bot, update, chat_data):
     with open("config.json", "w") as cfg:
         json.dump(config, cfg, indent=4)
 
-    update.message.reply_text(emo_d + bold(" New value saved"))
+    update.message.reply_text(emo_d + " New value saved")
 
     # Restart bot to activate new setting
     restart_cmd(bot, update)
@@ -1668,6 +1673,12 @@ def bold(text):
     return "*" + text + "*"
 
 
+# TODO: Use in 'btfy'
+# Returns a list of all indexes of a specific character in a string
+def get_indices(string, char):
+    return [i for i, ltr in enumerate(string) if ltr == char]
+
+
 # Beautifies Kraken error messages
 def btfy(text):
     # Remove whitespaces
@@ -1853,7 +1864,7 @@ dispatcher.add_handler(value_handler)
 
 # Will return the SETTINGS_CHANGE state for a conversation handler
 # This way the state is reusable
-def get_settings_change_state():
+def settings_change_state():
     return [WorkflowEnum.SETTINGS_CHANGE,
             [RegexHandler(comp("^(" + regex_settings_or() + ")$"), settings_change, pass_chat_data=True),
              RegexHandler(comp("^(CANCEL)$"), cancel)]]
@@ -1861,14 +1872,14 @@ def get_settings_change_state():
 
 # Will return the SETTINGS_SAVE state for a conversation handler
 # This way the state is reusable
-def get_settings_save_state():
+def settings_save_state():
     return [WorkflowEnum.SETTINGS_SAVE,
             [MessageHandler(Filters.text, settings_save, pass_chat_data=True)]]
 
 
 # Will return the SETTINGS_CONFIRM state for a conversation handler
 # This way the state is reusable
-def get_settings_confirm_state():
+def settings_confirm_state():
     return [WorkflowEnum.SETTINGS_CONFIRM,
             [RegexHandler(comp("^(YES|NO)$"), settings_confirm, pass_chat_data=True)]]
 
@@ -1881,9 +1892,9 @@ bot_handler = ConversationHandler(
             [RegexHandler(comp("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$"), bot_sub_cmd),
              RegexHandler(comp("^(SETTINGS)$"), settings_cmd),
              RegexHandler(comp("^(CANCEL)$"), cancel)],
-        get_settings_change_state()[0]: get_settings_change_state()[1],
-        get_settings_save_state()[0]: get_settings_save_state()[1],
-        get_settings_confirm_state()[0]: get_settings_confirm_state()[1]
+        settings_change_state()[0]: settings_change_state()[1],
+        settings_save_state()[0]: settings_save_state()[1],
+        settings_confirm_state()[0]: settings_confirm_state()[1]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
@@ -1894,9 +1905,9 @@ dispatcher.add_handler(bot_handler)
 settings_handler = ConversationHandler(
     entry_points=[CommandHandler('settings', settings_cmd)],
     states={
-        get_settings_change_state()[0]: get_settings_change_state()[1],
-        get_settings_save_state()[0]: get_settings_save_state()[1],
-        get_settings_confirm_state()[0]: get_settings_confirm_state()[1]
+        settings_change_state()[0]: settings_change_state()[1],
+        settings_save_state()[0]: settings_save_state()[1],
+        settings_confirm_state()[0]: settings_confirm_state()[1]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
