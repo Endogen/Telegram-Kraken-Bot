@@ -459,10 +459,35 @@ def trade_vol_type_all(bot, update, chat_data):
             return
 
         available_euros = float(0)
+
         for currency_key, currency_value in res_balance["result"].items():
             if config["base_currency"] in currency_key:
                 available_euros = float(currency_value)
                 break
+
+        # Send request to Kraken to get open orders
+        res_orders = kraken_api("OpenOrders", private=True)
+
+        # If Kraken replied with an error, show it
+        if res_orders["error"]:
+            error = btfy(res_orders["error"][0])
+            update.message.reply_text(error)
+            logger.error(error)
+            return
+
+        # Go through all open orders and check if buy-orders exist
+        # If yes, subtract their value from the total of base currency
+        if res_orders["result"]["open"]:
+            for order in res_orders["result"]["open"]:
+                order_desc = res_orders["result"]["open"][order]["descr"]["order"]
+                order_desc_list = order_desc.split(" ")
+
+                coin_price = order_desc_list[5][:-len(config["base_currency"])]
+                order_volume = order_desc_list[1]
+                order_type = order_desc_list[0]
+
+                if order_type == "buy":
+                    available_euros = float(available_euros) - (float(order_volume) * float(coin_price))
 
         # Calculate volume depending on available euro balance and round it to 8 digits
         chat_data["volume"] = "{0:.8f}".format(available_euros / float(chat_data["price"]))
@@ -495,7 +520,7 @@ def trade_vol_type_all(bot, update, chat_data):
                 break
 
         # Go through all open orders and check if sell-orders exists for the currency
-        # If yes, subtract there volume from the available volume
+        # If yes, subtract their volume from the available volume
         if res_orders["result"]["open"]:
             for order in res_orders["result"]["open"]:
                 order_desc = res_orders["result"]["open"][order]["descr"]["order"]
@@ -514,7 +539,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
     # If available volume is 0, return without creating a trade
     if chat_data["volume"] == "0.00000000":
-        msg = "Available " + chat_data["currency"] + " volume is 0"
+        msg = emo_e + " Available " + chat_data["currency"] + " volume is 0"
         update.message.reply_text(msg, reply_markup=keyboard_cmds())
         return ConversationHandler.END
     else:
