@@ -36,18 +36,26 @@ else:
     exit("No configuration file 'config.json' found")
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+
+# Formatter string for logging
+formatter_str = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+date_format = "%y%m%d"
+
+# Do not use the logger directly. Use function 'log(msg, severity)'
+logging.basicConfig(level=config["log_level"], format=formatter_str)
 logger = logging.getLogger()
 
-# Add a file handlers to the logger
+# Current date for logging
+date = datetime.datetime.now().strftime(date_format)
+
+# Add a file handlers to the logger if enabled
 if config["log_to_file"]:
     # Create a file handler for logging
-    today = datetime.datetime.now().strftime("%y%m%d")
-    handler = logging.FileHandler(today + ".log")
-    handler.setLevel(logging.DEBUG)
+    handler = logging.FileHandler(date + ".log", encoding="utf-8")
+    handler.setLevel(config["log_level"])
 
     # Format file handler
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+    formatter = logging.Formatter(formatter_str)
     handler.setFormatter(formatter)
 
     # Add file handler to logger
@@ -117,9 +125,28 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
-# TODO: Erledigen
-# Will log an event and save it in a file with the current date as a name
-#def log(msg, severity):
+# Will log an event and save it in a file with current date as name
+def log(severity, msg):
+    # Add file handler to logger if enabled
+    if config["log_to_file"]:
+        now = datetime.datetime.now().strftime(date_format)
+
+        # If current date not the same as initial one, create new FileHandler
+        if str(now) != str(date):
+            # Remove old handlers
+            for hdlr in logger.handlers[:]:
+                logger.removeHandler(hdlr)
+
+            new_hdlr = logging.FileHandler(now + ".log", encoding="utf-8")
+            new_hdlr.setLevel(config["log_level"])
+
+            # Format file handler
+            new_hdlr.setFormatter(formatter)
+
+            # Add file handler to logger
+            logger.addHandler(new_hdlr)
+
+    logger.log(severity, msg)
 
 
 # Issue Kraken API requests
@@ -132,7 +159,7 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
     caller = inspect.currentframe().f_back.f_code.co_name
 
     # Log caller of this function and all arguments
-    logger.debug(caller + " - args: " + str([(i, values[i]) for i in args]))
+    log(logging.DEBUG, caller + " - args: " + str([(i, values[i]) for i in args]))
 
     try:
         if private:
@@ -141,7 +168,8 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
             return kraken.query_public(method, data)
 
     except Exception as ex:
-        logger.error(str(ex))
+        log(logging.ERROR, str(ex))
+
         ex_name = type(ex).__name__
 
         # Handle the following exceptions immediately without retrying
@@ -186,7 +214,7 @@ def restrict_access(func):
                 msg = "Access denied for user %s" % chat_id
                 bot.send_message(config["user_id"], text=msg)
 
-            logger.info(msg)
+            log(logging.WARNING, msg)
             return
         else:
             return func(bot, update)
@@ -205,7 +233,7 @@ def balance_cmd(bot, update):
     if res_balance["error"]:
         error = btfy(res_balance["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Send request to Kraken to get open orders
@@ -215,7 +243,7 @@ def balance_cmd(bot, update):
     if res_orders["error"]:
         error = btfy(res_orders["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     msg = str()
@@ -319,7 +347,7 @@ def trade_sell_all_confirm(bot, update):
     if res_open_orders["error"]:
         error = btfy(res_open_orders["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Close all currently open orders
@@ -335,7 +363,7 @@ def trade_sell_all_confirm(bot, update):
             if res_open_orders["error"]:
                 error = "Not possible to close order\n" + order + "\n" + btfy(res_open_orders["error"][0])
                 update.message.reply_text(error)
-                logger.error(error)
+                log(logging.ERROR, error)
                 return
 
     # Send request to Kraken to get current balance of all currencies
@@ -345,7 +373,7 @@ def trade_sell_all_confirm(bot, update):
     if res_balance["error"]:
         error = btfy(res_balance["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Go over all assets and sell them
@@ -368,10 +396,10 @@ def trade_sell_all_confirm(bot, update):
                 msg_next = emo_w + " Selling next asset..."
 
                 update.message.reply_text(msg_error + "\n" + msg_next)
-                logger.warning(msg_error)
+                log(logging.WARNING, msg_error)
                 continue
         else:
-            logger.warning("No minimum order limit in config for coin " + clean_asset)
+            log(logging.WARNING, "No minimum order limit in config for coin " + clean_asset)
             continue
 
         req_data = dict()
@@ -387,7 +415,7 @@ def trade_sell_all_confirm(bot, update):
         if res_add_order["error"]:
             error = btfy(res_add_order["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             continue
 
         order_txid = res_add_order["result"]["txid"][0]
@@ -462,7 +490,7 @@ def trade_vol_type_all(bot, update, chat_data):
         if res_balance["error"]:
             error = btfy(res_balance["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         available_euros = float(0)
@@ -479,7 +507,7 @@ def trade_vol_type_all(bot, update, chat_data):
         if res_orders["error"]:
             error = btfy(res_orders["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         # Go through all open orders and check if buy-orders exist
@@ -507,7 +535,7 @@ def trade_vol_type_all(bot, update, chat_data):
         if res_balance["error"]:
             error = btfy(res_balance["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         # Send request to Kraken to get open orders
@@ -517,7 +545,7 @@ def trade_vol_type_all(bot, update, chat_data):
         if res_orders["error"]:
             error = btfy(res_orders["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         # Lookup volume of chosen currency
@@ -616,7 +644,7 @@ def trade_confirm(bot, update, chat_data):
     if res_add_order["error"]:
         error = btfy(res_add_order["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # If there is a transaction id then the order was placed successfully
@@ -633,7 +661,7 @@ def trade_confirm(bot, update, chat_data):
         if res_query_order["error"]:
             error = btfy(res_query_order["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         if res_query_order["result"][order_txid]:
@@ -667,7 +695,7 @@ def orders_cmd(bot, update):
     if res_data["error"]:
         error = btfy(res_data["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Reset global orders list
@@ -684,7 +712,7 @@ def orders_cmd(bot, update):
             order_desc = trim_zeros(order_details["descr"]["order"])
             update.message.reply_text(bold(order_id + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
     else:
-        update.message.reply_text("No open orders")
+        update.message.reply_text(bold("No open orders"), parse_mode=ParseMode.MARKDOWN)
         return ConversationHandler.END
 
     reply_msg = "What do you want to do?"
@@ -746,7 +774,7 @@ def orders_close_all(bot, update):
             if res_data["error"]:
                 error = "Order not closed:\n" + order_id + "\n" + res_data["error"][0]
                 update.message.reply_text(btfy(error))
-                logger.error(error)
+                log(logging.ERROR, error)
 
                 # If we are currently not closing the last order,
                 # show message that we a continuing with the next one
@@ -781,7 +809,7 @@ def orders_close_order(bot, update):
     if res_data["error"]:
         error = btfy(res_data["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     msg = bold("Order closed:\n" + req_data["txid"])
@@ -816,7 +844,7 @@ def price_cmd(bot, update):
         if res_data["error"]:
             error = btfy(res_data["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         msg = str()
@@ -869,7 +897,7 @@ def price_currency(bot, update):
     if res_data["error"]:
         error = btfy(res_data["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     currency = update.message.text
@@ -913,7 +941,7 @@ def value_currency(bot, update):
         if res_trade_balance["error"]:
             error = btfy(res_trade_balance["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         # Show only 2 digits after decimal place
@@ -933,7 +961,7 @@ def value_currency(bot, update):
         if res_balance["error"]:
             error = btfy(res_balance["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         # TODO: Use automatically the correct coin name
@@ -950,7 +978,7 @@ def value_currency(bot, update):
         if res_price["error"]:
             error = btfy(res_price["error"][0])
             update.message.reply_text(error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         # Get last trade price
@@ -997,7 +1025,7 @@ def get_trade_str(trade):
     # Check if variable 'pair_str' is defined
     # No definition means that we didn't find any 'Z' in it
     if "pair_str" not in locals():
-        logger.warning("Can't replace 'Z' in '" + trade["pair"] + "'")
+        log(logging.WARNING, "Can't replace 'Z' in '" + trade["pair"] + "'")
         pair_str = trade["pair"]
 
     # Format pair-string from 'XXBT-EUR' to 'XBT-EUR'
@@ -1024,7 +1052,7 @@ def history_cmd(bot, update):
     if res_trades["error"]:
         error = btfy(res_trades["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Reset global trades list
@@ -1212,7 +1240,7 @@ def funding_deposit(bot, update, chat_data):
     if res_dep_meth["error"]:
         error = btfy(res_dep_meth["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     req_data["method"] = res_dep_meth["result"][0]["method"]
@@ -1224,7 +1252,7 @@ def funding_deposit(bot, update, chat_data):
     if res_dep_addr["error"]:
         error = btfy(res_dep_addr["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Wallet found
@@ -1286,7 +1314,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     if res_data["error"]:
         error = btfy(res_data["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # Add up volume and fee and set the new value as 'amount'
@@ -1300,7 +1328,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     if res_data["error"]:
         error = btfy(res_data["error"][0])
         update.message.reply_text(error)
-        logger.error(error)
+        log(logging.ERROR, error)
         return
 
     # If a REFID exists, the withdrawal was initiated
@@ -1575,7 +1603,7 @@ def order_state_check(bot, job):
             src = "Order state check:\n"
             error = btfy(res_data["error"][0])
             updater.bot.send_message(chat_id=config["user_id"], text=src + error)
-            logger.error(error)
+            log(logging.ERROR, error)
         return
 
     # Save information about order
@@ -1625,7 +1653,7 @@ def monitor_orders():
             src = "Monitoring orders:\n"
             error = btfy(res_data["error"][0])
             updater.bot.send_message(chat_id=config["user_id"], text=src + error)
-            logger.error(error)
+            log(logging.ERROR, error)
             return
 
         if res_data["result"]["open"]:
@@ -1694,20 +1722,6 @@ def btfy(text):
     return emo_e + " " + text[:index] + ": " + text[index + 1:].strip(" ")
 
 
-# Handle all telegram and telegram.ext related errors
-def handle_telegram_error(bot, update, error):
-    error_str = "Update '%s' caused error '%s'" % (update, error)
-
-    logger.error(error_str)
-
-    if config["send_error"]:
-        updater.bot.send_message(chat_id=config["user_id"], text=error_str)
-
-
-# Log all errors
-dispatcher.add_error_handler(handle_telegram_error)
-
-
 # Returns a pre compiled Regex pattern to ignore case
 def comp(pattern):
     return re.compile(pattern, re.IGNORECASE)
@@ -1732,6 +1746,18 @@ def regex_settings_or():
 
     return settings_regex_or[:-1]
 
+
+# Handle all telegram and telegram.ext related errors
+def handle_telegram_error(bot, update, error):
+    error_str = "Update '%s' caused error '%s'" % (update, error)
+    log(logging.ERROR, error_str)
+
+    if config["send_error"]:
+        updater.bot.send_message(chat_id=config["user_id"], text=error_str)
+
+
+# Log all errors
+dispatcher.add_error_handler(handle_telegram_error)
 
 # Add command handlers to dispatcher
 dispatcher.add_handler(CommandHandler("update", update_cmd))
