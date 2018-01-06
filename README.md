@@ -54,7 +54,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
-- __trade\_to\_currency__: The base fiat currency you are trading from / to. Theoretically you could enter any coin here but right now only fiat currencies are supported by this bot. Currently the following are supported by Kraken: `EUR`, `USD`, `CAD`, `GBR`, `JPY` and `KRW`.
+- __base_currency__: The base fiat currency you are trading from / to. Theoretically you could enter any coin here but right now only fiat currencies are supported by this bot. Currently the following are supported by Kraken: `EUR`, `USD`, `CAD`, `GBR`, `JPY` and `KRW`.
 - __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified by a message
 - __check\_trade\_time__: Time in seconds to check for order status change (see setting `check_trade`)
 - __update_url__: URL to the latest GitHub version of the script. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you can use the default value
@@ -66,6 +66,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __used_coins__: List of currencies to use in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
 - __coin_charts__: Dictionary of all available currencies with their corresponding chart URLs. If you want to add new ones, get the plain URL of the chart, save it with [tinyurl.com](http://tinyurl.com) and add the new URL to the config file
 - __log\_to\_file__: If `true`, debug-output to console will be saved in file `debug.log`
+- __log_level__: Has to be an __integer__. Choose the log-level depending on this: DEBUG = `10`, INFO = `20`, WARNING = `30`, ERROR = `40`, CRITICAL = `50`
 - __history_items__: Number of history trades to display simultaneously
 - __retries__: If `true`, then issued Kraken API requests will be retried if they return any kind of server error. In most cases this is very helpfull since at the second or third time the request will most likely make it through. See also option `retries_counter` to set number of retries
 - __retries_counter__: Number of times a Kraken API call will be retried if option `retries` is enabled
@@ -178,7 +179,14 @@ In case you experience any issues, please take a look at this section to check i
 I use this bot personally to trade on Kraken so i guess it's kind of stable but __if you use it, then you are doing this on your own responsibility__ !!! I can not be made responsible for lost coins or other stuff that might happen due to some fuckup within the code. Use at your own risk!
 
 ## Donating
-If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because of it, please consider donating whatever amount you like to this Bitcoin wallet:
+If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because of it, please consider donating whatever amount you like to:
+
+#### Bitcoin
 ```
 1A8eQ7hA1xUH7ymoXvgRbGzRpPekSxR3DV
+```
+
+#### Monero
+```
+44U9LPxGJimEtRzntsW3vuUpdkAEKWWLe5VYjGrq5vqGQoJdi8e3fKP1U9h8z8xJFxVMPtx2NpvYB6bbSXVjd8KJHjGH34X
 ```
