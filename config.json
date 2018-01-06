@@ -28,6 +28,7 @@
         "XRP": "https://tinyurl.com/ya4wcy3h"
     },
     "log_to_file": false,
+    "log_level": 10,
     "retries": true,
     "retries_counter": 2,
     "single_price": true,
