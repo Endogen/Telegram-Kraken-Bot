@@ -1183,7 +1183,7 @@ def chart_currency(bot, update):
     currency = update.message.text
 
     for coin, url in config["coin_charts"].items():
-        if currency == coin:
+        if currency.upper() == coin.upper():
             update.message.reply_text(url, reply_markup=keyboard_cmds())
             break
 
