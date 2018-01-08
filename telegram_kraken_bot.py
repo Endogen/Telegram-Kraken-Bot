@@ -41,6 +41,9 @@ else:
 formatter_str = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 date_format = "%y%m%d"
 
+# Folder name for logfiles
+log_dir = "log"
+
 # Do not use the logger directly. Use function 'log(msg, severity)'
 logging.basicConfig(level=config["log_level"], format=formatter_str)
 logger = logging.getLogger()
@@ -50,8 +53,13 @@ date = datetime.datetime.now().strftime(date_format)
 
 # Add a file handlers to the logger if enabled
 if config["log_to_file"]:
+    # If log directory doesn't exist, create it
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
     # Create a file handler for logging
-    handler = logging.FileHandler(date + ".log", encoding="utf-8")
+    file_path = os.path.join(log_dir, date + ".log")
+    handler = logging.FileHandler(file_path, encoding="utf-8")
     handler.setLevel(config["log_level"])
 
     # Format file handler
@@ -137,7 +145,7 @@ def log(severity, msg):
             for hdlr in logger.handlers[:]:
                 logger.removeHandler(hdlr)
 
-            new_hdlr = logging.FileHandler(now + ".log", encoding="utf-8")
+            new_hdlr = logging.FileHandler(file_path, encoding="utf-8")
             new_hdlr.setLevel(config["log_level"])
 
             # Format file handler
