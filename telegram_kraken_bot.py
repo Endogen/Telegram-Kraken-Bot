@@ -1011,6 +1011,7 @@ def value_currency(bot, update):
 def reload_cmd(bot, update):
     msg = emo_w + " Reloading keyboard..."
     update.message.reply_text(msg, reply_markup=keyboard_cmds())
+    return ConversationHandler.END
 
 
 # Returns a string representation of a trade. Looks like this:
