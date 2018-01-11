@@ -1,1 +1,1 @@
-web: python telegram_kraken_bot.py &
+worker: python telegram_kraken_bot.py
