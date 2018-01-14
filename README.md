@@ -107,8 +107,8 @@ pip3.6 install -r requirements.txt
 If you want to install the newest version of the needed modules, do the following:
 ```shell
 pip3.6 install python-telegram-bot -U
+pip3.6 install beautifulsoup4 -U
 pip3.6 install krakenex -U
-pip3.6 install requests -U
 ```
 
 ### Starting up
@@ -132,6 +132,7 @@ If you configured the bot correctly and execute the script, you should get a wel
 - `/chart`: Show a trading chart for the chosen currency
 - `/history`: Show history of closed trades
 - `/funding`: Deposit or withdraw (only to wallet, not SEPA) funds
+- `/state`: Show performance of Kraken API
 
 ##### Related to bot
 The following commands are available as sub-commands for command `/bot`
