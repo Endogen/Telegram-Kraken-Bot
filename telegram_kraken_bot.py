@@ -13,19 +13,23 @@ import inspect
 import re
 
 from enum import Enum, auto
-
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
+from bs4 import BeautifulSoup
 
 # Emojis for messages
-emo_e = "❗"  # Error
+emo_e = "‼"  # Error
 emo_w = "⏳"  # Wait
-emo_d = "🏁"  # Done
+emo_f = "🏁"  # Finished
 emo_n = "🔔"  # Notify
-emo_s = "✨"  # Start
+emo_b = "✨"  # Beginning
 emo_c = "❌"  # Cancel
 emo_t = "👍"  # Top
+emo_d = "☑"  # Done
+emo_s = "⚡"  # Sanity
+emo_g = "👋"  # Goodbye
+emo_q = "❓"  # Question
 
 # Check if file 'config.json' exists. Exit if not.
 if os.path.isfile("config.json"):
@@ -78,9 +82,13 @@ job_queue = updater.job_queue
 kraken = krakenex.API()
 kraken.load_key("kraken.key")
 
-# Lists for cached objects
+# Cached objects
 trades = list()
 orders = list()
+assets = dict()
+
+# 'Z' + base currency from config
+base_currency = str()
 
 
 # Enum for workflow handler
@@ -128,12 +136,13 @@ class KeyboardEnum(Enum):
     DEPOSIT = auto()
     WITHDRAW = auto()
     SETTINGS = auto()
+    API_STATE = auto()
 
     def clean(self):
         return self.name.replace("_", " ")
 
 
-# Will log an event and save it in a file with current date as name
+# Log an event and save it in a file with current date as name
 def log(severity, msg):
     # Add file handler to logger if enabled
     if config["log_to_file"]:
@@ -158,7 +167,7 @@ def log(severity, msg):
 
 
 # Issue Kraken API requests
-def kraken_api(method, data=None, private=False, return_error=True, retries=None):
+def kraken_api(method, data=None, private=False, retries=None):
     # Get arguments of this function
     frame = inspect.currentframe()
     args, _, _, values = inspect.getargvalues(frame)
@@ -189,24 +198,24 @@ def kraken_api(method, data=None, private=False, return_error=True, retries=None
         # No need to retry if the API service is not available right now
         elif "Service:Unavailable" in str(ex):  # TODO: Test it
             msg = "Service: Unavailable"
-            return {"error": [msg]} if return_error else None
+            return {"error": [msg]}
 
-        # Is 'retry on error' enabled?
+        # Is retrying on error enabled?
         if config["retries"]:
             # It's the first call, start retrying
             if retries is None:
                 retries = config["retries_counter"]
-                return kraken_api(method, data, private, return_error, retries)
+                return kraken_api(method, data, private, retries)
             # If 'retries' is bigger then 0, decrement it and retry again
             elif retries > 0:
                 retries -= 1
-                return kraken_api(method, data, private, return_error, retries)
-            # Return last error if returning of errors is enabled
+                return kraken_api(method, data, private, retries)
+            # Return error from last Kraken request
             else:
-                return {"error": [ex_name + ":" + str(ex)]} if return_error else None
-        # Return error if returning of errors is enabled
+                return {"error": [ex_name + ":" + str(ex)]}
+        # Retrying on error not enabled, return error from last Kraken request
         else:
-            return {"error": [ex_name + ":" + str(ex)]} if return_error else None
+            return {"error": [ex_name + ":" + str(ex)]}
 
 
 # Decorator to restrict access if user is not the same as in config
@@ -260,8 +269,8 @@ def balance_cmd(bot, update):
     for currency_key, currency_value in res_balance["result"].items():
         available_value = currency_value
 
-        if currency_key.startswith("X") or currency_key.startswith("Z"):
-            currency_key = currency_key[1:]
+        # Get clean asset name
+        currency_key = assets[currency_key]["altname"]
 
         # Go through all open orders and check if an order exists for the currency
         if res_orders["result"]["open"]:
@@ -335,8 +344,8 @@ def trade_buy_sell(bot, update, chat_data):
 
 # Show confirmation to sell all assets
 def trade_sell_all(bot, update):
-    msg = "Sell `all` assets to current market price? All open orders will be closed!"
-    update.message.reply_text(msg, reply_markup=keyboard_confirm(), parse_mode=ParseMode.MARKDOWN)
+    msg = " Sell `all` assets to current market price? All open orders will be closed!"
+    update.message.reply_text(emo_q + msg, reply_markup=keyboard_confirm(), parse_mode=ParseMode.MARKDOWN)
 
     return WorkflowEnum.TRADE_SELL_ALL_CONFIRM
 
@@ -385,34 +394,34 @@ def trade_sell_all_confirm(bot, update):
         return
 
     # Go over all assets and sell them
-    for asset, amount in res_balance["result"].items():
+    for balance_asset, amount in res_balance["result"].items():
         # Current asset is not a crypto-currency - skip it
-        if asset.endswith(config["base_currency"]):
+        if balance_asset == base_currency:
             continue
 
         # Filter out currencies that have a volume of 0
         if amount == "0.0000000000":
             continue
 
-        # Remove leading 'X' to look up the coin-name in the config
-        clean_asset = asset[1:] if asset.startswith("X") else asset
+        # Get clean asset name
+        balance_asset = assets[balance_asset]["altname"]
 
         # Make sure that the order size is at least the minimum order limit
-        if clean_asset in config["min_order_size"]:
-            if float(amount) < float(config["min_order_size"][clean_asset]):
-                msg_error = emo_e + " Not possible to sell " + clean_asset + ": volume to low"
+        if balance_asset in config["min_order_size"]:
+            if float(amount) < float(config["min_order_size"][balance_asset]):
+                msg_error = emo_e + " Not possible to sell " + balance_asset + ": volume to low"
                 msg_next = emo_w + " Selling next asset..."
 
                 update.message.reply_text(msg_error + "\n" + msg_next)
                 log(logging.WARNING, msg_error)
                 continue
         else:
-            log(logging.WARNING, "No minimum order limit in config for coin " + clean_asset)
+            log(logging.WARNING, "No minimum order limit in config for coin " + balance_asset)
             continue
 
         req_data = dict()
         req_data["type"] = "sell"
-        req_data["pair"] = asset + "Z" + config["base_currency"]
+        req_data["pair"] = balance_asset + base_currency
         req_data["ordertype"] = "market"
         req_data["volume"] = amount
 
@@ -434,7 +443,7 @@ def trade_sell_all_confirm(bot, update):
             context = dict(order_txid=order_txid)
             job_queue.run_repeating(order_state_check, trade_time, context=context)
 
-    msg = emo_d + " Created orders to sell all assets"
+    msg = emo_f + " Created orders to sell all assets"
     update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -501,12 +510,8 @@ def trade_vol_type_all(bot, update, chat_data):
             log(logging.ERROR, error)
             return
 
-        available_euros = float(0)
-
-        for currency_key, currency_value in res_balance["result"].items():
-            if config["base_currency"] in currency_key:
-                available_euros = float(currency_value)
-                break
+        # Get amount of available fiat currency
+        available_euros = float(res_balance["result"][base_currency])
 
         # Send request to Kraken to get open orders
         res_orders = kraken_api("OpenOrders", private=True)
@@ -557,9 +562,9 @@ def trade_vol_type_all(bot, update, chat_data):
             return
 
         # Lookup volume of chosen currency
-        for currency, currency_volume in res_balance["result"].items():
-            if chat_data["currency"] in currency:
-                available_volume = currency_volume
+        for asset, data in assets.items():
+            if data["altname"] == chat_data["currency"]:
+                available_volume = res_balance["result"][asset]
                 break
 
         # Go through all open orders and check if sell-orders exists for the currency
@@ -621,9 +626,8 @@ def show_trade_conf(update, chat_data):
     total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
     total_value_str = "(Value: " + str(total_value) + " " + config["base_currency"] + ")"
 
-    reply_msg = "Place this order?\n" + trade_str + "\n" + total_value_str
-
-    update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
+    reply_msg = " Place this order?\n" + trade_str + "\n" + total_value_str
+    update.message.reply_text(emo_q + reply_msg, reply_markup=keyboard_confirm())
 
 
 # The user has to confirm placing the order
@@ -643,7 +647,10 @@ def trade_confirm(bot, update, chat_data):
     if chat_data["currency"] == "BCH":
         req_data["pair"] = chat_data["currency"] + config["base_currency"]
     else:
-        req_data["pair"] = "X" + chat_data["currency"] + "Z" + config["base_currency"]
+        for asset, data in assets.items():
+            if data["altname"] == chat_data["currency"]:
+                req_data["pair"] = asset + base_currency
+                break
 
     # Send request to create order to Kraken
     res_add_order = kraken_api("AddOrder", req_data, private=True)
@@ -674,7 +681,7 @@ def trade_confirm(bot, update, chat_data):
 
         if res_query_order["result"][order_txid]:
             order_desc = res_query_order["result"][order_txid]["descr"]["order"]
-            msg = emo_d + " Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
+            msg = emo_f + " Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
             update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
             # Add Job to JobQueue to check status of created order (if enabled)
@@ -835,12 +842,18 @@ def price_cmd(bot, update):
         req_data = dict()
         req_data["pair"] = str()
 
+        # Find currency names
         for coin in config["used_coins"]:
-            # If currency is BCH then use different pair string
-            if coin == "BCH":
-                req_data["pair"] += coin + config["base_currency"] + ","
-            else:
-                req_data["pair"] += "X" + coin + "Z" + config["base_currency"] + ","
+            for asset, data in assets.items():
+                if coin == data["altname"]:
+                    # If currency is BCH, use different pair string
+                    if coin == "BCH":
+                        req_data["pair"] += asset + config["base_currency"] + ","
+                        break
+                    # Regular way to combine asset and base currency
+                    else:
+                        req_data["pair"] += asset + base_currency + ","
+                        break
 
         # Get rid of last comma
         req_data["pair"] = req_data["pair"][:-1]
@@ -858,11 +871,11 @@ def price_cmd(bot, update):
         msg = str()
 
         for pair, data in res_data["result"].items():
-            coin = pair[:-len(config["base_currency"])]
-            if coin.endswith("Z"):
-                coin = coin[:-1]
-            if coin.startswith("X"):
-                coin = coin[1:]
+            # If currency is BCH, use different method to get coin name
+            if "BCH" in pair:
+                coin = pair[:-len(config["base_currency"])]
+            else:
+                coin = assets[pair[:-len(base_currency)]]["altname"]
 
             last_trade_price = trim_zeros(data["c"][0])
             msg += coin + ": " + last_trade_price + " " + config["base_currency"] + "\n"
@@ -891,12 +904,14 @@ def price_currency(bot, update):
 
     req_data = dict()
 
-    # TODO: Use automatically the correct coin name
     # If currency is BCH then use different pair string
     if update.message.text.upper() == "BCH":
         req_data["pair"] = update.message.text + config["base_currency"]
     else:
-        req_data["pair"] = "X" + update.message.text + "Z" + config["base_currency"]
+        for asset, data in assets.items():
+            if data["altname"] == update.message.text:
+                req_data["pair"] = asset + base_currency
+                break
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken_api("Ticker", data=req_data, private=False)
@@ -972,12 +987,15 @@ def value_currency(bot, update):
             log(logging.ERROR, error)
             return
 
-        # TODO: Use automatically the correct coin name
         req_price = dict()
+
         if update.message.text.upper() == "BCH":
             req_price["pair"] = update.message.text + config["base_currency"]
         else:
-            req_price["pair"] = "X" + update.message.text + "Z" + config["base_currency"]
+            for asset, data in assets.items():
+                if data["altname"] == update.message.text:
+                    req_price["pair"] = asset + base_currency
+                    break
 
         # Send request to Kraken to get current trading price for currency-pair
         res_price = kraken_api("Ticker", data=req_price, private=False)
@@ -995,10 +1013,11 @@ def value_currency(bot, update):
 
         value_euro = float(0)
 
-        for currency, currency_balance in res_balance["result"].items():
-            if update.message.text in currency:
+        for asset, data in assets.items():
+            if data["altname"] == update.message.text:
                 # Calculate value by multiplying balance with last trade price
-                value_euro = float(currency_balance) * float(last_price)
+                value_euro = float(res_balance["result"][asset]) * float(last_price)
+                break
 
         # Show only 2 digits after decimal place
         value_euro = "{0:.2f}".format(value_euro)
@@ -1022,23 +1041,38 @@ def reload_cmd(bot, update):
     return ConversationHandler.END
 
 
+# Get current state of Kraken API
+# Is it under maintenance or functional?
+@restrict_access
+def state_cmd(bot, update):
+    msg = bold("Kraken API Status: " + api_state()) + "\n" + "https://status.kraken.com"
+    update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+    return ConversationHandler.END
+
+
 # Returns a string representation of a trade. Looks like this:
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
-    # Format pair-string from 'XXBTZEUR' to 'XXBT-EUR'
-    for i in range(3, len(trade["pair"]), 1):
-        if trade["pair"][i:].startswith("Z"):
-            pair_str = trade["pair"][:i] + "-" + trade["pair"][i + 1:]
+    # Format pair-string from 'XXBTZEUR' to 'XXBT-ZEUR'
+    for asset, data in assets.items():
+        # Default pair
+        if trade["pair"].endswith(asset):
+            first_asset = trade["pair"][:len(asset)]
+            second_asset = trade["pair"][len(trade["pair"])-len(asset):]
+            pair_str = first_asset + "-" + second_asset
+            break
+        # Pair with short asset name (BCH pairs are like that)
+        elif trade["pair"].endswith(data["altname"]):
+            first_asset = trade["pair"][:len(data["altname"])]
+            second_asset = trade["pair"][len(trade["pair"]) - len(data["altname"]):]
+            pair_str = first_asset + "-" + second_asset
             break
 
-    # Check if variable 'pair_str' is defined
-    # No definition means that we didn't find any 'Z' in it
-    if "pair_str" not in locals():
-        log(logging.WARNING, "Can't replace 'Z' in '" + trade["pair"] + "'")
-        pair_str = trade["pair"]
+    # Replace asset names with clean asset names
+    pair_list = pair_str.split("-")
 
-    # Format pair-string from 'XXBT-EUR' to 'XBT-EUR'
-    pair_str = pair_str[1:] if pair_str.startswith("X") else pair_str
+    pair_str = pair_str.replace(pair_list[0], assets[pair_list[0]]["altname"])
+    pair_str = pair_str.replace(pair_list[1], assets[pair_list[1]]["altname"])
 
     trade_str = (trade["type"] + " " +
                  trim_zeros(trade["vol"]) + " " +
@@ -1118,7 +1152,8 @@ def history_next(bot, update):
 
         return WorkflowEnum.HISTORY_NEXT
     else:
-        update.message.reply_text("Trade history is empty", reply_markup=keyboard_cmds())
+        msg = bold("Trade history is empty")
+        update.message.reply_text(emo_f + " " + msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
         return ConversationHandler.END
 
@@ -1134,6 +1169,7 @@ def bot_cmd(bot, update):
         KeyboardButton(KeyboardEnum.RESTART.clean()),
         KeyboardButton(KeyboardEnum.SHUTDOWN.clean()),
         KeyboardButton(KeyboardEnum.SETTINGS.clean()),
+        KeyboardButton(KeyboardEnum.API_STATE.clean()),
         KeyboardButton(KeyboardEnum.CANCEL.clean())
     ]
 
@@ -1162,6 +1198,10 @@ def bot_sub_cmd(bot, update):
     # Shutdown
     elif update.message.text.upper() == KeyboardEnum.SHUTDOWN.clean():
         shutdown_cmd(bot, update)
+
+    # API State
+    elif update.message.text.upper() == KeyboardEnum.API_STATE.clean():
+        state_cmd(bot, update)
 
     # Cancel
     elif update.message.text.upper() == KeyboardEnum.CANCEL.clean():
@@ -1297,9 +1337,9 @@ def funding_withdraw_volume(bot, update, chat_data):
     volume = chat_data["volume"]
     currency = chat_data["currency"]
     wallet = chat_data["wallet"]
-    reply_msg = "Withdraw " + volume + " " + currency + " from wallet " + wallet + "?"
+    reply_msg = " Withdraw " + volume + " " + currency + " from wallet " + wallet + "?"
 
-    update.message.reply_text(reply_msg, reply_markup=keyboard_confirm())
+    update.message.reply_text(emo_q + reply_msg, reply_markup=keyboard_confirm())
 
     return WorkflowEnum.WITHDRAW_CONFIRM
 
@@ -1415,7 +1455,7 @@ def shutdown():
 # Terminate this script
 @restrict_access
 def shutdown_cmd(bot, update):
-    update.message.reply_text(emo_d + " Shutting down...", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(emo_g + " Shutting down...", reply_markup=ReplyKeyboardRemove())
 
     # See comments on the 'shutdown' function
     threading.Thread(target=shutdown).start()
@@ -1489,8 +1529,8 @@ def settings_save(bot, update, chat_data):
         except ValueError:
             chat_data["value"] = new_value
 
-    msg = "Save new value and restart bot?"
-    update.message.reply_text(msg, reply_markup=keyboard_confirm())
+    msg = " Save new value and restart bot?"
+    update.message.reply_text(emo_q + msg, reply_markup=keyboard_confirm())
 
     return WorkflowEnum.SETTINGS_CONFIRM
 
@@ -1507,7 +1547,7 @@ def settings_confirm(bot, update, chat_data):
     with open("config.json", "w") as cfg:
         json.dump(config, cfg, indent=4)
 
-    update.message.reply_text(emo_d + " New value saved")
+    update.message.reply_text(emo_f + " New value saved")
 
     # Restart bot to activate new setting
     restart_cmd(bot, update)
@@ -1608,11 +1648,11 @@ def order_state_check(bot, job):
 
     # If Kraken replied with an error, return without notification
     if res_data["error"]:
+        error = btfy(res_data["error"][0])
+        log(logging.ERROR, error)
         if config["send_error"]:
             src = "Order state check:\n"
-            error = btfy(res_data["error"][0])
-            updater.bot.send_message(chat_id=config["user_id"], text=src + error)
-            log(logging.ERROR, error)
+            updater.bot.send_message(chat_id=config["user_id"], text=src + emo_e + " " + error)
         return
 
     # Save information about order
@@ -1655,14 +1695,15 @@ def monitor_updates():
 def monitor_orders():
     if config["check_trade"]:
         # Send request for open orders to Kraken
-        res_data = kraken_api("OpenOrders", private=True, return_error=False)
+        res_data = kraken_api("OpenOrders", private=True)
 
         # If Kraken replied with an error, show it
         if res_data["error"]:
-            src = "Monitoring orders:\n"
             error = btfy(res_data["error"][0])
-            updater.bot.send_message(chat_id=config["user_id"], text=src + error)
             log(logging.ERROR, error)
+            if config["send_error"]:
+                src = "Monitoring orders:\n"
+                updater.bot.send_message(chat_id=config["user_id"], text=src + emo_e + " " + error)
             return
 
         if res_data["result"]["open"]:
@@ -1677,10 +1718,68 @@ def monitor_orders():
                 job_queue.run_repeating(order_state_check, check_trade_time, context=context)
 
 
+# TODO: Complete sanity check
+# Check sanity of settings in config file
+def is_conf_sane():
+    for setting, value in config.items():
+        if "USER_ID" == setting.upper():
+            if not value.isdigit():
+                msg = " USER_ID has to be a number"
+                updater.bot.send_message(config["user_id"], emo_s + msg)
+                return False
+        if "BASE_CURRENCY" == setting.upper():
+            if not len(value) == 3:
+                msg = " BASE_CURRENCY has to have a length of 3"
+                updater.bot.send_message(config["user_id"], emo_s + msg)
+                return False
+
+    return True
+
+
+# TODO: RemoveKeyboard ausführen bevor wir etwas anderes machen?
+# TODO: Update README to reflect new start procedure
+# TODO: Integrate sanity method here and add new "DONE" message for that
 # Show welcome message and custom keyboard for commands
-def init():
-    msg = emo_s + " Kraken-Bot is running!"
-    updater.bot.send_message(config["user_id"], msg, reply_markup=keyboard_cmds())
+def initialize():
+    msg = " Preparing bot..."
+    message = updater.bot.send_message(config["user_id"], emo_w + msg)
+
+    res_assets = kraken_api("Assets")
+
+    # If Kraken replied with an error, show it
+    if res_assets["error"]:
+        # TODO: If no reply, show button to retry.
+        # TODO: If error, there can't be any possibility to show command keyboard! '/reload' must not be possible
+        error = btfy(res_assets["error"][0])
+        message.edit_text(config["user_id"], emo_s + " Preparing bot... FAILED")
+        updater.bot.send_message(config["user_id"], error)  # TODO: Do we need this?
+        log(logging.ERROR, error)
+        return
+
+    # Save assets in global variable
+    global assets
+    assets = res_assets["result"]
+
+    # Find base currency name
+    for asset, data in assets.items():
+        if config["base_currency"] == data["altname"]:
+            global base_currency
+            base_currency = asset
+
+    # Edit last message
+    message.edit_text(emo_d + " Preparing bot... DONE")
+
+    msg = " Checking sanity..."
+    message = updater.bot.send_message(config["user_id"], emo_w + msg)
+
+    if not is_conf_sane():
+        message.edit_text(emo_s + " Checking sanity... FAILED")
+        shutdown_cmd  # TODO: Test if this looks good
+
+    message.edit_text(emo_d + " Checking sanity... DONE")
+
+    # Show success message - bot is ready
+    updater.bot.send_message(config["user_id"], emo_b + " Kraken-Bot is ready!", reply_markup=keyboard_cmds())
 
 
 # Converts a Unix timestamp to a data-time object with format 'Y-m-d H:M:S'
@@ -1710,25 +1809,38 @@ def bold(text):
     return "*" + text + "*"
 
 
-# TODO: Use in 'btfy'
-# Returns a list of all indexes of a specific character in a string
-def get_indices(string, char):
-    return [i for i, ltr in enumerate(string) if ltr == char]
-
-
+# TODO: Test it
 # Beautifies Kraken error messages
 def btfy(text):
     # Remove whitespaces
     text = text.strip()
 
-    # Find first ':' in the text
-    index = text.find(":")
+    new_text = str()
 
-    # Character wasn't found
-    if index == -1:
-        return emo_e + " " + text
+    for x in range(0, len(list(text))):
+        new_text += list(text)[x]
 
-    return emo_e + " " + text[:index] + ": " + text[index + 1:].strip(" ")
+        if list(text)[x] == ":":
+            new_text += " "
+
+    return new_text
+
+
+# Return state of Kraken API
+# State will be extracted from Kraken Status website
+def api_state():
+    response = requests.get("https://status.kraken.com")
+
+    # If response code is not 200, return state 'UNKNOWN'
+    if response.status_code != 200:
+        return "UNKNOWN"
+
+    soup = BeautifulSoup(response.content, "html.parser")
+
+    for data in soup.find_all(class_="component-inner-container"):
+        for data2 in data.find_all(class_="name"):
+            if "API" in data2.get_text():
+                return data.find(class_="component-status").get_text().strip()
 
 
 # Returns a pre compiled Regex pattern to ignore case
@@ -1774,6 +1886,7 @@ dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 dispatcher.add_handler(CommandHandler("reload", reload_cmd))
+dispatcher.add_handler(CommandHandler("state", state_cmd))
 
 
 # FUNDING conversation handler
@@ -1925,6 +2038,7 @@ bot_handler = ConversationHandler(
     states={
         WorkflowEnum.BOT_SUB_CMD:
             [RegexHandler(comp("^(UPDATE CHECK|UPDATE|RESTART|SHUTDOWN)$"), bot_sub_cmd),
+             RegexHandler(comp("^(API STATE)$"), state_cmd),
              RegexHandler(comp("^(SETTINGS)$"), settings_cmd),
              RegexHandler(comp("^(CANCEL)$"), cancel)],
         settings_change_state()[0]: settings_change_state()[1],
@@ -1954,7 +2068,7 @@ dispatcher.add_handler(settings_handler)
 updater.start_polling(clean=True)
 
 # Show welcome-message, update-state and commands-keyboard
-init()
+initialize()
 
 # Check for new bot version periodically
 monitor_updates()
