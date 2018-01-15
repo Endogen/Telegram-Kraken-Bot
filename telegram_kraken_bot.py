@@ -324,7 +324,7 @@ def trade_cmd(bot, update):
 
 # Save if BUY or SELL order and choose the currency to trade
 def trade_buy_sell(bot, update, chat_data):
-    chat_data["buysell"] = update.message.text
+    chat_data["buysell"] = update.message.text.lower()
 
     reply_msg = "Choose currency"
 
@@ -451,12 +451,11 @@ def trade_sell_all_confirm(bot, update):
 
 # Save currency to trade and enter price per unit to trade
 def trade_currency(bot, update, chat_data):
-    chat_data["currency"] = update.message.text
+    chat_data["currency"] = update.message.text.upper()
 
     reply_msg = "Enter price per unit"
-    reply_mrk = ReplyKeyboardRemove()
 
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
     return WorkflowEnum.TRADE_PRICE
 
 
@@ -485,12 +484,11 @@ def trade_price(bot, update, chat_data):
 
 # Save volume type decision and enter volume
 def trade_vol_type(bot, update, chat_data):
-    chat_data["vol_type"] = update.message.text
+    chat_data["vol_type"] = update.message.text.upper()
 
     reply_msg = "Enter volume"
-    reply_mrk = ReplyKeyboardRemove()
 
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
     return WorkflowEnum.TRADE_VOLUME
 
 
@@ -909,7 +907,7 @@ def price_currency(bot, update):
         req_data["pair"] = update.message.text + config["base_currency"]
     else:
         for asset, data in assets.items():
-            if data["altname"] == update.message.text:
+            if data["altname"] == update.message.text.upper():
                 req_data["pair"] = asset + base_currency
                 break
 
@@ -990,10 +988,10 @@ def value_currency(bot, update):
         req_price = dict()
 
         if update.message.text.upper() == "BCH":
-            req_price["pair"] = update.message.text + config["base_currency"]
+            req_price["pair"] = update.message.text.upper() + config["base_currency"]
         else:
             for asset, data in assets.items():
-                if data["altname"] == update.message.text:
+                if data["altname"] == update.message.text.upper():
                     req_price["pair"] = asset + base_currency
                     break
 
@@ -1014,7 +1012,7 @@ def value_currency(bot, update):
         value_euro = float(0)
 
         for asset, data in assets.items():
-            if data["altname"] == update.message.text:
+            if data["altname"] == update.message.text.upper():
                 # Calculate value by multiplying balance with last trade price
                 value_euro = float(res_balance["result"][asset]) * float(last_price)
                 break
@@ -1022,7 +1020,7 @@ def value_currency(bot, update):
         # Show only 2 digits after decimal place
         value_euro = "{0:.2f}".format(value_euro)
 
-        msg = update.message.text + ": " + value_euro + " " + config["base_currency"]
+        msg = update.message.text.upper() + ": " + value_euro + " " + config["base_currency"]
 
         # Add last trade price to msg
         last_trade_price = "{0:.2f}".format(float(last_price))
@@ -1045,6 +1043,7 @@ def reload_cmd(bot, update):
 # Is it under maintenance or functional?
 @restrict_access
 def state_cmd(bot, update):
+    update.message.reply_text(emo_w + " Retrieving API state...")
     msg = bold("Kraken API Status: " + api_state()) + "\n" + "https://status.kraken.com"
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
@@ -1736,7 +1735,6 @@ def is_conf_sane():
     return True
 
 
-# TODO: RemoveKeyboard ausführen bevor wir etwas anderes machen?
 # TODO: Update README to reflect new start procedure
 # TODO: Integrate sanity method here and add new "DONE" message for that
 # Show welcome message and custom keyboard for commands
@@ -1765,6 +1763,7 @@ def initialize():
         if config["base_currency"] == data["altname"]:
             global base_currency
             base_currency = asset
+            break
 
     # Edit last message
     message.edit_text(emo_d + " Preparing bot... DONE")
