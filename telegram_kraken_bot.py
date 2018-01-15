@@ -497,7 +497,7 @@ def trade_vol_type(bot, update, chat_data):
 def trade_vol_type_all(bot, update, chat_data):
     update.message.reply_text(emo_w + " Calculating volume...")
 
-    if chat_data["buysell"] == KeyboardEnum.BUY.clean():
+    if chat_data["buysell"].upper() == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
         res_balance = kraken_api("Balance", private=True)
 
@@ -538,7 +538,7 @@ def trade_vol_type_all(bot, update, chat_data):
         # Calculate volume depending on available euro balance and round it to 8 digits
         chat_data["volume"] = "{0:.8f}".format(available_euros / float(chat_data["price"]))
 
-    if chat_data["buysell"] == KeyboardEnum.SELL.clean():
+    if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
         # Send request to Kraken to get euro balance to calculate volume
         res_balance = kraken_api("Balance", private=True)
 
@@ -825,7 +825,7 @@ def orders_close_order(bot, update):
         log(logging.ERROR, error)
         return
 
-    msg = bold("Order closed:\n" + req_data["txid"])
+    msg = emo_f + " " + bold("Order closed:\n" + req_data["txid"])
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 
