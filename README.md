@@ -11,7 +11,7 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
 ### Features
 - Bound to a specific Telegram user - only that user can use the bot
 - No need to login to Kraken - start trading immediately, always
-- Integrated update mechanism - to latest version on GitHub
+- Integrated update mechanism - get latest version from GitHub
 - Notifies you once order is closed and trade successfully executed
 - Fully usable with buttons - no need to enter commands manually
 - Supports all currencies available on Kraken (configurable)
@@ -26,6 +26,7 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
     - Deposit & withdraw
     - Show real-time charts
     - List history of closed orders
+    - Check state of Kraken API
 
 ## Files
 In the following list you will find details about all the files that the project consists of - and if they are necessary to deploy or not.
@@ -118,7 +119,7 @@ python3.6 telegram_kraken_bot.py &
 ```
 
 ## Usage
-If you configured the bot correctly and execute the script, you should get a welcome message from the bot along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in manually.
+If you configured the bot correctly and execute the script, you should see some checks that the bot performes. After that a welcome message from the bot will be shown along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in manually.
 
 :warning: In general, while entering the volume, make sure that you don't use smaller values then Kraken supports. Take a look at the [order limits for various coins](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-). Otherwise the request to Kraken will lead to an error. These values are also present in the configuration file at key `min_order_size`.
 
@@ -142,6 +143,19 @@ The following commands are available as sub-commands for command `/bot`
 - `/shutdown`: Shutdown the bot
 - `/settings`: Show and change bot settings
 - `/reload`: Reload custom command keyboard
+
+If you want to show a list of available commands as you type, talk to Telegram user `BotFather` and send the command `/setcommands`. Then choose the bot you want to activate the list for and after that send the list of commands with description. Something like this:
+```
+trade - buy or sell assets
+orders - show or close orders
+balance - show all your assets
+price - show current price for asset
+value - calculate value for assets
+chart - display trading charts
+history - show completed trades
+funding - deposit or withdraw currencies
+bot - update, restart or shutdown
+```
 
 ## Development
 I know that it is unusual to have the whole source code in just one file. At some point i should have been switching to object orientation and multiple files but i kind of like the idea to have it all in just one file and object orientation would only blow up the code. This also makes the `/update` command much simpler :)
