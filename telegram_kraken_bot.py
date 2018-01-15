@@ -1735,8 +1735,6 @@ def is_conf_sane():
     return True
 
 
-# TODO: Update README to reflect new start procedure
-# TODO: Integrate sanity method here and add new "DONE" message for that
 # Show welcome message and custom keyboard for commands
 def initialize():
     msg = " Preparing bot..."
@@ -1746,7 +1744,7 @@ def initialize():
 
     # If Kraken replied with an error, show it
     if res_assets["error"]:
-        # TODO: If no reply, show button to retry.
+        # TODO: If no reply, show button to restart.
         # TODO: If error, there can't be any possibility to show command keyboard! '/reload' must not be possible
         error = btfy(res_assets["error"][0])
         message.edit_text(config["user_id"], emo_s + " Preparing bot... FAILED")
@@ -1822,7 +1820,7 @@ def btfy(text):
         if list(text)[x] == ":":
             new_text += " "
 
-    return new_text
+    return emo_e + " " + new_text
 
 
 # Return state of Kraken API
