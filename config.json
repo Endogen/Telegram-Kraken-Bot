@@ -32,6 +32,7 @@
     "retries": true,
     "retries_counter": 2,
     "single_price": true,
+    "single_chart": true,
     "min_order_size": {
         "REP": "0.3",
         "XBT": "0.002",
