@@ -118,6 +118,13 @@ To start the script, execute
 python3.6 telegram_kraken_bot.py &
 ```
 
+To stop the script, execute
+```shell
+pkill python
+```
+
+which will kill __every__ Python process that is currently running, or shut the bot down with the `/shutdown` command.
+
 ## Usage
 If you configured the bot correctly and execute the script, you should see some checks that the bot performes. After that a welcome message from the bot will be shown along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in manually.
 
