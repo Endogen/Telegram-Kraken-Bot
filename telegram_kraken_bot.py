@@ -1210,20 +1210,33 @@ def bot_sub_cmd(bot, update):
 # Show links to Kraken currency charts
 @restrict_access
 def chart_cmd(bot, update):
-    reply_msg = "Choose currency"
+    # Send only one message with all configured charts
+    if config["single_chart"]:
+        msg = str()
 
-    buttons = list()
-    for coin, url in config["coin_charts"].items():
-        buttons.append(KeyboardButton(coin))
+        for coin, url in config["coin_charts"].items():
+            msg += coin + ": " + url + "\n"
 
-    cancel_btn = [
-        KeyboardButton(KeyboardEnum.CANCEL.clean())
-    ]
+        update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard_cmds())
 
-    reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
-    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+        return ConversationHandler.END
 
-    return WorkflowEnum.CHART_CURRENCY
+    # Choose currency and display chart for it
+    else:
+        reply_msg = "Choose currency"
+
+        buttons = list()
+        for coin, url in config["coin_charts"].items():
+            buttons.append(KeyboardButton(coin))
+
+        cancel_btn = [
+            KeyboardButton(KeyboardEnum.CANCEL.clean())
+        ]
+
+        reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=3, footer_buttons=cancel_btn))
+        update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
+        return WorkflowEnum.CHART_CURRENCY
 
 
 # Get chart URL for every coin in config
@@ -1336,7 +1349,7 @@ def funding_withdraw_volume(bot, update, chat_data):
     volume = chat_data["volume"]
     currency = chat_data["currency"]
     wallet = chat_data["wallet"]
-    reply_msg = " Withdraw " + volume + " " + currency + " from wallet " + wallet + "?"
+    reply_msg = " Withdraw " + volume + " " + currency + " to wallet " + wallet + "?"
 
     update.message.reply_text(emo_q + reply_msg, reply_markup=keyboard_confirm())
 
@@ -2060,9 +2073,19 @@ settings_handler = ConversationHandler(
 dispatcher.add_handler(settings_handler)
 
 
-# Start polling to handle all user input
-# Dismiss all still open commands
-updater.start_polling(clean=True)
+# If webhook is enabled, don't use polling
+# https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks
+if config["webhook_enabled"]:
+    updater.start_webhook(listen=config["webhook_listen"],
+                          port=config["webhook_port"],
+                          url_path=config["bot_token"],
+                          key=config["webhook_key"],
+                          cert=config["webhook_cert"],
+                          webhook_url=config["webhook_url"])
+else:
+    # Start polling to handle all user input
+    # Dismiss all in the meantime send commands
+    updater.start_polling(clean=True)
 
 # Show welcome-message, update-state and commands-keyboard
 initialize()
