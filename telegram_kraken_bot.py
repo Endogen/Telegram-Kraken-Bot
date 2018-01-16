@@ -921,7 +921,7 @@ def price_currency(bot, update):
         log(logging.ERROR, error)
         return
 
-    currency = update.message.text
+    currency = update.message.text.upper()
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
     msg = bold(currency + ": " + last_trade_price + " " + config["base_currency"])
