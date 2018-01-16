@@ -27,7 +27,6 @@ emo_b = "✨"  # Beginning
 emo_c = "❌"  # Cancel
 emo_t = "👍"  # Top
 emo_d = "☑"  # Done
-emo_s = "⚡"  # Sanity
 emo_g = "👋"  # Goodbye
 emo_q = "❓"  # Question
 
@@ -1737,12 +1736,12 @@ def is_conf_sane():
         if "USER_ID" == setting.upper():
             if not value.isdigit():
                 msg = " USER_ID has to be a number"
-                updater.bot.send_message(config["user_id"], emo_s + msg)
+                updater.bot.send_message(config["user_id"], emo_e + msg)
                 return False
         if "BASE_CURRENCY" == setting.upper():
             if not len(value) == 3:
                 msg = " BASE_CURRENCY has to have a length of 3"
-                updater.bot.send_message(config["user_id"], emo_s + msg)
+                updater.bot.send_message(config["user_id"], emo_e + msg)
                 return False
 
     return True
@@ -1760,8 +1759,8 @@ def initialize():
         # TODO: If no reply, show button to restart.
         # TODO: If error, there can't be any possibility to show command keyboard! '/reload' must not be possible
         error = btfy(res_assets["error"][0])
-        message.edit_text(config["user_id"], emo_s + " Preparing bot... FAILED")
-        updater.bot.send_message(config["user_id"], error)  # TODO: Do we need this?
+        message.edit_text(config["user_id"], emo_e + " Preparing bot... FAILED")
+        updater.bot.send_message(config["user_id"], error)
         log(logging.ERROR, error)
         return
 
@@ -1782,14 +1781,15 @@ def initialize():
     msg = " Checking sanity..."
     message = updater.bot.send_message(config["user_id"], emo_w + msg)
 
+    # Check sanity of configuration file
     if not is_conf_sane():
-        message.edit_text(emo_s + " Checking sanity... FAILED")
-        shutdown_cmd  # TODO: Test if this looks good
-
-    message.edit_text(emo_d + " Checking sanity... DONE")
-
-    # Show success message - bot is ready
-    updater.bot.send_message(config["user_id"], emo_b + " Kraken-Bot is ready!", reply_markup=keyboard_cmds())
+        message.edit_text(emo_d + " Checking sanity... FAILED")
+        msg = "Config is not sane. Shut the bot down with /shutdown and adjust configuration"
+        updater.bot.send_message(config["user_id"], msg, reply_markup=ReplyKeyboardRemove())
+    # Sanity check finished successfully
+    else:
+        message.edit_text(emo_d + " Checking sanity... DONE")
+        updater.bot.send_message(config["user_id"], emo_b + " Kraken-Bot is ready!", reply_markup=keyboard_cmds())
 
 
 # Converts a Unix timestamp to a data-time object with format 'Y-m-d H:M:S'
