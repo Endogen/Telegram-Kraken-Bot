@@ -50,5 +50,11 @@
         "XLM": "300",
         "ZEC": "0.03",
         "USDT": "5"
-    }
+    },
+    "webhook_enabled": false,
+    "webhook_listen": "0.0.0.0",
+    "webhook_port": 8443,
+    "webhook_key": "path_to_privkey.pem",
+    "webhook_cert": "path_to_cert.pem",
+    "webhook_url": "HTTPS_URL:PORT/TOKEN"
 }
