@@ -41,7 +41,7 @@ In the following list you will find details about all the files that the project
 - __requirements.txt__: This file holds all dependencies (Python modules) that are required to run the bot. Once all dependencies are installed, the file is _not needed_ anymore. If you need to know how to install the dependencies from this file, take a look at [the details](#dependencies).
 - __telegram\_python\_bot.py__: The bot itself. This file has to be executed with Python to run. For more details, see [the installation](#installation). This file is _needed_.
 
-So as one can see, these are the files that are important to run the bot:
+These are the files that are important to run the bot:
 
 - `kraken.key` (API Secret)
 - `config.json` (Configuration)
@@ -71,6 +71,15 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __history_items__: Number of history trades to display simultaneously
 - __retries__: If `true`, then issued Kraken API requests will be retried if they return any kind of server error. In most cases this is very helpfull since at the second or third time the request will most likely make it through. See also option `retries_counter` to set number of retries
 - __retries_counter__: Number of times a Kraken API call will be retried if option `retries` is enabled
+- __single_price__: If `true`, no need to choose a coin in `/price` command. Only one message will be send with current prices for all coins that are configured in setting `used_coins`
+- __single_chart__: If `true`, no need to choose a coin in `/chart` command. Only one message will be send with links to all coins that are configured in setting `used_coins`
+- __min\_order\_size__: Dictionary of all order size limits for every coin. You can not create an order with a smaller volume then defined in this setting. These values should be the same as defined by Kraken on [this](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-) website
+- __webhook_enabled__: _Not used yet_
+- __webhook_listen__: _Not used yet_
+- __webhook_port__: _Not used yet_
+- __webhook_key__: _Not used yet_
+- __webhook_cert__: _Not used yet_
+- __webhook_url__: _Not used yet_
 
 ### kraken.key
 This file holds two keys that are necessary in order to communicate with Kraken. Both keys have to be considered __secret__ and you should be the only one that knows them.
@@ -104,31 +113,32 @@ Install a set of module-versions that is known to work together for sure (__high
 pip3.6 install -r requirements.txt
 ```
 
-##### Install newest versions of needed modules
-If you want to install the newest version of the needed modules, do the following:
+##### Install newest version of needed modules
+If you want to install the newest version of the needed modules, execute the following:
 ```shell
 pip3.6 install python-telegram-bot -U
 pip3.6 install beautifulsoup4 -U
 pip3.6 install krakenex -U
 ```
 
-### Starting up
+### Starting
 To start the script, execute
 ```shell
 python3.6 telegram_kraken_bot.py &
 ```
 
+### Stopping
 To stop the script, execute
 ```shell
 pkill python
 ```
 
-which will kill __every__ Python process that is currently running, or shut the bot down with the `/shutdown` command.
+which will kill __every__ Python process that is currently running, or shut the bot down with the `/shutdown` command (__recommended__).
 
 ## Usage
 If you configured the bot correctly and execute the script, you should see some checks that the bot performes. After that a welcome message from the bot will be shown along with the information if you are using the latest version. There should also be a custom keyboard that shows you all the available commands. Click on a button to execute the command or type the command in manually.
 
-:warning: In general, while entering the volume, make sure that you don't use smaller values then Kraken supports. Take a look at the [order limits for various coins](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-). Otherwise the request to Kraken will lead to an error. These values are also present in the configuration file at key `min_order_size`.
+:warning: In general, while entering the volume, make sure that you don't use smaller values then Kraken supports. Take a look at the [order limits for various coins](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-). Otherwise the request to Kraken will lead to an error. These values are also present in the configuration file at setting `min_order_size`.
 
 ### Available commands
 ##### Related to Kraken
@@ -151,7 +161,7 @@ The following commands are available as sub-commands for command `/bot`
 - `/settings`: Show and change bot settings
 - `/reload`: Reload custom command keyboard
 
-If you want to show a list of available commands as you type, talk to Telegram user `BotFather` and send the command `/setcommands`. Then choose the bot you want to activate the list for and after that send the list of commands with description. Something like this:
+If you want to show a list of available commands as you type, open a chat with Telegram user `BotFather` and send the command `/setcommands`. Then choose the bot you want to activate the list for and after that send the list of commands with description. Something like this:
 ```
 trade - buy or sell assets
 orders - show or close orders
@@ -173,19 +183,28 @@ I know that it is unusual to have the whole source code in just one file. At som
 - [x] Add command `/chart` to show TradingView Chart Widget website
 - [x] Add command `/funding` to deposit / withdraw funds
 - [ ] Add command `/alert` to be notified once a specified price is reached
-- [x] Add possibility to sell __all__ assets immediately to current market value
 - [x] Enable to trade every currency that Kraken supports
 - [x] Add possibility to change settings via bot
+- [x] Sanity check on start for configuration file
+- [x] Add possibility to sell __all__ assets immediately to current market value
+- [ ] Per asset: Sell to current market price
 
 ##### Priority 2
 - [x] Optimize code to call Kraken API less often
 - [x] Automatically check for updates (with configurable timespan)
 - [ ] Create webhook-version of this bot
+- [X] Log to file (every day a new logfile)
+- [ ] Option: Only one open buy or sell order per asset
+- [ ] Send current market price of asset periodically
+- [ ] Backup (settings & bot) on update
+- [ ] Show trends per asset in `/price` command
 
 ##### Priority 3
 - [ ] Add command `/stats` that shows statistics
 - [ ] Closed order notifications: Show gain / loss if association between orders possible
 - [ ] Integrate other market places then Kraken
+- [ ] Support other exchanges
+- [ ] Internationalisation
 
 ## Troubleshooting
 In case you experience any issues, please take a look at this section to check if it is described here. If not, create an [issue on GitHub](https://github.com/Endogen/Telegram-Kraken-Bot/issues/new).
