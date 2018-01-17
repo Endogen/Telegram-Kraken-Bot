@@ -202,7 +202,6 @@ I know that it is unusual to have the whole source code in just one file. At som
 ##### Priority 3
 - [ ] Add command `/stats` that shows statistics
 - [ ] Closed order notifications: Show gain / loss if association between orders possible
-- [ ] Integrate other market places then Kraken
 - [ ] Support other exchanges
 - [ ] Internationalisation
 
