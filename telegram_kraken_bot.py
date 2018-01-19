@@ -1392,10 +1392,12 @@ def funding_withdraw_confirm(bot, update, chat_data):
         return
 
     # If a REFID exists, the withdrawal was initiated
-    if res_data["refid"]:
-        update.message.reply_text("Withdrawal executed\nREFID: " + res_data["refid"])
+    if res_data["result"]["refid"]:
+        msg = " Withdrawal executed\nREFID: " + res_data["result"]["refid"]
+        update.message.reply_text(emo_f + msg)
     else:
-        update.message.reply_text("Undefined state: no error and no REFID")
+        msg = " Undefined state: no error and no REFID"
+        update.message.reply_text(emo_e + msg)
 
     return ConversationHandler.END
 
