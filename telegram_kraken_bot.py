@@ -62,8 +62,8 @@ if config["log_to_file"]:
         os.makedirs(log_dir)
 
     # Create a file handler for logging
-    file_path = os.path.join(log_dir, date + ".log")
-    handler = logging.FileHandler(file_path, encoding="utf-8")
+    logfile_path = os.path.join(log_dir, date + ".log")
+    handler = logging.FileHandler(logfile_path, encoding="utf-8")
     handler.setLevel(config["log_level"])
 
     # Format file handler
@@ -72,6 +72,9 @@ if config["log_to_file"]:
 
     # Add file handler to logger
     logger.addHandler(handler)
+
+    # Redirect all uncaught exceptions to logfile
+    sys.stderr = open(logfile_path, "w")
 
 # Set bot token, get dispatcher and job queue
 updater = Updater(token=config["bot_token"])
@@ -83,10 +86,17 @@ kraken = krakenex.API()
 kraken.load_key("kraken.key")
 
 # Cached objects
+# All successfully executed trades
 trades = list()
+# All open orders
 orders = list()
+# All assets with internal long name & external short name
 assets = dict()
+# Assets from config with their trading pair
+pairs = dict()
 
+# TODO: Get rid of 'base_currency' in config!!!
+# TODO: Do i still need this?
 # 'Z' + base currency from config
 base_currency = str()
 
@@ -154,7 +164,7 @@ def log(severity, msg):
             for hdlr in logger.handlers[:]:
                 logger.removeHandler(hdlr)
 
-            new_hdlr = logging.FileHandler(file_path, encoding="utf-8")
+            new_hdlr = logging.FileHandler(logfile_path, encoding="utf-8")
             new_hdlr.setLevel(config["log_level"])
 
             # Format file handler
@@ -840,18 +850,9 @@ def price_cmd(bot, update):
         req_data = dict()
         req_data["pair"] = str()
 
-        # Find currency names
-        for coin in config["used_coins"]:
-            for asset, data in assets.items():
-                if coin == data["altname"]:
-                    # If currency is BCH, use different pair string
-                    if coin == "BCH":
-                        req_data["pair"] += asset + config["base_currency"] + ","
-                        break
-                    # Regular way to combine asset and base currency
-                    else:
-                        req_data["pair"] += asset + base_currency + ","
-                        break
+        # Add all configured asset pairs to the request
+        for asset, trade_pair in pairs.items():
+            req_data["pair"] += trade_pair + ","
 
         # Get rid of last comma
         req_data["pair"] = req_data["pair"][:-1]
@@ -869,14 +870,9 @@ def price_cmd(bot, update):
         msg = str()
 
         for pair, data in res_data["result"].items():
-            # If currency is BCH, use different method to get coin name
-            if "BCH" in pair:
-                coin = pair[:-len(config["base_currency"])]
-            else:
-                coin = assets[pair[:-len(base_currency)]]["altname"]
-
             last_trade_price = trim_zeros(data["c"][0])
-            msg += coin + ": " + last_trade_price + " " + config["base_currency"] + "\n"
+            coin = list(pairs.keys())[list(pairs.values()).index(pair)]
+            msg += coin + ": " + last_trade_price + " " + config["used_coins"][coin] + "\n"
 
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
@@ -900,16 +896,8 @@ def price_cmd(bot, update):
 def price_currency(bot, update):
     update.message.reply_text(emo_wa + " Retrieving price...")
 
-    req_data = dict()
-
-    # If currency is BCH then use different pair string
-    if update.message.text.upper() == "BCH":
-        req_data["pair"] = update.message.text + config["base_currency"]
-    else:
-        for asset, data in assets.items():
-            if data["altname"] == update.message.text.upper():
-                req_data["pair"] = asset + base_currency
-                break
+    currency = update.message.text.upper()
+    req_data = {"pair": pairs[currency]}
 
     # Send request to Kraken to get current trading price for currency-pair
     res_data = kraken_api("Ticker", data=req_data, private=False)
@@ -921,10 +909,9 @@ def price_currency(bot, update):
         log(logging.ERROR, error)
         return
 
-    currency = update.message.text.upper()
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-    msg = bold(currency + ": " + last_trade_price + " " + config["base_currency"])
+    msg = bold(currency + ": " + last_trade_price + " " + config["used_coins"][currency])
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -1044,8 +1031,14 @@ def reload_cmd(bot, update):
 @restrict_access
 def state_cmd(bot, update):
     update.message.reply_text(emo_wa + " Retrieving API state...")
-    msg = bold("Kraken API Status: " + api_state()) + "\n" + "https://status.kraken.com"
-    update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+
+    msg = "Kraken API Status: " + bold(api_state()) + "\nhttps://status.kraken.com"
+    updater.bot.send_message(config["user_id"],
+                             msg,
+                             reply_markup=keyboard_cmds(),
+                             disable_web_page_preview=True,
+                             parse_mode=ParseMode.MARKDOWN)
+
     return ConversationHandler.END
 
 
@@ -1734,70 +1727,105 @@ def monitor_orders():
 
 # TODO: Complete sanity check
 # Check sanity of settings in config file
-def is_conf_sane():
+def is_conf_sane(trade_pairs):
     for setting, value in config.items():
+        # Check if user ID is a digit
         if "USER_ID" == setting.upper():
             if not value.isdigit():
                 return False, setting.upper()
+        # Check if trade pairs are correctly configured,
+        # and save pairs in global variable
+        elif "USED_COINS" == setting.upper():
+            global pairs
+            for coin, to_cur in value.items():
+                found = False
+                for pair, data in trade_pairs.items():
+                    if coin in pair and to_cur in pair:
+                        if not pair.endswith(".d"):
+                            pairs[coin] = pair
+                            found = True
+                if not found:
+                    return False, setting.upper() + " - " + coin
 
     return True, None
 
 
 # Make sure preconditions are met and show welcome screen
 def init_cmd(bot, update):
-    msg = " Preparing bot..."
-    updater.bot.send_message(config["user_id"], emo_wa + msg, reply_markup=ReplyKeyboardRemove())
+    uid = config["user_id"]
+    cmds = "/initialize - retry again\n/shutdown - shut down the bot"
+
+    # Show starting up message
+    msg = " Preparing Kraken-Bot"
+    updater.bot.send_message(uid, emo_be + msg, disable_notification=True, reply_markup=ReplyKeyboardRemove())
+
+    # Assets -----------------
+
+    msg = " Reading assets..."
+    m = updater.bot.send_message(uid, emo_wa + msg, disable_notification=True)
 
     res_assets = kraken_api("Assets")
 
     # If Kraken replied with an error, show it
     if res_assets["error"]:
+        msg = " Reading assets... FAILED\n" + cmds
+        updater.bot.edit_message_text(emo_fa + msg, chat_id=uid, message_id=m.message_id)
+
         error = btfy(res_assets["error"][0])
+        updater.bot.send_message(uid, error)
         log(logging.ERROR, error)
-
-        updater.bot.send_message(config["user_id"], error)
-
-        msg = " Preparing bot... FAILED\n"
-        action_msg = "/initialize - retry again\n/shutdown - shut down the bot"
-        updater.bot.send_message(config["user_id"], emo_fa + msg + action_msg)
         return
 
     # Save assets in global variable
     global assets
     assets = res_assets["result"]
 
-    # TODO: Is this still needed somewhere?
-    # Find base currency name
-    for asset, data in assets.items():
-        if config["base_currency"] == data["altname"]:
-            global base_currency
-            base_currency = asset
-            break
+    msg = " Reading assets... DONE"
+    updater.bot.edit_message_text(emo_do + msg, chat_id=uid, message_id=m.message_id)
 
-    msg = " Preparing bot... DONE"
-    updater.bot.send_message(config["user_id"], emo_do + msg)
+    # AssetPairs -----------------
+
+    msg = " Reading asset pairs..."
+    m = updater.bot.send_message(uid, emo_wa + msg, disable_notification=True)
+
+    res_pairs = kraken_api("AssetPairs")
+
+    # If Kraken replied with an error, show it
+    if res_pairs["error"]:
+        msg = " Reading asset pairs... FAILED\n" + cmds
+        updater.bot.edit_message_text(emo_fa + msg, chat_id=uid, message_id=m.message_id)
+
+        error = btfy(res_pairs["error"][0])
+        updater.bot.send_message(uid, error)
+        log(logging.ERROR, error)
+        return
+
+    msg = " Reading asset pairs... DONE"
+    updater.bot.edit_message_text(emo_do + msg, chat_id=uid, message_id=m.message_id)
+
+    # Sanity check -----------------
 
     msg = " Checking sanity..."
-    updater.bot.send_message(config["user_id"], emo_wa + msg)
+    m = updater.bot.send_message(uid, emo_wa + msg, disable_notification=True)
 
     # Check sanity of configuration file
     # Sanity check not finished successfully
-    sane, parameter = is_conf_sane()
+    sane, parameter = is_conf_sane(res_pairs["result"])
     if not sane:
+        msg = " Checking sanity... FAILED\n/shutdown - shut down the bot"
+        updater.bot.edit_message_text(emo_fa + msg, chat_id=uid, message_id=m.message_id)
+
         msg = " Wrong configuration: " + parameter
-        updater.bot.send_message(config["user_id"], emo_er + msg)
+        updater.bot.send_message(uid, emo_er + msg)
+        return
 
-        msg = " Checking sanity... FAILED\n"
-        action_msg = "/shutdown - shut down the bot"
-        updater.bot.send_message(config["user_id"], emo_fa + msg + action_msg)
+    msg = " Checking sanity... DONE"
+    updater.bot.edit_message_text(emo_do + msg, chat_id=uid, message_id=m.message_id)
 
-    # Sanity check finished successfully
-    else:
-        msg = " Checking sanity... DONE"
-        updater.bot.send_message(config["user_id"], emo_do + msg)
+    # Bot is ready -----------------
 
-        msg = " Kraken-Bot is ready!"
-        updater.bot.send_message(config["user_id"], emo_be + msg, reply_markup=keyboard_cmds())
+    msg = " Kraken-Bot is ready!"
+    updater.bot.send_message(uid, emo_be + msg, reply_markup=keyboard_cmds())
 
 
 # Converts a Unix timestamp to a data-time object with format 'Y-m-d H:M:S'
