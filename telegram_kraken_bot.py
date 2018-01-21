@@ -2131,6 +2131,9 @@ settings_handler = ConversationHandler(
 dispatcher.add_handler(settings_handler)
 
 
+# Write content of configuration file to log
+log(logging.DEBUG, "Configuration: " + str(config))
+
 # If webhook is enabled, don't use polling
 # https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks
 if config["webhook_enabled"]:
