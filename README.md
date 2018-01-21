@@ -160,6 +160,7 @@ The following commands are available as sub-commands for command `/bot`
 - `/shutdown`: Shutdown the bot
 - `/settings`: Show and change bot settings
 - `/reload`: Reload custom command keyboard
+- `/initialize`: Perform initialization (precondition for start)
 
 If you want to show a list of available commands as you type, open a chat with Telegram user `BotFather` and send the command `/setcommands`. Then choose the bot you want to activate the list for and after that send the list of commands with description. Something like this:
 ```
