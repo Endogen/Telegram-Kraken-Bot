@@ -459,9 +459,16 @@ def trade_sell_all_confirm(bot, update):
 def trade_currency(bot, update, chat_data):
     chat_data["currency"] = update.message.text.upper()
 
-    reply_msg = "Enter price per unit"
+    pair = pairs[chat_data["currency"]]
 
-    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
+    # TODO: Simplify this - no FOR
+    for asset_long, data in assets.items():
+        if data["altname"] == chat_data["currency"]:
+            chat_data["buy_from"] = pair.replace(asset_long, "")
+            break
+
+    reply_msg = "Enter price per unit in " + bold(assets[chat_data["buy_from"]]["altname"])
+    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.MARKDOWN)
     return WorkflowEnum.TRADE_PRICE
 
 
@@ -471,14 +478,6 @@ def trade_price(bot, update, chat_data):
     chat_data["price"] = update.message.text
 
     reply_msg = "How to enter the volume?"
-
-    pair = pairs[chat_data["currency"]]  # XXRPZEUR
-
-    # TODO: Simplify this - no FOR
-    for asset_long, data in assets.items():
-        if data["altname"] == chat_data["currency"]:
-            chat_data["buy_from"] = pair.replace(asset_long, "")
-            break
 
     buttons = [
         KeyboardButton(assets[chat_data["buy_from"]]["altname"]),
@@ -581,12 +580,7 @@ def trade_vol_type_all(bot, update, chat_data):
             log(logging.ERROR, error)
             return
 
-        # TODO: Simplify this - no FOR
-        # Lookup volume of chosen currency
-        for asset, data in assets.items():
-            if data["altname"] == chat_data["currency"]:
-                available_volume = res_balance["result"][asset]
-                break
+        available_volume = res_balance["result"][chat_data["buy_from"]]
 
         # Go through all open orders and check if sell-orders exists for the currency
         # If yes, subtract their volume from the available volume
@@ -629,6 +623,20 @@ def trade_volume(bot, update, chat_data):
     elif chat_data["vol_type"] == KeyboardEnum.VOLUME.clean():
         chat_data["volume"] = "{0:.8f}".format(float(update.message.text))
 
+    # Make sure that the order size is at least the minimum order limit
+    if chat_data["currency"] in config["min_order_size"]:
+        if float(chat_data["volume"]) < float(config["min_order_size"][chat_data["currency"]]):
+            msg_error = emo_er + " Not possible to sell " + chat_data["currency"] + ": volume to low"
+            update.message.reply_text(msg_error)
+            log(logging.WARNING, msg_error)
+
+            reply_msg = "Enter new volume"
+            update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
+
+            return WorkflowEnum.TRADE_VOLUME
+    else:
+        log(logging.WARNING, "No minimum order limit in config for coin " + chat_data["currency"])
+
     trade_show_conf(update, chat_data)
 
     return WorkflowEnum.TRADE_CONFIRM
@@ -643,10 +651,17 @@ def trade_show_conf(update, chat_data):
                  chat_data["currency"] + " @ limit " +
                  chat_data["price"])
 
-    # Calculate total value of order
-    total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
-    total_value_str = "(Value: " + str(total_value) + " " + config["base_currency"] + ")"
+    # If fiat currency, show 2 digits after decimal place
+    if chat_data["buy_from"].startswith("Z"):
+        # Calculate total value of order
+        total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
+    # ... else show 8 digits after decimal place
+    else:
+        # Calculate total value of order
+        total_value = "{0:.8f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
 
+    buy_from_cur = assets[chat_data["buy_from"]]["altname"]
+    total_value_str = "(Value: " + str(trim_zeros(total_value)) + " " + buy_from_cur + ")"
     reply_msg = " Place this order?\n" + trade_str + "\n" + total_value_str
     update.message.reply_text(emo_qu + reply_msg, reply_markup=keyboard_confirm())
 
@@ -663,12 +678,7 @@ def trade_confirm(bot, update, chat_data):
     req_data["price"] = chat_data["price"]
     req_data["ordertype"] = "limit"
     req_data["volume"] = chat_data["volume"]
-
-    # TODO: Simplify this - no FOR
-    for asset, data in assets.items():
-        if data["altname"] == chat_data["currency"]:
-            req_data["pair"] = pairs[assets[asset]["altname"]]
-            break
+    req_data["pair"] = pairs[chat_data["currency"]]
 
     # Send request to create order to Kraken
     res_add_order = kraken_api("AddOrder", req_data, private=True)
