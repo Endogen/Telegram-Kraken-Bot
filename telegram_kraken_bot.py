@@ -415,7 +415,7 @@ def trade_sell_all_confirm(bot, update):
         # Make sure that the order size is at least the minimum order limit
         if balance_asset in config["min_order_size"]:
             if float(amount) < float(config["min_order_size"][balance_asset]):
-                msg_error = emo_er + " Not possible to sell " + balance_asset + ": volume to low"
+                msg_error = emo_er + " Volume to low. Must be > " + config["min_order_size"][balance_asset]
                 msg_next = emo_wa + " Selling next asset..."
 
                 update.message.reply_text(msg_error + "\n" + msg_next)
@@ -626,7 +626,7 @@ def trade_volume(bot, update, chat_data):
     # Make sure that the order size is at least the minimum order limit
     if chat_data["currency"] in config["min_order_size"]:
         if float(chat_data["volume"]) < float(config["min_order_size"][chat_data["currency"]]):
-            msg_error = emo_er + " Not possible to sell " + chat_data["currency"] + ": volume to low"
+            msg_error = emo_er + " Volume to low. Must be > " + config["min_order_size"][chat_data["currency"]]
             update.message.reply_text(msg_error)
             log(logging.WARNING, msg_error)
 
