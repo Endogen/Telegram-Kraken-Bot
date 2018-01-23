@@ -95,7 +95,7 @@ assets = dict()
 # All assets from config with their trading pair
 pairs = dict()
 
-# TODO: Remove 'base_currency' from config and code
+# TODO: Remove 'base_currency' from code
 
 # Enum for workflow handler
 class WorkflowEnum(Enum):
@@ -1075,32 +1075,28 @@ def state_cmd(bot, update):
 # Returns a string representation of a trade. Looks like this:
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
-    # Format pair-string from 'XXBTZEUR' to 'XXBT-ZEUR'
-    # TODO: Simplify this - no FOR
+    pair = None
+
+    # Format pair-string from 'XXBTZEUR' to 'XXBT' and 'ZEUR'
     for asset, data in assets.items():
-        # Default pair
+        # If TRUE, we know that 'to_asset' exists in assets
         if trade["pair"].endswith(asset):
-            first_asset = trade["pair"][:len(asset)]
-            second_asset = trade["pair"][len(trade["pair"])-len(asset):]
-            pair_str = first_asset + "-" + second_asset
-            break
-        # TODO: Do i need this special case?
-        # Pair with short asset name (BCH pairs are like that)
-        elif trade["pair"].endswith(data["altname"]):
-            first_asset = trade["pair"][:len(data["altname"])]
-            second_asset = trade["pair"][len(trade["pair"]) - len(data["altname"]):]
-            pair_str = first_asset + "-" + second_asset
+            from_asset = trade["pair"][:len(asset)]
+            to_asset = trade["pair"][len(trade["pair"])-len(asset):]
+
+            # If TRUE, we know that 'from_asset' exists in assets
+            if from_asset in assets:
+                pair = assets[from_asset]["altname"] + "-" + assets[to_asset]["altname"]
+
             break
 
-    # Replace asset names with clean asset names
-    pair_list = pair_str.split("-")
+    if not pair:
+        pair = trade["pair"]
 
-    pair_str = pair_str.replace(pair_list[0], assets[pair_list[0]]["altname"])
-    pair_str = pair_str.replace(pair_list[1], assets[pair_list[1]]["altname"])
-
+    # Build the string representation of the trade
     trade_str = (trade["type"] + " " +
                  trim_zeros(trade["vol"]) + " " +
-                 pair_str + " @ limit " +
+                 pair + " @ limit " +
                  trim_zeros(trade["price"]) + " on " +
                  datetime_from_timestamp(trade["time"]))
 
@@ -1143,6 +1139,7 @@ def history_cmd(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
+            # TODO: Change EUR to dynamic value
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
 
