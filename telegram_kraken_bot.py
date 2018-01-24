@@ -95,7 +95,6 @@ assets = dict()
 # All assets from config with their trading pair
 pairs = dict()
 
-# TODO: Remove 'base_currency' from code
 
 # Enum for workflow handler
 class WorkflowEnum(Enum):
@@ -275,9 +274,6 @@ def balance_cmd(bot, update):
     for currency_key, currency_value in res_balance["result"].items():
         available_value = currency_value
 
-        # Get short asset name
-        currency_key = assets[currency_key]["altname"]
-
         # Go through all open orders and check if an order exists for the currency
         if res_orders["result"]["open"]:
             for order in res_orders["result"]["open"]:
@@ -288,24 +284,30 @@ def balance_cmd(bot, update):
                 order_volume = order_desc_list[1]
                 price_per_coin = order_desc_list[5]
 
-                # Check if current asset is a fiat-currency (EUR, USD, ...)
-                if currency_key == config["base_currency"] and order_type == "buy":
+                # Check if asset is fiat-currency (EUR, USD, ...) and BUY order
+                if currency_key.startswith("Z") and order_type == "buy":
                     available_value = float(available_value) - (float(order_volume) * float(price_per_coin))
                 # Current asset is a coin and not a fiat currency
                 else:
-                    order_currency = order_desc_list[2][:-len(config["base_currency"])]
+                    for asset, data in assets.items():
+                        if order_desc_list[2].endswith(data["altname"]):
+                            order_currency = order_desc_list[2][:-len(data["altname"])]
+                            break
+
                     # Reduce current volume for coin if open sell-order exists
-                    if currency_key == order_currency and order_type == "sell":
+                    if assets[currency_key]["altname"] == order_currency and order_type == "sell":
                         available_value = float(available_value) - float(order_volume)
 
         if trim_zeros(currency_value) is not "0":
-            msg += currency_key + ": " + trim_zeros(currency_value) + "\n"
+            msg += bold(assets[currency_key]["altname"] + ": " + trim_zeros(currency_value) + "\n")
 
             # If sell orders exist for this currency, show available volume too
-            if currency_value is not available_value:
-                msg = msg[:-len("\n")] + " (Available: " + trim_zeros(available_value) + ")\n"
+            if currency_value is available_value:
+                msg += "(Available: all)\n"
+            else:
+                msg += "(Available: " + trim_zeros(available_value) + ")\n"
 
-    update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
 # Create orders to buy or sell currencies with price limit - choose 'buy' or 'sell'
@@ -459,15 +461,11 @@ def trade_sell_all_confirm(bot, update):
 def trade_currency(bot, update, chat_data):
     chat_data["currency"] = update.message.text.upper()
 
-    pair = pairs[chat_data["currency"]]
+    from_asset, to_asset = assets_from_pair(pairs[chat_data["currency"]])
+    chat_data["one"] = from_asset
+    chat_data["two"] = to_asset
 
-    # TODO: Simplify this - no FOR
-    for asset_long, data in assets.items():
-        if data["altname"] == chat_data["currency"]:
-            chat_data["buy_from"] = pair.replace(asset_long, "")
-            break
-
-    reply_msg = "Enter price per unit in " + bold(assets[chat_data["buy_from"]]["altname"])
+    reply_msg = "Enter price per unit in " + bold(assets[chat_data["two"]]["altname"])
     update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.MARKDOWN)
     return WorkflowEnum.TRADE_PRICE
 
@@ -480,7 +478,7 @@ def trade_price(bot, update, chat_data):
     reply_msg = "How to enter the volume?"
 
     buttons = [
-        KeyboardButton(assets[chat_data["buy_from"]]["altname"]),
+        KeyboardButton(assets[chat_data["two"]]["altname"]),
         KeyboardButton(KeyboardEnum.VOLUME.clean())
     ]
 
@@ -506,10 +504,11 @@ def trade_vol_type(bot, update, chat_data):
 
 
 # Volume type 'ALL' chosen - meaning that
-# all available fiat funds will be used
+# all available funds will be used
 def trade_vol_type_all(bot, update, chat_data):
     update.message.reply_text(emo_wa + " Calculating volume...")
 
+    # BUY
     if chat_data["buysell"].upper() == KeyboardEnum.BUY.clean():
         # Send request to Kraken to get current balance of all currencies
         res_balance = kraken_api("Balance", private=True)
@@ -522,7 +521,7 @@ def trade_vol_type_all(bot, update, chat_data):
             return
 
         # Get amount of available currency to buy from
-        avail_buy_from_cur = float(res_balance["result"][chat_data["buy_from"]])
+        avail_buy_from_cur = float(res_balance["result"][chat_data["two"]])
 
         # Send request to Kraken to get open orders
         res_orders = kraken_api("OpenOrders", private=True)
@@ -540,25 +539,25 @@ def trade_vol_type_all(bot, update, chat_data):
             for order in res_orders["result"]["open"]:
                 order_desc = res_orders["result"]["open"][order]["descr"]["order"]
                 order_desc_list = order_desc.split(" ")
-
-                coin_price = order_desc_list[5][:-len(config["base_currency"])]
+                coin_price = trim_zeros(order_desc_list[5])
                 order_volume = order_desc_list[1]
                 order_type = order_desc_list[0]
 
                 if order_type == "buy":
                     avail_buy_from_cur = float(avail_buy_from_cur) - (float(order_volume) * float(coin_price))
 
-        # Calculate volume depending on available euro balance and round it to 8 digits
+        # Calculate volume depending on available trade-to balance and round it to 8 digits
         chat_data["volume"] = "{0:.8f}".format(avail_buy_from_cur / float(chat_data["price"]))
 
         # If available volume is 0, return without creating a trade
         if chat_data["volume"] == "0.00000000":
-            msg = emo_er + " Available " + assets[chat_data["buy_from"]]["altname"] + " volume is 0"
+            msg = emo_er + " Available " + assets[chat_data["two"]]["altname"] + " volume is 0"
             update.message.reply_text(msg, reply_markup=keyboard_cmds())
             return ConversationHandler.END
         else:
             trade_show_conf(update, chat_data)
 
+    # SELL
     if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
         # Send request to Kraken to get euro balance to calculate volume
         res_balance = kraken_api("Balance", private=True)
@@ -580,7 +579,7 @@ def trade_vol_type_all(bot, update, chat_data):
             log(logging.ERROR, error)
             return
 
-        available_volume = res_balance["result"][chat_data["buy_from"]]
+        available_volume = res_balance["result"][chat_data["one"]]
 
         # Go through all open orders and check if sell-orders exists for the currency
         # If yes, subtract their volume from the available volume
@@ -589,10 +588,16 @@ def trade_vol_type_all(bot, update, chat_data):
                 order_desc = res_orders["result"]["open"][order]["descr"]["order"]
                 order_desc_list = order_desc.split(" ")
 
-                order_currency = order_desc_list[2][:-len(config["base_currency"])]
+                # Get the currency of the order
+                for asset, data in assets.items():
+                    if order_desc_list[2].endswith(data["altname"]):
+                        order_currency = order_desc_list[2][:-len(data["altname"])]
+                        break
+
                 order_volume = order_desc_list[1]
                 order_type = order_desc_list[0]
 
+                # Check if currency from oder is the same as currency to sell
                 if chat_data["currency"] in order_currency:
                     if order_type == "sell":
                         available_volume = str(float(available_volume) - float(order_volume))
@@ -611,10 +616,10 @@ def trade_vol_type_all(bot, update, chat_data):
     return WorkflowEnum.TRADE_CONFIRM
 
 
-# Calculate the volume depending on chosen volume type (EURO or VOLUME)
+# Calculate the volume depending on chosen volume type (currency or 'VOLUME')
 def trade_volume(bot, update, chat_data):
-    # Entered currency from config (EUR, USD, ...)
-    if chat_data["vol_type"] == config["base_currency"].upper():
+    # Entered currency to trade to
+    if chat_data["two"].endswith(chat_data["vol_type"].upper()):
         amount = float(update.message.text)
         price_per_unit = float(chat_data["price"])
         chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
@@ -652,7 +657,7 @@ def trade_show_conf(update, chat_data):
                  chat_data["price"])
 
     # If fiat currency, show 2 digits after decimal place
-    if chat_data["buy_from"].startswith("Z"):
+    if chat_data["two"].startswith("Z"):
         # Calculate total value of order
         total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
     # ... else show 8 digits after decimal place
@@ -660,7 +665,7 @@ def trade_show_conf(update, chat_data):
         # Calculate total value of order
         total_value = "{0:.8f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
 
-    buy_from_cur = assets[chat_data["buy_from"]]["altname"]
+    buy_from_cur = assets[chat_data["two"]]["altname"]
     total_value_str = "(Value: " + str(trim_zeros(total_value)) + " " + buy_from_cur + ")"
     reply_msg = " Place this order?\n" + trade_str + "\n" + total_value_str
     update.message.reply_text(emo_qu + reply_msg, reply_markup=keyboard_confirm())
@@ -827,13 +832,15 @@ def orders_close_all(bot, update):
                 closed_orders.append(order_id)
 
         if closed_orders:
-            msg = bold("Orders closed:\n" + "\n".join(closed_orders))
-            update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+            msg = bold(" Orders closed:\n" + "\n".join(closed_orders))
+            update.message.reply_text(emo_fi + msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
         else:
-            update.message.reply_text("No orders closed")
+            msg = bold("No orders closed")
+            update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
             return
     else:
-        update.message.reply_text("No open orders", reply_markup=keyboard_cmds())
+        msg = bold("No open orders")
+        update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
 
@@ -975,12 +982,17 @@ def value_currency(bot, update):
             log(logging.ERROR, error)
             return
 
-        # Show only 2 digits after decimal place
-        total_value_euro = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
+        for asset, data in assets.items():
+            if data["altname"] == config["base_currency"]:
+                if asset.startswith("Z"):
+                    # It's a fiat currency, show only 2 digits after decimal place
+                    total_value_euro = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
+                else:
+                    # It's not a fiat currency, show 8 digits after decimal place
+                    total_value_euro = "{0:.8f}".format(float(res_trade_balance["result"]["eb"]))
 
         # Generate message to user
         msg = "Overall: " + total_value_euro + " " + config["base_currency"]
-
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     # Get balance of a specific coin
@@ -1042,7 +1054,6 @@ def value_currency(bot, update):
 
         # Add last trade price to msg
         msg += "\n(Ticker: " + last_trade_price + " " + buy_from_cur + ")"
-
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -1075,22 +1086,11 @@ def state_cmd(bot, update):
 # Returns a string representation of a trade. Looks like this:
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
-    pair = None
+    from_asset, to_asset = assets_from_pair(trade["pair"])
 
-    # Format pair-string from 'XXBTZEUR' to 'XXBT' and 'ZEUR'
-    for asset, data in assets.items():
-        # If TRUE, we know that 'to_asset' exists in assets
-        if trade["pair"].endswith(asset):
-            from_asset = trade["pair"][:len(asset)]
-            to_asset = trade["pair"][len(trade["pair"])-len(asset):]
-
-            # If TRUE, we know that 'from_asset' exists in assets
-            if from_asset in assets:
-                pair = assets[from_asset]["altname"] + "-" + assets[to_asset]["altname"]
-
-            break
-
-    if not pair:
+    if from_asset and to_asset:
+        pair = assets[from_asset]["altname"] + "-" + assets[to_asset]["altname"]
+    else:
         pair = trade["pair"]
 
     # Build the string representation of the trade
@@ -1140,6 +1140,7 @@ def history_cmd(bot, update):
             newest_trade = next(iter(trades), None)
 
             # TODO: Change EUR to dynamic value
+            # TODO: Search code for 'EUR'
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
 
@@ -1163,7 +1164,9 @@ def history_next(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
+            # TODO: Are we sure that 2 decimal places are ok for all possibilities?
             total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            # TODO: Do not show 'EUR'
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
 
             update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
@@ -1862,6 +1865,23 @@ def datetime_from_timestamp(unix_timestamp):
     return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
 
+# From pair string (XXBTZEUR) get from-asset (XXBT) and to-asset (ZEUR)
+def assets_from_pair(pair):
+    for asset, data in assets.items():
+        # If TRUE, we know that 'to_asset' exists in assets
+        if pair.endswith(asset):
+            from_asset = pair[:len(asset)]
+            to_asset = pair[len(pair)-len(asset):]
+
+            # If TRUE, we know that 'from_asset' exists in assets
+            if from_asset in assets:
+                return from_asset, to_asset
+            else:
+                return None, to_asset
+
+    return None, None
+
+
 # Remove trailing zeros to get clean values
 def trim_zeros(value_to_trim):
     if isinstance(value_to_trim, float):
@@ -2046,6 +2066,7 @@ trade_handler = ConversationHandler(
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler(comp("^((?=.*?\d)\d*[.]?\d*)$"), trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
+            # TODO: Do this dynamically (own method that reads all 'Z...' from assets)
             [RegexHandler(comp("^(EUR|USD|CAD|GBP|JPY|KRW|VOLUME)$"), trade_vol_type, pass_chat_data=True),
              RegexHandler(comp("^(ALL)$"), trade_vol_type_all, pass_chat_data=True),
              RegexHandler(comp("^(CANCEL)$"), cancel)],
