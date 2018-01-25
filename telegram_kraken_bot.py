@@ -471,7 +471,7 @@ def trade_currency(bot, update, chat_data):
 
 
 # Save price per unit and choose how to enter the
-# trade volume (euro, volume or all available funds)
+# trade volume (fiat currency, volume or all available funds)
 def trade_price(bot, update, chat_data):
     chat_data["price"] = update.message.text
 
@@ -559,7 +559,7 @@ def trade_vol_type_all(bot, update, chat_data):
 
     # SELL
     if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
-        # Send request to Kraken to get euro balance to calculate volume
+        # Send request to Kraken to get your coin balance to calculate volume
         res_balance = kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
@@ -960,9 +960,6 @@ def value_cmd(bot, update):
     return WorkflowEnum.VALUE_CURRENCY
 
 
-# TODO: For currencies that trade to XBT, option in config to not show value in XBT, but in EUR?
-# TODO: If so, then get trade string from XBT, to know which fiat to use...
-# TODO: This will only work if XBT is in config COINS_USED...
 # Choose for which currency you want to know the current value
 def value_currency(bot, update):
     update.message.reply_text(emo_wa + " Retrieving current value...")
@@ -986,13 +983,13 @@ def value_currency(bot, update):
             if data["altname"] == config["base_currency"]:
                 if asset.startswith("Z"):
                     # It's a fiat currency, show only 2 digits after decimal place
-                    total_value_euro = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
+                    total_fiat_value = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
                 else:
                     # It's not a fiat currency, show 8 digits after decimal place
-                    total_value_euro = "{0:.8f}".format(float(res_trade_balance["result"]["eb"]))
+                    total_fiat_value = "{0:.8f}".format(float(res_trade_balance["result"]["eb"]))
 
         # Generate message to user
-        msg = "Overall: " + total_value_euro + " " + config["base_currency"]
+        msg = "Overall: " + total_fiat_value + " " + config["base_currency"]
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     # ONE COINS (balance of specific coin)
