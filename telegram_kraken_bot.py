@@ -899,7 +899,7 @@ def price_cmd(bot, update):
         for pair, data in res_data["result"].items():
             last_trade_price = trim_zeros(data["c"][0])
             coin = list(pairs.keys())[list(pairs.values()).index(pair)]
-            msg += coin + ": " + last_trade_price + " " + config["used_coins"][coin] + "\n"
+            msg += coin + ": " + last_trade_price + " " + config["used_pairs"][coin] + "\n"
 
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
@@ -938,7 +938,7 @@ def price_currency(bot, update):
 
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
 
-    msg = bold(currency + ": " + last_trade_price + " " + config["used_coins"][currency])
+    msg = bold(currency + ": " + last_trade_price + " " + config["used_pairs"][currency])
     update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
@@ -1671,7 +1671,7 @@ def keyboard_confirm():
 def coin_buttons():
     buttons = list()
 
-    for coin in config["used_coins"]:
+    for coin in config["used_pairs"]:
         buttons.append(KeyboardButton(coin))
 
     return buttons
@@ -1767,7 +1767,7 @@ def is_conf_sane(trade_pairs):
                 return False, setting.upper()
         # Check if trade pairs are correctly configured,
         # and save pairs in global variable
-        elif "USED_COINS" == setting.upper():
+        elif "USED_PAIRS" == setting.upper():
             global pairs
             for coin, to_cur in value.items():
                 found = False
@@ -1946,7 +1946,7 @@ def comp(pattern):
 def regex_coin_or():
     coins_regex_or = str()
 
-    for coin in config["used_coins"]:
+    for coin in config["used_pairs"]:
         coins_regex_or += coin + "|"
 
     return coins_regex_or[:-1]
@@ -1978,10 +1978,10 @@ dispatcher.add_error_handler(handle_telegram_error)
 dispatcher.add_handler(CommandHandler("update", update_cmd))
 dispatcher.add_handler(CommandHandler("restart", restart_cmd))
 dispatcher.add_handler(CommandHandler("shutdown", shutdown_cmd))
+dispatcher.add_handler(CommandHandler("initialize", init_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 dispatcher.add_handler(CommandHandler("reload", reload_cmd))
 dispatcher.add_handler(CommandHandler("state", state_cmd))
-dispatcher.add_handler(CommandHandler("initialize", init_cmd))
 
 
 # FUNDING conversation handler
