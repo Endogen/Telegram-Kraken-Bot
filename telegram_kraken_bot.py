@@ -201,7 +201,7 @@ def kraken_api(method, data=None, private=False, retries=None):
             msg = "Incorrect padding: please verify that your Kraken API keys are valid"
             return {"error": [msg]}
         # No need to retry if the API service is not available right now
-        elif "Service:Unavailable" in str(ex):  # TODO: Test it
+        elif "Service:Unavailable" in str(ex):
             msg = "Service: Unavailable"
             return {"error": [msg]}
 
@@ -967,7 +967,7 @@ def value_cmd(bot, update):
 def value_currency(bot, update):
     update.message.reply_text(emo_wa + " Retrieving current value...")
 
-    # Get balance of all currencies
+    # ALL COINS (balance of all coins)
     if update.message.text.upper() == KeyboardEnum.ALL.clean():
         req_asset = dict()
         req_asset["asset"] = config["base_currency"]
@@ -995,7 +995,7 @@ def value_currency(bot, update):
         msg = "Overall: " + total_value_euro + " " + config["base_currency"]
         update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
-    # Get balance of a specific coin
+    # ONE COINS (balance of specific coin)
     else:
         # Send request to Kraken to get balance of all currencies
         res_balance = kraken_api("Balance", private=True)
@@ -1027,18 +1027,12 @@ def value_currency(bot, update):
 
         value = float(0)
 
-        # TODO: Simplify this - no FOR
         for asset, data in assets.items():
             if data["altname"] == update.message.text.upper():
+                buy_from_cur_long = pair.replace(asset, "")
+                buy_from_cur = assets[buy_from_cur_long]["altname"]
                 # Calculate value by multiplying balance with last trade price
                 value = float(res_balance["result"][asset]) * float(last_price)
-                break
-
-        # TODO: Simplify this - no FOR
-        for asset_long, data in assets.items():
-            if data["altname"] == update.message.text.upper():
-                buy_from_cur_long = pair.replace(asset_long, "")
-                buy_from_cur = assets[buy_from_cur_long]["altname"]
                 break
 
         # If fiat currency, show 2 digits after decimal place
@@ -1139,12 +1133,17 @@ def history_cmd(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            # TODO: Change EUR to dynamic value
-            # TODO: Search code for 'EUR'
-            total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
-            msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
+            one, two = assets_from_pair(newest_trade["pair"])
+
+            # It's a fiat currency
+            if two.startswith("Z"):
+                total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            # It's a digital currency
+            else:
+                total_value = "{0:.8f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
 
             reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2))
+            msg = get_trade_str(newest_trade) + " (Value: " + total_value + " " + assets[two]["altname"] + ")"
             update.message.reply_text(bold(msg), reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
 
             # Remove the first item in the trades list
@@ -1164,11 +1163,16 @@ def history_next(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            # TODO: Are we sure that 2 decimal places are ok for all possibilities?
-            total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
-            # TODO: Do not show 'EUR'
-            msg = get_trade_str(newest_trade) + " (Value: " + total_value + " EUR)"
+            one, two = assets_from_pair(newest_trade["pair"])
 
+            # It's a fiat currency
+            if two.startswith("Z"):
+                total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+            # It's a digital currency
+            else:
+                total_value = "{0:.8f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+
+            msg = get_trade_str(newest_trade) + " (Value: " + total_value + " " + assets[two]["altname"] + ")"
             update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
 
             # Remove the first item in the trades list
@@ -1942,7 +1946,7 @@ def comp(pattern):
     return re.compile(pattern, re.IGNORECASE)
 
 
-# Returns regex representation of OR for all coins in config
+# Returns regex representation of OR for all coins in config 'used_pairs'
 def regex_coin_or():
     coins_regex_or = str()
 
@@ -1950,6 +1954,18 @@ def regex_coin_or():
         coins_regex_or += coin + "|"
 
     return coins_regex_or[:-1]
+
+
+# Returns regex representation of OR for all fiat currencies in config 'used_pairs'
+def regex_fiat_or():
+    fiat_regex_or = str()
+
+    for asset, data in assets.items():
+        if asset.startswith("Z"):
+            # All fiat currencies start with a 'Z'
+            fiat_regex_or += data["altname"] + "|"
+
+    return fiat_regex_or[:-1]
 
 
 # Return regex representation of OR for all settings in config
@@ -1969,6 +1985,10 @@ def handle_telegram_error(bot, update, error):
 
     if config["send_error"]:
         updater.bot.send_message(chat_id=config["user_id"], text=error_str)
+
+
+# Make sure preconditions are met and show welcome screen
+init_cmd(None, None)
 
 
 # Log all errors
@@ -2066,8 +2086,7 @@ trade_handler = ConversationHandler(
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler(comp("^((?=.*?\d)\d*[.]?\d*)$"), trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
-            # TODO: Do this dynamically (own method that reads all 'Z...' from assets)
-            [RegexHandler(comp("^(EUR|USD|CAD|GBP|JPY|KRW|VOLUME)$"), trade_vol_type, pass_chat_data=True),
+            [RegexHandler(comp("^(" + regex_fiat_or() + ")$"), trade_vol_type, pass_chat_data=True),
              RegexHandler(comp("^(ALL)$"), trade_vol_type_all, pass_chat_data=True),
              RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOLUME:
@@ -2175,9 +2194,6 @@ else:
     # Start polling to handle all user input
     # Dismiss all in the meantime send commands
     updater.start_polling(clean=True)
-
-# Make sure preconditions are met and show welcome screen
-init_cmd(None, None)
 
 # Check for new bot version periodically
 monitor_updates()
