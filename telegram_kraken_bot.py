@@ -494,7 +494,18 @@ def trade_price(bot, update, chat_data):
 
 
 # Save volume type decision and enter volume
-def trade_vol_type(bot, update, chat_data):
+def trade_vol_asset(bot, update, chat_data):
+    chat_data["vol_type"] = update.message.text.upper()
+
+    reply_msg = "Enter volume in " + bold(chat_data["vol_type"])
+
+    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.MARKDOWN)
+    return WorkflowEnum.TRADE_VOLUME
+
+
+# Volume type 'VOLUME' chosen - meaning that
+# you can enter the volume directly
+def trade_vol_volume(bot, update, chat_data):
     chat_data["vol_type"] = update.message.text.upper()
 
     reply_msg = "Enter volume"
@@ -505,7 +516,7 @@ def trade_vol_type(bot, update, chat_data):
 
 # Volume type 'ALL' chosen - meaning that
 # all available funds will be used
-def trade_vol_type_all(bot, update, chat_data):
+def trade_vol_all(bot, update, chat_data):
     update.message.reply_text(emo_wa + " Calculating volume...")
 
     # BUY
@@ -616,7 +627,7 @@ def trade_vol_type_all(bot, update, chat_data):
     return WorkflowEnum.TRADE_CONFIRM
 
 
-# Calculate the volume depending on chosen volume type (currency or 'VOLUME')
+# Calculate the volume depending on chosen volume type (asset or 'VOLUME')
 def trade_volume(bot, update, chat_data):
     # Entered currency to trade to
     if chat_data["two"].endswith(chat_data["vol_type"].upper()):
@@ -1954,13 +1965,11 @@ def regex_coin_or():
 
 
 # Returns regex representation of OR for all fiat currencies in config 'used_pairs'
-def regex_fiat_or():
+def regex_asset_or():
     fiat_regex_or = str()
 
     for asset, data in assets.items():
-        if asset.startswith("Z"):
-            # All fiat currencies start with a 'Z'
-            fiat_regex_or += data["altname"] + "|"
+        fiat_regex_or += data["altname"] + "|"
 
     return fiat_regex_or[:-1]
 
@@ -2083,8 +2092,9 @@ trade_handler = ConversationHandler(
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler(comp("^((?=.*?\d)\d*[.]?\d*)$"), trade_price, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
-            [RegexHandler(comp("^(" + regex_fiat_or() + ")$"), trade_vol_type, pass_chat_data=True),
-             RegexHandler(comp("^(ALL)$"), trade_vol_type_all, pass_chat_data=True),
+            [RegexHandler(comp("^(" + regex_asset_or() + ")$"), trade_vol_asset, pass_chat_data=True),
+             RegexHandler(comp("^(ALL)$"), trade_vol_all, pass_chat_data=True),
+             RegexHandler(comp("^(VOLUME)$"), trade_vol_volume, pass_chat_data=True),
              RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOLUME:
             [RegexHandler(comp("^((?=.*?\d)\d*[.]?\d*)$"), trade_volume, pass_chat_data=True)],
