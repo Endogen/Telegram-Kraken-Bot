@@ -94,6 +94,8 @@ orders = list()
 assets = dict()
 # All assets from config with their trading pair
 pairs = dict()
+# Minimum order limits for assets
+limits = dict()
 
 
 # Enum for workflow handler
@@ -292,7 +294,6 @@ def balance_cmd(bot, update):
 
                 # Current asset is a coin and not a fiat currency
                 else:
-                    # TODO: Simplify this - no FOR
                     for asset, data in assets.items():
                         if order_desc_list[2].endswith(data["altname"]):
                             order_currency = order_desc_list[2][:-len(data["altname"])]
@@ -421,9 +422,9 @@ def trade_sell_all_confirm(bot, update):
         balance_asset = assets[balance_asset]["altname"]
 
         # Make sure that the order size is at least the minimum order limit
-        if balance_asset in config["min_order_size"]:
-            if float(amount) < float(config["min_order_size"][balance_asset]):
-                msg_error = emo_er + " Volume to low. Must be > " + config["min_order_size"][balance_asset]
+        if balance_asset in limits:
+            if float(amount) < float(limits[balance_asset]):
+                msg_error = emo_er + " Volume to low. Must be > " + limits[balance_asset]
                 msg_next = emo_wa + " Selling next asset..."
 
                 update.message.reply_text(msg_error + "\n" + msg_next)
@@ -652,9 +653,9 @@ def trade_volume_asset(bot, update, chat_data):
     chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
 
     # Make sure that the order size is at least the minimum order limit
-    if chat_data["currency"] in config["min_order_size"]:
-        if float(chat_data["volume"]) < float(config["min_order_size"][chat_data["currency"]]):
-            msg_error = emo_er + " Volume to low. Must be > " + config["min_order_size"][chat_data["currency"]]
+    if chat_data["currency"] in limits:
+        if float(chat_data["volume"]) < float(limits[chat_data["currency"]]):
+            msg_error = emo_er + " Volume to low. Must be > " + limits[chat_data["currency"]]
             update.message.reply_text(msg_error)
             log(logging.WARNING, msg_error)
 
@@ -675,9 +676,9 @@ def trade_volume(bot, update, chat_data):
     chat_data["volume"] = "{0:.8f}".format(float(update.message.text.replace(",", ".")))
 
     # Make sure that the order size is at least the minimum order limit
-    if chat_data["currency"] in config["min_order_size"]:
-        if float(chat_data["volume"]) < float(config["min_order_size"][chat_data["currency"]]):
-            msg_error = emo_er + " Volume to low. Must be > " + config["min_order_size"][chat_data["currency"]]
+    if chat_data["currency"] in limits:
+        if float(chat_data["volume"]) < float(limits[chat_data["currency"]]):
+            msg_error = emo_er + " Volume to low. Must be > " + limits[chat_data["currency"]]
             update.message.reply_text(msg_error)
             log(logging.WARNING, msg_error)
 
@@ -1939,6 +1940,18 @@ def init_cmd(bot, update):
     msg = " Reading asset pairs... DONE"
     updater.bot.edit_message_text(emo_do + msg, chat_id=uid, message_id=m.message_id)
 
+    # Order limits -----------------
+
+    msg = " Reading order limits..."
+    m = updater.bot.send_message(uid, emo_wa + msg, disable_notification=True)
+
+    # Save order limits in global variable
+    global limits
+    limits = min_order_size()
+
+    msg = " Reading order limits... DONE"
+    updater.bot.edit_message_text(emo_do + msg, chat_id=uid, message_id=m.message_id)
+
     # Sanity check -----------------
 
     msg = " Checking sanity..."
@@ -2027,7 +2040,8 @@ def btfy(text):
 # Return state of Kraken API
 # State will be extracted from Kraken Status website
 def api_state():
-    response = requests.get("https://status.kraken.com")
+    url = "https://status.kraken.com"
+    response = requests.get(url)
 
     # If response code is not 200, return state 'UNKNOWN'
     if response.status_code != 200:
@@ -2035,10 +2049,36 @@ def api_state():
 
     soup = BeautifulSoup(response.content, "html.parser")
 
-    for data in soup.find_all(class_="component-inner-container"):
-        for data2 in data.find_all(class_="name"):
-            if "API" in data2.get_text():
-                return data.find(class_="component-status").get_text().strip()
+    for comp_inner_cont in soup.find_all(class_="component-inner-container"):
+        for name in comp_inner_cont.find_all(class_="name"):
+            if "API" in name.get_text():
+                return comp_inner_cont.find(class_="component-status").get_text().strip()
+
+
+# Return dictionary with asset name as key and order limit as value
+def min_order_size():
+    url = "https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-"
+    response = requests.get(url)
+
+    # If response code is not 200, return empty dictionary
+    if response.status_code != 200:
+        return {}
+
+    min_order_size = dict()
+
+    soup = BeautifulSoup(response.content, "html.parser")
+
+    for article_body in soup.find_all(class_="article-body"):
+        for ul in article_body.find_all("ul"):
+            for li in ul.find_all("li"):
+                text = li.get_text().strip()
+                limit = text[text.find(":") + 1:].strip()
+                match = re.search('\((.+?)\)', text)
+
+                if match:
+                    min_order_size[match.group(1)] = limit
+
+            return min_order_size
 
 
 # Returns a pre compiled Regex pattern to ignore case
@@ -2102,7 +2142,7 @@ dispatcher.add_handler(CommandHandler("reload", reload_cmd))
 dispatcher.add_handler(CommandHandler("state", state_cmd))
 
 
-# TODO: Use enums inside RegexHandlers?
+# TODO: Use enums inside RegexHandlers
 # FUNDING conversation handler
 funding_handler = ConversationHandler(
     entry_points=[CommandHandler('funding', funding_cmd)],
