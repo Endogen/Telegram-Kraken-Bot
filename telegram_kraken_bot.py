@@ -328,9 +328,7 @@ def trade_cmd(bot, update):
         KeyboardButton(KeyboardEnum.SELL.clean())
     ]
 
-    cancel_btn = [
-        KeyboardButton(KeyboardEnum.CANCEL.clean())
-    ]
+    cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
 
     menu = build_menu(buttons, n_cols=2, footer_buttons=cancel_btn)
     reply_mrk = ReplyKeyboardMarkup(menu, resize_keyboard=True)
@@ -345,9 +343,7 @@ def trade_buy_sell(bot, update, chat_data):
 
     reply_msg = "Choose currency"
 
-    cancel_btn = [
-        KeyboardButton(KeyboardEnum.CANCEL.clean())
-    ]
+    cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
 
     # If SELL chosen, then include button 'ALL' to sell everything
     if chat_data["buysell"].upper() == KeyboardEnum.SELL.clean():
@@ -476,7 +472,9 @@ def trade_currency(bot, update, chat_data):
     chat_data["two"] = to_asset
 
     button = [KeyboardButton(KeyboardEnum.MARKET_PRICE.clean())]
-    reply_mrk = ReplyKeyboardMarkup(build_menu(button), resize_keyboard=True)
+    cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
+    reply_mrk = ReplyKeyboardMarkup(build_menu(button, footer_buttons=cancel_btn), resize_keyboard=True)
+
     reply_msg = "Enter price per coin in " + bold(assets[chat_data["two"]]["altname"])
     update.message.reply_text(reply_msg, reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
     return WorkflowEnum.TRADE_PRICE
@@ -502,7 +500,7 @@ def trade_price(bot, update, chat_data):
     if chat_data["market_price"] and chat_data["buysell"] == "buy":
         volume_btn = [KeyboardButton(KeyboardEnum.VOLUME.clean())]
         cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
-        menu = build_menu(volume_btn, n_cols=2, footer_buttons=cancel_btn)
+        menu = build_menu(volume_btn, footer_buttons=cancel_btn)
         reply_mrk = ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
     elif chat_data["market_price"] and chat_data["buysell"] == "sell":
@@ -517,13 +515,11 @@ def trade_price(bot, update, chat_data):
     else:
         buttons = [
             KeyboardButton(assets[chat_data["two"]]["altname"]),
-            KeyboardButton(KeyboardEnum.VOLUME.clean())
+            KeyboardButton(KeyboardEnum.VOLUME.clean()),
+            KeyboardButton(KeyboardEnum.ALL.clean())
         ]
-        cancel_btn = [
-            KeyboardButton(KeyboardEnum.ALL.clean()),
-            KeyboardButton(KeyboardEnum.CANCEL.clean())
-        ]
-        menu = build_menu(buttons, n_cols=2, footer_buttons=cancel_btn)
+        cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
+        menu = build_menu(buttons, n_cols=3, footer_buttons=cancel_btn)
         reply_mrk = ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
@@ -700,6 +696,8 @@ def trade_volume(bot, update, chat_data):
 # Calculate total value and show order description and confirmation for order creation
 # This method is used in 'trade_volume' and in 'trade_vol_type_all'
 def trade_show_conf(update, chat_data):
+    asset_two = assets[chat_data["two"]]["altname"]
+
     # Generate trade string to show at confirmation
     if chat_data["market_price"]:
         # Send request to Kraken to get current trading price for pair
@@ -716,25 +714,31 @@ def trade_show_conf(update, chat_data):
 
         trade_str = (chat_data["buysell"].lower() + " " +
                      trim_zeros(chat_data["volume"]) + " " +
-                     chat_data["currency"] + " @ market price")
+                     chat_data["currency"] + " @ market price ≈" +
+                     trim_zeros(chat_data["price"]) + " " +
+                     asset_two)
 
     else:
         trade_str = (chat_data["buysell"].lower() + " " +
                      trim_zeros(chat_data["volume"]) + " " +
                      chat_data["currency"] + " @ limit " +
-                     chat_data["price"])
+                     trim_zeros(chat_data["price"]) + " " +
+                     asset_two)
 
-    # If fiat currency, show 2 digits after decimal place
+    # If fiat currency, then show 2 digits after decimal place
     if chat_data["two"].startswith("Z"):
         # Calculate total value of order
         total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
-    # ... else show 8 digits after decimal place
+    # Else, show 8 digits after decimal place
     else:
         # Calculate total value of order
         total_value = "{0:.8f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
 
-    buy_from_cur = assets[chat_data["two"]]["altname"]
-    total_value_str = "(Value: " + str(trim_zeros(total_value)) + " " + buy_from_cur + ")"
+    if chat_data["market_price"]:
+        total_value_str = "(Value: ≈" + str(trim_zeros(total_value)) + " " + asset_two + ")"
+    else:
+        total_value_str = "(Value: " + str(trim_zeros(total_value)) + " " + asset_two + ")"
+
     reply_msg = " Place this order?\n" + trade_str + "\n" + total_value_str
     update.message.reply_text(emo_qu + reply_msg, reply_markup=keyboard_confirm())
 
@@ -742,7 +746,7 @@ def trade_show_conf(update, chat_data):
 # The user has to confirm placing the order
 def trade_confirm(bot, update, chat_data):
     if update.message.text.upper() == KeyboardEnum.NO.clean():
-        return cancel(bot, update)
+        return cancel(bot, update, chat_data=chat_data)
 
     update.message.reply_text(emo_wa + " Placing order...")
 
@@ -803,6 +807,7 @@ def trade_confirm(bot, update, chat_data):
     else:
         update.message.reply_text("Undefined state: no error and no TXID")
 
+    clear_chat_data(chat_data)
     return ConversationHandler.END
 
 
@@ -975,7 +980,7 @@ def price_cmd(bot, update):
 
         for pair, data in res_data["result"].items():
             last_trade_price = trim_zeros(data["c"][0])
-            coin = list(pairs.keys())[list(pairs.values()).index(pair)]  # TODO: Use this more often?
+            coin = list(pairs.keys())[list(pairs.values()).index(pair)]
             msg += coin + ": " + last_trade_price + " " + config["used_pairs"][coin] + "\n"
 
         update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
@@ -1468,7 +1473,7 @@ def funding_withdraw_volume(bot, update, chat_data):
 # Withdraw funds from wallet
 def funding_withdraw_confirm(bot, update, chat_data):
     if update.message.text.upper() == KeyboardEnum.NO.clean():
-        return cancel(bot, update)
+        return cancel(bot, update, chat_data=chat_data)
 
     update.message.reply_text(emo_wa + " Withdrawal initiated...")
 
@@ -1509,6 +1514,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
         msg = " Undefined state: no error and no REFID"
         update.message.reply_text(emo_er + msg)
 
+    clear_chat_data(chat_data)
     return ConversationHandler.END
 
 
@@ -1662,7 +1668,7 @@ def settings_save(bot, update, chat_data):
 # Confirm saving new setting and restart bot
 def settings_confirm(bot, update, chat_data):
     if update.message.text.upper() == KeyboardEnum.NO.clean():
-        return cancel(bot, update)
+        return cancel(bot, update, chat_data=chat_data)
 
     # Set new value in config dictionary
     config[chat_data["setting"]] = chat_data["value"]
@@ -1677,8 +1683,21 @@ def settings_confirm(bot, update, chat_data):
     restart_cmd(bot, update)
 
 
+# Remove all data from 'chat_data' since we are canceling / ending
+# the conversation. If this is not done, next conversation will
+# have all the old values
+def clear_chat_data(chat_data):
+    if chat_data:
+        for key in list(chat_data.keys()):
+            del chat_data[key]
+
+
 # Will show a cancel message, end the conversation and show the default keyboard
-def cancel(bot, update):
+def cancel(bot, update, chat_data=None):
+    # Clear 'chat_data' for next conversation
+    clear_chat_data(chat_data)
+
+    # Show the commands keyboard and end the current conversation
     update.message.reply_text(emo_ca + " Canceled...", reply_markup=keyboard_cmds())
     return ConversationHandler.END
 
@@ -2164,7 +2183,8 @@ trade_handler = ConversationHandler(
         WorkflowEnum.TRADE_SELL_ALL_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), trade_sell_all_confirm)],
         WorkflowEnum.TRADE_PRICE:
-            [RegexHandler(comp("^((?=.*?\d)\d*[.,]?\d*|MARKET PRICE)$"), trade_price, pass_chat_data=True)],
+            [RegexHandler(comp("^((?=.*?\d)\d*[.,]?\d*|MARKET PRICE)$"), trade_price, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOL_TYPE:
             [RegexHandler(comp("^(" + regex_asset_or() + ")$"), trade_vol_asset, pass_chat_data=True),
              RegexHandler(comp("^(ALL)$"), trade_vol_all, pass_chat_data=True),
