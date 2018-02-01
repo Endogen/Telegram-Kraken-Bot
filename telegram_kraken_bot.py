@@ -468,9 +468,9 @@ def trade_sell_all_confirm(bot, update):
 def trade_currency(bot, update, chat_data):
     chat_data["currency"] = update.message.text.upper()
 
-    from_asset, to_asset = assets_from_pair(pairs[chat_data["currency"]])
-    chat_data["one"] = from_asset
-    chat_data["two"] = to_asset
+    asset_one, asset_two = assets_from_pair(pairs[chat_data["currency"]])
+    chat_data["one"] = asset_one
+    chat_data["two"] = asset_two
 
     button = [KeyboardButton(KeyboardEnum.MARKET_PRICE.clean())]
     cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
@@ -495,14 +495,14 @@ def trade_price(bot, update, chat_data):
 
     reply_msg = "How to enter the volume?"
 
-    # If price is 'MARKET PRICE' and it's a buy-order,
-    # show only volume option 'VOLUME' because otherwise there
-    # is no way to get the correct volume if market price is not known
+    # If price is 'MARKET PRICE' and it's a buy-order, don't show options
+    # how to enter volume since there is only one way to do it
     if chat_data["market_price"] and chat_data["buysell"] == "buy":
-        volume_btn = [KeyboardButton(KeyboardEnum.VOLUME.clean())]
-        cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
-        menu = build_menu(volume_btn, footer_buttons=cancel_btn)
-        reply_mrk = ReplyKeyboardMarkup(menu, resize_keyboard=True)
+        cancel_btn = build_menu([KeyboardButton(KeyboardEnum.CANCEL.clean())])
+        reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
+        update.message.reply_text("Enter volume", reply_markup=reply_mrk)
+        chat_data["vol_type"] = KeyboardEnum.VOLUME.clean()
+        return WorkflowEnum.TRADE_VOLUME
 
     elif chat_data["market_price"] and chat_data["buysell"] == "sell":
         buttons = [
@@ -510,8 +510,8 @@ def trade_price(bot, update, chat_data):
             KeyboardButton(KeyboardEnum.VOLUME.clean())
         ]
         cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
-        menu = build_menu(buttons, n_cols=2, footer_buttons=cancel_btn)
-        reply_mrk = ReplyKeyboardMarkup(menu, resize_keyboard=True)
+        cancel_btn = build_menu(buttons, n_cols=2, footer_buttons=cancel_btn)
+        reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
 
     else:
         buttons = [
@@ -520,8 +520,8 @@ def trade_price(bot, update, chat_data):
             KeyboardButton(KeyboardEnum.ALL.clean())
         ]
         cancel_btn = [KeyboardButton(KeyboardEnum.CANCEL.clean())]
-        menu = build_menu(buttons, n_cols=3, footer_buttons=cancel_btn)
-        reply_mrk = ReplyKeyboardMarkup(menu, resize_keyboard=True)
+        cancel_btn = build_menu(buttons, n_cols=3, footer_buttons=cancel_btn)
+        reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
 
     update.message.reply_text(reply_msg, reply_markup=reply_mrk)
     return WorkflowEnum.TRADE_VOL_TYPE
@@ -538,7 +538,10 @@ def trade_vol_asset(bot, update, chat_data):
 
     reply_msg = "Enter volume in " + bold(chat_data["vol_type"])
 
-    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.MARKDOWN)
+    cancel_btn = build_menu([KeyboardButton(KeyboardEnum.CANCEL.clean())])
+    reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk, parse_mode=ParseMode.MARKDOWN)
+
     return WorkflowEnum.TRADE_VOLUME_ASSET
 
 
@@ -549,7 +552,10 @@ def trade_vol_volume(bot, update, chat_data):
 
     reply_msg = "Enter volume"
 
-    update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
+    cancel_btn = build_menu([KeyboardButton(KeyboardEnum.CANCEL.clean())])
+    reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
+    update.message.reply_text(reply_msg, reply_markup=reply_mrk)
+
     return WorkflowEnum.TRADE_VOLUME
 
 
@@ -660,7 +666,9 @@ def trade_volume_asset(bot, update, chat_data):
             log(logging.WARNING, msg_error)
 
             reply_msg = "Enter new volume"
-            update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
+            cancel_btn = build_menu([KeyboardButton(KeyboardEnum.CANCEL.clean())])
+            reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
+            update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
             return WorkflowEnum.TRADE_VOLUME
     else:
@@ -683,7 +691,9 @@ def trade_volume(bot, update, chat_data):
             log(logging.WARNING, msg_error)
 
             reply_msg = "Enter new volume"
-            update.message.reply_text(reply_msg, reply_markup=ReplyKeyboardRemove())
+            cancel_btn = build_menu([KeyboardButton(KeyboardEnum.CANCEL.clean())])
+            reply_mrk = ReplyKeyboardMarkup(cancel_btn, resize_keyboard=True)
+            update.message.reply_text(reply_msg, reply_markup=reply_mrk)
 
             return WorkflowEnum.TRADE_VOLUME
     else:
@@ -701,6 +711,8 @@ def trade_show_conf(update, chat_data):
 
     # Generate trade string to show at confirmation
     if chat_data["market_price"]:
+        update.message.reply_text(emo_wa + " Retrieving estimated price...")
+
         # Send request to Kraken to get current trading price for pair
         res_data = kraken_api("Ticker", data={"pair": pairs[chat_data["currency"]]}, private=False)
 
@@ -1693,6 +1705,7 @@ def clear_chat_data(chat_data):
             del chat_data[key]
 
 
+# FIXME: If canceled so that workflow enums trigger this function, then chat_data is not cleared
 # Will show a cancel message, end the conversation and show the default keyboard
 def cancel(bot, update, chat_data=None):
     # Clear 'chat_data' for next conversation
@@ -2227,13 +2240,15 @@ trade_handler = ConversationHandler(
              RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOL_TYPE:
             [RegexHandler(comp("^(" + regex_asset_or() + ")$"), trade_vol_asset, pass_chat_data=True),
-             RegexHandler(comp("^(ALL)$"), trade_vol_all, pass_chat_data=True),
              RegexHandler(comp("^(VOLUME)$"), trade_vol_volume, pass_chat_data=True),
+             RegexHandler(comp("^(ALL)$"), trade_vol_all, pass_chat_data=True),
              RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOLUME:
-            [RegexHandler(comp("^^(?=.*?\d)\d*[.,]?\d*$"), trade_volume, pass_chat_data=True)],
+            [RegexHandler(comp("^^(?=.*?\d)\d*[.,]?\d*$"), trade_volume, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_VOLUME_ASSET:
-            [RegexHandler(comp("^^(?=.*?\d)\d*[.,]?\d*$"), trade_volume_asset, pass_chat_data=True)],
+            [RegexHandler(comp("^^(?=.*?\d)\d*[.,]?\d*$"), trade_volume_asset, pass_chat_data=True),
+             RegexHandler(comp("^(CANCEL)$"), cancel)],
         WorkflowEnum.TRADE_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), trade_confirm, pass_chat_data=True)]
     },
