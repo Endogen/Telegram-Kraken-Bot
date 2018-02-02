@@ -17,7 +17,7 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
 - Supports all currencies available on Kraken (configurable)
 - Change bot settings via bot
 - Following Kraken functionality is implemented
-    - Create a buy / sell order (type _limit_)
+    - Create a buy / sell order (type _limit_ or _market_)
     - Lookup last trade price for currencies
     - Show all your assets
     - Current market value of assets (one or all)
@@ -55,16 +55,16 @@ This file holds the configuration for your bot. You have to at least edit the va
 
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow [these instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
-- __base_currency__: The base fiat currency you are trading from / to. Theoretically you could enter any coin here but right now only fiat currencies are supported by this bot. Currently the following are supported by Kraken: `EUR`, `USD`, `CAD`, `GBR`, `JPY` and `KRW`.
+- __base_currency__: Command `/value` will use the base currency and show you the current value in this currency. This only works if all your assets can be traded to this currency. You can enter here any asset: `EUR`, `USD`, `XBT`, `ETH`, ...
 - __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a job and if the status changes to `closed` (which means that the trade was successfully executed) you will be notified by a message
 - __check\_trade\_time__: Time in seconds to check for order status change (see setting `check_trade`)
 - __update_url__: URL to the latest GitHub version of the script. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you can use the default value
 - __update_hash__: Hash of the latest version of the script. __Please don't change this__. Will be set automatically after updating
-- __update_check__: (_currently not used_) If `true`, then periodic update-checks (see also option `update_time` for timespan) are performed. If there is a bot-update available then you will be notified by a message
-- __update_time__: (_currently not used_) Time in seconds to check for bot-updates. `update_check` has to be enabled
+- __update_check__: If `true`, then periodic update-checks (see also option `update_time` for timespan) are performed. If there is a bot-update available then you will be notified by a message
+- __update_time__: Time in seconds to check for bot-updates. `update_check` has to be enabled
 - __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
 - __show\_access\_denied__: If `true`, the owner and the user who tries to access the bot will both be notified. If `false`, no one will be notified. Set to `false` if you get spammed with `Access denied` messages
-- __used_coins__: List of currencies to use in the bot. You can choose from all available currencies at Kraken: `XBT`, `BCH`, `DASH`, `EOS`, `ETC`, `ETH`, `GNO`, `ICN`, `LTC`, `MLN`, `REP`, `USDT`, `XDG`, `XLM`, `XMR`, `XRP`, `ZEC`
+- __used_pairs__: List of pairs to use in the bot. You can choose from all available pairs at Kraken: `"XBT": "EUR"`, `"ETH": "EUR"`, `"XLM": "XBT"`, ...
 - __coin_charts__: Dictionary of all available currencies with their corresponding chart URLs. If you want to add new ones, get the plain URL of the chart, save it with [tinyurl.com](http://tinyurl.com) and add the new URL to the config file
 - __log\_to\_file__: If `true`, debug-output to console will be saved in file `debug.log`
 - __log_level__: Has to be an __integer__. Choose the log-level depending on this: DEBUG = `10`, INFO = `20`, WARNING = `30`, ERROR = `40`, CRITICAL = `50`
@@ -73,7 +73,6 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __retries_counter__: Number of times a Kraken API call will be retried if option `retries` is enabled
 - __single_price__: If `true`, no need to choose a coin in `/price` command. Only one message will be send with current prices for all coins that are configured in setting `used_coins`
 - __single_chart__: If `true`, no need to choose a coin in `/chart` command. Only one message will be send with links to all coins that are configured in setting `used_coins`
-- __min\_order\_size__: Dictionary of all order size limits for every coin. You can not create an order with a smaller volume then defined in this setting. These values should be the same as defined by Kraken on [this](https://support.kraken.com/hc/en-us/articles/205893708-What-is-the-minimum-order-size-) website
 - __webhook_enabled__: _Not used yet_
 - __webhook_listen__: _Not used yet_
 - __webhook_port__: _Not used yet_
@@ -142,7 +141,7 @@ If you configured the bot correctly and execute the script, you should see some 
 
 ### Available commands
 ##### Related to Kraken
-- `/trade`: Start a workflow that leads to the creation of a new order of type _limit_ (buy or sell)
+- `/trade`: Create a new buy or sell order of type `limit` or `market`
 - `/orders`: Show all open orders (buy and sell) and close a specific one or all if desired
 - `/balance`: Show all assets and the volume available to trade if open orders exist already
 - `/price`: Return last trade price for the selected crypto-currency
@@ -203,7 +202,6 @@ I know that it is unusual to have the whole source code in just one file. At som
 ##### Priority 3
 - [ ] Add command `/stats` that shows statistics
 - [ ] Closed order notifications: Show gain / loss if association between orders possible
-- [ ] Support other exchanges
 - [ ] Internationalisation
 
 ## Troubleshooting
@@ -222,12 +220,17 @@ I use this bot personally to trade on Kraken so i guess it's kind of stable but 
 ## Donating
 If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made some money because of it, please consider donating whatever amount you like to:
 
-#### Bitcoin
-```
-1A8eQ7hA1xUH7ymoXvgRbGzRpPekSxR3DV
-```
-
-#### Monero
+#### Monero (XMR)
 ```
 44U9LPxGJimEtRzntsW3vuUpdkAEKWWLe5VYjGrq5vqGQoJdi8e3fKP1U9h8z8xJFxVMPtx2NpvYB6bbSXVjd8KJHjGH34X
 ```
+
+#### Ethereum (ETH)
+```
+0xccb2fa97f47f0d58558d878f359013fef4097937
+```
+
+#### How else can you help?
+If you can't or don't want to donate coins, please consider signing up on exchanges below. They are really good ones and by using these links i get a share of the fee that you normally pay to the exchange.
+
+- [Binance](https://www.binance.com/?ref=16770868)
