@@ -1705,7 +1705,6 @@ def clear_chat_data(chat_data):
             del chat_data[key]
 
 
-# FIXME: If canceled so that workflow enums trigger this function, then chat_data is not cleared
 # Will show a cancel message, end the conversation and show the default keyboard
 def cancel(bot, update, chat_data=None):
     # Clear 'chat_data' for next conversation
@@ -2162,11 +2161,11 @@ funding_handler = ConversationHandler(
     states={
         WorkflowEnum.FUNDING_CURRENCY:
             [RegexHandler(comp("^(" + regex_coin_or() + ")$"), funding_currency, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.FUNDING_CHOOSE:
             [RegexHandler(comp("^(DEPOSIT)$"), funding_deposit, pass_chat_data=True),
              RegexHandler(comp("^(WITHDRAW)$"), funding_withdraw),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.WITHDRAW_WALLET:
             [MessageHandler(Filters.text, funding_withdraw_wallet, pass_chat_data=True)],
         WorkflowEnum.WITHDRAW_VOLUME:
@@ -2174,7 +2173,7 @@ funding_handler = ConversationHandler(
         WorkflowEnum.WITHDRAW_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), funding_withdraw_confirm, pass_chat_data=True)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel, pass_chat_data=True)]
 )
 dispatcher.add_handler(funding_handler)
 
@@ -2228,31 +2227,31 @@ trade_handler = ConversationHandler(
     states={
         WorkflowEnum.TRADE_BUY_SELL:
             [RegexHandler(comp("^(BUY|SELL)$"), trade_buy_sell, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.TRADE_CURRENCY:
             [RegexHandler(comp("^(" + regex_coin_or() + ")$"), trade_currency, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel),
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True),
              RegexHandler(comp("^(ALL)$"), trade_sell_all)],
         WorkflowEnum.TRADE_SELL_ALL_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), trade_sell_all_confirm)],
         WorkflowEnum.TRADE_PRICE:
             [RegexHandler(comp("^((?=.*?\d)\d*[.,]?\d*|MARKET PRICE)$"), trade_price, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOL_TYPE:
             [RegexHandler(comp("^(" + regex_asset_or() + ")$"), trade_vol_asset, pass_chat_data=True),
              RegexHandler(comp("^(VOLUME)$"), trade_vol_volume, pass_chat_data=True),
              RegexHandler(comp("^(ALL)$"), trade_vol_all, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOLUME:
             [RegexHandler(comp("^^(?=.*?\d)\d*[.,]?\d*$"), trade_volume, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.TRADE_VOLUME_ASSET:
             [RegexHandler(comp("^^(?=.*?\d)\d*[.,]?\d*$"), trade_volume_asset, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)],
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)],
         WorkflowEnum.TRADE_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), trade_confirm, pass_chat_data=True)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
+    fallbacks=[CommandHandler('cancel', cancel, pass_chat_data=True)]
 )
 dispatcher.add_handler(trade_handler)
 
@@ -2288,7 +2287,7 @@ dispatcher.add_handler(value_handler)
 def settings_change_state():
     return [WorkflowEnum.SETTINGS_CHANGE,
             [RegexHandler(comp("^(" + regex_settings_or() + ")$"), settings_change, pass_chat_data=True),
-             RegexHandler(comp("^(CANCEL)$"), cancel)]]
+             RegexHandler(comp("^(CANCEL)$"), cancel, pass_chat_data=True)]]
 
 
 # Will return the SETTINGS_SAVE state for a conversation handler
