@@ -1,5 +1,5 @@
 # Telegram Kraken Bot
-Python 3 bot to trade on Kraken via Telegram messanger
+Python 3 bot to trade on [Kraken](https://www.kraken.com) via [Telegram messenger](https://telegram.org)
 
 <p align="center">
   <img src="demo.gif" alt="Demo GIF of bot">
@@ -187,13 +187,13 @@ I know that it is unusual to have the whole source code in just one file. At som
 - [x] Add possibility to change settings via bot
 - [x] Sanity check on start for configuration file
 - [x] Add possibility to sell __all__ assets immediately to current market value
-- [ ] Per asset: Sell to current market price
+- [x] Per asset: Sell to current market price
 
 ##### Priority 2
 - [x] Optimize code to call Kraken API less often
 - [x] Automatically check for updates (with configurable timespan)
 - [ ] Create webhook-version of this bot
-- [X] Log to file (every day a new logfile)
+- [x] Log to file (every day a new logfile)
 - [ ] Option: Only one open buy or sell order per asset
 - [ ] Send current market price of asset periodically
 - [ ] Backup (settings & bot) on update
@@ -230,7 +230,7 @@ If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made s
 0xccb2fa97f47f0d58558d878f359013fef4097937
 ```
 
-#### How else can you help?
-If you can't or don't want to donate coins, please consider signing up on exchanges below. They are really good ones and by using these links i get a share of the fee that you normally pay to the exchange.
+#### How else can you support me?
+If you can't or don't want to donate, please consider signing up on listed exchanges below. They are really good and by using these links to register an account i get a share of the trading-fee that you pay to the exchange.
 
 - [Binance](https://www.binance.com/?ref=16770868)
