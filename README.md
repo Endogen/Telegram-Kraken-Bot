@@ -197,8 +197,8 @@ I know that it is unusual to have the whole source code in just one file. At som
 - [ ] Periodically send current market price of a coin
 - [ ] Backup (settings & bot) on update
 - [ ] Show trends per asset in `/price` command
-- [ ] Point updates to GitHub releases with change logs
-- [ ] Option: Backup on update
+- [ ] Point updates to GitHub releases with change logs
+- [ ] Option: Backup on update
 
 ##### Priority 3
 - [ ] Internationalisation
