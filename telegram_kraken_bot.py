@@ -256,20 +256,14 @@ def balance_cmd(bot, update):
     res_balance = kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
-    if res_balance["error"]:
-        error = btfy(res_balance["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_balance, update):
         return
 
     # Send request to Kraken to get open orders
     res_orders = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
-    if res_orders["error"]:
-        error = btfy(res_orders["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_orders, update):
         return
 
     msg = str()
@@ -376,10 +370,7 @@ def trade_sell_all_confirm(bot, update):
     res_open_orders = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
-    if res_open_orders["error"]:
-        error = btfy(res_open_orders["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_open_orders, update):
         return
 
     # Close all currently open orders
@@ -392,20 +383,14 @@ def trade_sell_all_confirm(bot, update):
             res_open_orders = kraken_api("CancelOrder", data=req_data, private=True)
 
             # If Kraken replied with an error, show it
-            if res_open_orders["error"]:
-                error = "Not possible to close order\n" + order + "\n" + btfy(res_open_orders["error"][0])
-                update.message.reply_text(error)
-                log(logging.ERROR, error)
+            if handle_api_error(res_open_orders, update, "Not possible to close order\n" + order + "\n"):
                 return
 
     # Send request to Kraken to get current balance of all assets
     res_balance = kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
-    if res_balance["error"]:
-        error = btfy(res_balance["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_balance, update):
         return
 
     # Go over all assets and sell them
@@ -444,10 +429,7 @@ def trade_sell_all_confirm(bot, update):
         res_add_order = kraken_api("AddOrder", data=req_data, private=True)
 
         # If Kraken replied with an error, show it
-        if res_add_order["error"]:
-            error = btfy(res_add_order["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_add_order, update):
             continue
 
         order_txid = res_add_order["result"]["txid"][0]
@@ -568,20 +550,14 @@ def trade_vol_all(bot, update, chat_data):
     res_balance = kraken_api("Balance", private=True)
 
     # If Kraken replied with an error, show it
-    if res_balance["error"]:
-        error = btfy(res_balance["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_balance, update):
         return
 
     # Send request to Kraken to get open orders
     res_orders = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
-    if res_orders["error"]:
-        error = btfy(res_orders["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_orders, update):
         return
 
     # BUY -----------------
@@ -717,10 +693,7 @@ def trade_show_conf(update, chat_data):
         res_data = kraken_api("Ticker", data={"pair": pairs[chat_data["currency"]]}, private=False)
 
         # If Kraken replied with an error, show it
-        if res_data["error"]:
-            error = btfy(res_data["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_data, update):
             return
 
         chat_data["price"] = res_data["result"][pairs[chat_data["currency"]]]["c"][0]
@@ -781,10 +754,7 @@ def trade_confirm(bot, update, chat_data):
     res_add_order = kraken_api("AddOrder", req_data, private=True)
 
     # If Kraken replied with an error, show it
-    if res_add_order["error"]:
-        error = btfy(res_add_order["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_add_order, update):
         return
 
     # If there is a transaction id then the order was placed successfully
@@ -798,10 +768,7 @@ def trade_confirm(bot, update, chat_data):
         res_query_order = kraken_api("QueryOrders", data=req_data, private=True)
 
         # If Kraken replied with an error, show it
-        if res_query_order["error"]:
-            error = btfy(res_query_order["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_query_order, update):
             return
 
         if res_query_order["result"][order_txid]:
@@ -833,10 +800,7 @@ def orders_cmd(bot, update):
     res_data = kraken_api("OpenOrders", private=True)
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_data, update):
         return
 
     # Reset global orders list
@@ -914,11 +878,7 @@ def orders_close_all(bot, update):
             res_data = kraken_api("CancelOrder", data={"txid": order_id}, private=True)
 
             # If Kraken replied with an error, show it
-            if res_data["error"]:
-                error = "Order not closed:\n" + order_id + "\n" + res_data["error"][0]
-                update.message.reply_text(btfy(error))
-                log(logging.ERROR, error)
-
+            if handle_api_error(res_data, update, "Order not closed:\n" + order_id + "\n"):
                 # If we are currently not closing the last order,
                 # show message that we a continuing with the next one
                 if x+1 != len(orders):
@@ -951,10 +911,7 @@ def orders_close_order(bot, update):
     res_data = kraken_api("CancelOrder", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_data, update):
         return
 
     msg = emo_fi + " " + bold("Order closed:\n" + req_data["txid"])
@@ -983,10 +940,7 @@ def price_cmd(bot, update):
         res_data = kraken_api("Ticker", data=req_data, private=False)
 
         # If Kraken replied with an error, show it
-        if res_data["error"]:
-            error = btfy(res_data["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_data, update):
             return
 
         msg = str()
@@ -1026,10 +980,7 @@ def price_currency(bot, update):
     res_data = kraken_api("Ticker", data=req_data, private=False)
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_data, update):
         return
 
     last_trade_price = trim_zeros(res_data["result"][req_data["pair"]]["c"][0])
@@ -1070,10 +1021,7 @@ def value_currency(bot, update):
         res_trade_balance = kraken_api("TradeBalance", data=req_asset, private=True)
 
         # If Kraken replied with an error, show it
-        if res_trade_balance["error"]:
-            error = btfy(res_trade_balance["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_trade_balance, update):
             return
 
         for asset, data in assets.items():
@@ -1095,10 +1043,7 @@ def value_currency(bot, update):
         res_balance = kraken_api("Balance", private=True)
 
         # If Kraken replied with an error, show it
-        if res_balance["error"]:
-            error = btfy(res_balance["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_balance, update):
             return
 
         req_price = dict()
@@ -1109,10 +1054,7 @@ def value_currency(bot, update):
         res_price = kraken_api("Ticker", data=req_price, private=False)
 
         # If Kraken replied with an error, show it
-        if res_price["error"]:
-            error = btfy(res_price["error"][0])
-            update.message.reply_text(error)
-            log(logging.ERROR, error)
+        if handle_api_error(res_price, update):
             return
 
         # Get last trade price
@@ -1201,10 +1143,7 @@ def history_cmd(bot, update):
     res_trades = kraken_api("TradesHistory", private=True)
 
     # If Kraken replied with an error, show it
-    if res_trades["error"]:
-        error = btfy(res_trades["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_trades, update):
         return
 
     # Reset global trades list
@@ -1425,10 +1364,7 @@ def funding_deposit(bot, update, chat_data):
     res_dep_meth = kraken_api("DepositMethods", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
-    if res_dep_meth["error"]:
-        error = btfy(res_dep_meth["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_dep_meth, update):
         return
 
     req_data["method"] = res_dep_meth["result"][0]["method"]
@@ -1437,10 +1373,7 @@ def funding_deposit(bot, update, chat_data):
     res_dep_addr = kraken_api("DepositAddresses", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
-    if res_dep_addr["error"]:
-        error = btfy(res_dep_addr["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_dep_addr, update):
         return
 
     # Wallet found
@@ -1499,10 +1432,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     res_data = kraken_api("WithdrawInfo", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_data, update):
         return
 
     # Add up volume and fee and set the new value as 'amount'
@@ -1513,10 +1443,7 @@ def funding_withdraw_confirm(bot, update, chat_data):
     res_data = kraken_api("Withdraw", data=req_data, private=True)
 
     # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        update.message.reply_text(error)
-        log(logging.ERROR, error)
+    if handle_api_error(res_data, update):
         return
 
     # If a REFID exists, the withdrawal was initiated
@@ -2126,6 +2053,15 @@ def regex_settings_or():
         settings_regex_or += key.upper() + "|"
 
     return settings_regex_or[:-1]
+
+
+def handle_api_error(response, update, additional_msg=""):
+    if response["error"]:
+        error = btfy(additional_msg + response["error"][0])
+        update.message.reply_text(error)
+        log(logging.ERROR, error)
+        return True
+    return False
 
 
 # Handle all telegram and telegram.ext related errors
