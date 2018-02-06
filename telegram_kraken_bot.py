@@ -1114,6 +1114,11 @@ def state_cmd(bot, update):
     return ConversationHandler.END
 
 
+def start_cmd(bot, update):
+    msg = emo_be + " Welcome to Kraken-Telegram-Bot!"
+    update.message.reply_text(msg, reply_markup=keyboard_cmds())
+
+
 # Returns a string representation of a trade. Looks like this:
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
@@ -1831,7 +1836,7 @@ def init_cmd(bot, update):
     uid = config["user_id"]
     cmds = "/initialize - retry again\n/shutdown - shut down the bot"
 
-    # Show starting up message
+    # Show start up message
     msg = " Preparing Kraken-Bot"
     updater.bot.send_message(uid, emo_be + msg, disable_notification=True, reply_markup=ReplyKeyboardRemove())
 
@@ -1859,7 +1864,7 @@ def init_cmd(bot, update):
     msg = " Reading assets... DONE"
     updater.bot.edit_message_text(emo_do + msg, chat_id=uid, message_id=m.message_id)
 
-    # AssetPairs -----------------
+    # Asset pairs -----------------
 
     msg = " Reading asset pairs..."
     m = updater.bot.send_message(uid, emo_wa + msg, disable_notification=True)
@@ -2088,6 +2093,7 @@ dispatcher.add_handler(CommandHandler("initialize", init_cmd))
 dispatcher.add_handler(CommandHandler("balance", balance_cmd))
 dispatcher.add_handler(CommandHandler("reload", reload_cmd))
 dispatcher.add_handler(CommandHandler("state", state_cmd))
+dispatcher.add_handler(CommandHandler("start", start_cmd))
 
 
 # TODO: Use enums inside RegexHandlers
