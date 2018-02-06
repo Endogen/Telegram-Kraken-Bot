@@ -223,7 +223,7 @@ If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made s
 
 #### Monero (XMR)
 ```
-44U9LPxGJimEtRzntsW3vuUpdkAEKWWLe5VYjGrq5vqGQoJdi8e3fKP1U9h8z8xJFxVMPtx2NpvYB6bbSXVjd8KJHjGH34X
+46tUdg4LnqSKroZBR1hnQ2K6NnmPyrYjC8UBLhHiKYufCipQUaACfxcBeQUmYGFvqCdU3ghCpYq2o5Aqyj1nH6mfLVNka26
 ```
 
 #### Ethereum (ETH)
