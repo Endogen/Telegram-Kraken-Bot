@@ -421,6 +421,7 @@ def trade_sell_all_confirm(bot, update):
 
         req_data = dict()
         req_data["type"] = "sell"
+        req_data["trading_agreement"] = "agree"
         req_data["pair"] = pairs[balance_asset]
         req_data["ordertype"] = "market"
         req_data["volume"] = amount
@@ -741,6 +742,7 @@ def trade_confirm(bot, update, chat_data):
     # Order type MARKET
     if chat_data["market_price"]:
         req_data["ordertype"] = "market"
+        req_data["trading_agreement"] = "agree"
     # Order type LIMIT
     else:
         req_data["ordertype"] = "limit"
