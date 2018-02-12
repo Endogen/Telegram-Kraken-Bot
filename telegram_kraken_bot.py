@@ -433,14 +433,6 @@ def trade_sell_all_confirm(bot, update):
         if handle_api_error(res_add_order, update):
             continue
 
-        order_txid = res_add_order["result"]["txid"][0]
-
-        # Add Job to JobQueue to check status of created order (if setting is enabled)
-        if config["check_trade"]:
-            trade_time = config["check_trade_time"]
-            context = dict(order_txid=order_txid)
-            job_queue.run_repeating(order_state_check, trade_time, context=context)
-
     msg = emo_fi + " Created orders to sell all assets"
     update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
@@ -699,18 +691,18 @@ def trade_show_conf(update, chat_data):
 
         chat_data["price"] = res_data["result"][pairs[chat_data["currency"]]]["c"][0]
 
-        trade_str = (chat_data["buysell"].lower() + " " +
-                     trim_zeros(chat_data["volume"]) + " " +
-                     chat_data["currency"] + " @ market price ≈" +
-                     trim_zeros(chat_data["price"]) + " " +
-                     asset_two)
+        chat_data["trade_str"] = (chat_data["buysell"].lower() + " " +
+                                  trim_zeros(chat_data["volume"]) + " " +
+                                  chat_data["currency"] + " @ market price ≈" +
+                                  trim_zeros(chat_data["price"]) + " " +
+                                  asset_two)
 
     else:
-        trade_str = (chat_data["buysell"].lower() + " " +
-                     trim_zeros(chat_data["volume"]) + " " +
-                     chat_data["currency"] + " @ limit " +
-                     trim_zeros(chat_data["price"]) + " " +
-                     asset_two)
+        chat_data["trade_str"] = (chat_data["buysell"].lower() + " " +
+                                  trim_zeros(chat_data["volume"]) + " " +
+                                  chat_data["currency"] + " @ limit " +
+                                  trim_zeros(chat_data["price"]) + " " +
+                                  asset_two)
 
     # If fiat currency, then show 2 digits after decimal place
     if chat_data["two"].startswith("Z"):
@@ -726,7 +718,7 @@ def trade_show_conf(update, chat_data):
     else:
         total_value_str = "(Value: " + str(trim_zeros(total_value)) + " " + asset_two + ")"
 
-    reply_msg = " Place this order?\n" + trade_str + "\n" + total_value_str
+    reply_msg = " Place this order?\n" + chat_data["trade_str"] + "\n" + total_value_str
     update.message.reply_text(emo_qu + reply_msg, reply_markup=keyboard_confirm())
 
 
@@ -738,19 +730,19 @@ def trade_confirm(bot, update, chat_data):
     update.message.reply_text(emo_wa + " Placing order...")
 
     req_data = dict()
+    req_data["type"] = chat_data["buysell"].lower()
+    req_data["volume"] = chat_data["volume"]
+    req_data["pair"] = pairs[chat_data["currency"]]
 
     # Order type MARKET
     if chat_data["market_price"]:
         req_data["ordertype"] = "market"
         req_data["trading_agreement"] = "agree"
+
     # Order type LIMIT
     else:
         req_data["ordertype"] = "limit"
         req_data["price"] = chat_data["price"]
-
-    req_data["type"] = chat_data["buysell"].lower()
-    req_data["volume"] = chat_data["volume"]
-    req_data["pair"] = pairs[chat_data["currency"]]
 
     # Send request to create order to Kraken
     res_add_order = kraken_api("AddOrder", req_data, private=True)
@@ -759,33 +751,10 @@ def trade_confirm(bot, update, chat_data):
     if handle_api_error(res_add_order, update):
         return
 
-    # If there is a transaction id then the order was placed successfully
+    # If there is a transaction ID then the order was placed successfully
     if res_add_order["result"]["txid"]:
-        order_txid = res_add_order["result"]["txid"][0]
-
-        req_data = dict()
-        req_data["txid"] = order_txid
-
-        # Send request to get info on specific order
-        res_query_order = kraken_api("QueryOrders", data=req_data, private=True)
-
-        # If Kraken replied with an error, show it
-        if handle_api_error(res_query_order, update):
-            return
-
-        if res_query_order["result"][order_txid]:
-            order_desc = res_query_order["result"][order_txid]["descr"]["order"]
-            msg = emo_fi + " Order placed:\n" + order_txid + "\n" + trim_zeros(order_desc)
-            update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
-
-            # Add Job to JobQueue to check status of created order (if enabled)
-            if config["check_trade"]:
-                trade_time = config["check_trade_time"]
-                context = dict(order_txid=order_txid)
-                job_queue.run_repeating(order_state_check, trade_time, context=context)
-        else:
-            update.message.reply_text("No order with TXID " + order_txid)
-
+        msg = emo_fi + " Order placed:\n" + res_add_order["result"]["txid"][0] + "\n" + chat_data["trade_str"]
+        update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
     else:
         update.message.reply_text("Undefined state: no error and no TXID")
 
@@ -1728,38 +1697,51 @@ def coin_buttons():
     return buttons
 
 
-# Check order state and send message if order closed
-def order_state_check(bot, job):
-    req_data = dict()
-    req_data["txid"] = job.context["order_txid"]
+# Monitor status changes of previously created open orders
+def check_order_exec(bot, job):
+    # Send request for open orders to Kraken
+    res_data = kraken_api("OpenOrders", private=True)
 
-    # Send request to get info on specific order
-    res_data = kraken_api("QueryOrders", data=req_data, private=True)
+    err_prefix = "Check order execution:\n"
 
-    # If Kraken replied with an error, return without notification
+    # If Kraken replied with an error, show it
     if res_data["error"]:
         error = btfy(res_data["error"][0])
         log(logging.ERROR, error)
         if config["send_error"]:
-            src = "Order state check:\n"
-            bot.send_message(chat_id=config["user_id"], text=src + emo_er + " " + error)
+            msg = err_prefix + emo_er + " " + error
+            updater.bot.send_message(chat_id=config["user_id"], text=msg)
         return
 
-    # Save information about order
-    order_info = res_data["result"][job.context["order_txid"]]
+    query_order_req = {"txid": ""}
 
-    # Check if order was canceled. If so, stop monitoring
-    if order_info["status"] == "canceled":
-        # Stop this job
-        job.schedule_removal()
-        return
+    # Check if there are open orders
+    if res_data["result"]["open"]:
+        # Go through open orders and save transaction IDs
+        for order in res_data["result"]["open"]:
+            query_order_req["txid"] += str(order) + ", "
 
-    # Check if trade was executed. If so, stop monitoring and send message
-    if order_info["status"] == "closed":
-        msg = " Trade executed:\n" + job.context["order_txid"] + "\n" + trim_zeros(order_info["descr"]["order"])
-        bot.send_message(chat_id=config["user_id"], text=bold(emo_no + msg), parse_mode=ParseMode.MARKDOWN)
-        # Stop this job
-        job.schedule_removal()
+        # Remove last ', ' characters
+        query_order_req["txid"] = query_order_req["txid"][:-2]
+
+        # Send request to get info on specific order
+        query_orders_res = kraken_api("QueryOrders", data=query_order_req, private=True)
+
+        # If Kraken replied with an error, return without notification
+        if query_orders_res["error"]:
+            error = btfy(query_orders_res["error"][0])
+            log(logging.ERROR, error)
+            if config["send_error"]:
+                msg = err_prefix + emo_er + " " + error
+                updater.bot.send_message(chat_id=config["user_id"], text=msg)
+            return
+
+        for order, info in query_orders_res["result"].items():
+            # Check if trade was executed. If so, send notification
+            if info["status"] == "closed":
+                usr_id = config["user_id"]
+                msg = " Trade executed:\n" + order + "\n" + trim_zeros(info["descr"]["order"])
+                updater.bot.send_message(chat_id=usr_id, text=bold(emo_no + msg), parse_mode=ParseMode.MARKDOWN)
 
 
 # Start periodical job to check if new bot version is available
@@ -1779,33 +1761,6 @@ def monitor_updates():
 
         # Add Job to JobQueue to run periodically
         job_queue.run_repeating(version_check, update_time, first=0)
-
-
-# Monitor status changes of previously created open orders
-def monitor_orders():
-    if config["check_trade"]:
-        # Send request for open orders to Kraken
-        res_data = kraken_api("OpenOrders", private=True)
-
-        # If Kraken replied with an error, show it
-        if res_data["error"]:
-            error = btfy(res_data["error"][0])
-            log(logging.ERROR, error)
-            if config["send_error"]:
-                src = "Monitoring orders:\n"
-                updater.bot.send_message(chat_id=config["user_id"], text=src + emo_er + " " + error)
-            return
-
-        if res_data["result"]["open"]:
-            for order in res_data["result"]["open"]:
-                # Save order transaction ID
-                order_txid = str(order)
-                # Save time in seconds from config
-                check_trade_time = config["check_trade_time"]
-
-                # Add Job to JobQueue to check status of order
-                context = dict(order_txid=order_txid)
-                job_queue.run_repeating(order_state_check, check_trade_time, context=context)
 
 
 # TODO: Complete sanity check
@@ -2299,8 +2254,9 @@ else:
 # Check for new bot version periodically
 monitor_updates()
 
-# Monitor status changes of open orders
-monitor_orders()
+# Periodically monitor status changes of open orders
+if config["check_trade"]:
+    job_queue.run_repeating(check_order_exec, config["check_trade_time"])
 
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
