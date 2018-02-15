@@ -235,3 +235,4 @@ If you find __Telegram-Kraken-Bot__ suitable for your needs or maybe even made s
 If you can't or don't want to donate, please consider signing up on listed exchanges below. They are really good and by using these links to register an account i get a share of the trading-fee that you pay to the exchange if you execute a trade.
 
 - [Binance](https://www.binance.com/?ref=16770868)
+- [Qryptos](https://accounts.qryptos.com/sign-up?affiliate=wVZoZ4uG269520)
