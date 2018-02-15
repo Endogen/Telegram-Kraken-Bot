@@ -443,7 +443,7 @@ def trade_sell_all_confirm(bot, update):
 def trade_currency(bot, update, chat_data):
     chat_data["currency"] = update.message.text.upper()
 
-    asset_one, asset_two = assets_from_pair(pairs[chat_data["currency"]])
+    asset_one, asset_two = assets_in_long_pair(pairs[chat_data["currency"]])
     chat_data["one"] = asset_one
     chat_data["two"] = asset_two
 
@@ -862,11 +862,11 @@ def orders_close_all(bot, update):
             update.message.reply_text(emo_fi + msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
         else:
             msg = bold("No orders closed")
-            update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+            update.message.reply_text(emo_fi + msg, parse_mode=ParseMode.MARKDOWN)
             return
     else:
         msg = bold("No open orders")
-        update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text(emo_fi + msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     return ConversationHandler.END
 
@@ -1093,19 +1093,19 @@ def start_cmd(bot, update):
 # Returns a string representation of a trade. Looks like this:
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
-    from_asset, to_asset = assets_from_pair(trade["pair"])
+    from_asset, to_asset = assets_in_short_pair(trade["descr"]["pair"])
 
     if from_asset and to_asset:
         pair = assets[from_asset]["altname"] + "-" + assets[to_asset]["altname"]
     else:
-        pair = trade["pair"]
+        pair = trade["descr"]["pair"]
 
     # Build the string representation of the trade
-    trade_str = (trade["type"] + " " +
+    trade_str = (trade["descr"]["type"] + " " +
                  trim_zeros(trade["vol"]) + " " +
-                 pair + " @ limit " +
+                 pair + " @ price " +
                  trim_zeros(trade["price"]) + " on " +
-                 datetime_from_timestamp(trade["time"]))
+                 datetime_from_timestamp(trade["closetm"]))
 
     return trade_str
 
@@ -1113,10 +1113,10 @@ def get_trade_str(trade):
 # Shows executed trades with volume and price
 @restrict_access
 def history_cmd(bot, update):
-    update.message.reply_text(emo_wa + " Retrieving finalized trades...")
+    update.message.reply_text(emo_wa + " Retrieving closed orders...")
 
     # Send request to Kraken to get trades history
-    res_trades = kraken_api("TradesHistory", private=True)
+    res_trades = kraken_api("ClosedOrders", private=True)
 
     # If Kraken replied with an error, show it
     if handle_api_error(res_trades, update):
@@ -1127,12 +1127,13 @@ def history_cmd(bot, update):
     trades = list()
 
     # Add all trades to global list
-    for trade_id, trade_details in res_trades["result"]["trades"].items():
-        trades.append(trade_details)
+    for trade_id, trade_details in res_trades["result"]["closed"].items():
+        if trade_details["status"] == "closed":
+            trades.append(trade_details)
 
     if trades:
         # Sort global list with trades - on executed time
-        trades = sorted(trades, key=lambda k: k['time'], reverse=True)
+        trades = sorted(trades, key=lambda k: k['closetm'], reverse=True)
 
         buttons = [
             KeyboardButton(KeyboardEnum.NEXT.clean()),
@@ -1143,7 +1144,7 @@ def history_cmd(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            one, two = assets_from_pair(newest_trade["pair"])
+            _, two = assets_in_short_pair(newest_trade["descr"]["pair"])
 
             # It's a fiat currency
             if two.startswith("Z"):
@@ -1173,7 +1174,7 @@ def history_next(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            one, two = assets_from_pair(newest_trade["pair"])
+            one, two = assets_in_short_pair(newest_trade["descr"]["pair"])
 
             # It's a fiat currency
             if two.startswith("Z"):
@@ -1884,8 +1885,8 @@ def datetime_from_timestamp(unix_timestamp):
 
 
 # From pair string (XXBTZEUR) get from-asset (XXBT) and to-asset (ZEUR)
-def assets_from_pair(pair):
-    for asset, data in assets.items():
+def assets_in_long_pair(pair):
+    for asset, _ in assets.items():
         # If TRUE, we know that 'to_asset' exists in assets
         if pair.endswith(asset):
             from_asset = pair[:len(asset)]
@@ -1896,6 +1897,23 @@ def assets_from_pair(pair):
                 return from_asset, to_asset
             else:
                 return None, to_asset
+
+    return None, None
+
+
+# From pair string (XBTEUR) get from-asset (XXBT) and to-asset (ZEUR)
+def assets_in_short_pair(pair):
+    # Search for second asset
+    for second_asset, from_data in assets.items():
+        if pair.endswith(from_data["altname"]):
+            short_from_asset = pair[:len(from_data["altname"])]
+
+            # Search for first asset
+            for first_asset, to_data in assets.items():
+                if short_from_asset == to_data["altname"]:
+                    return first_asset, second_asset
+
+            return None, second_asset
 
     return None, None
 
