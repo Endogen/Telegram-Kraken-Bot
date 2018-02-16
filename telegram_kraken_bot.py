@@ -1098,16 +1098,21 @@ def get_trade_str(trade):
     from_asset, to_asset = assets_in_short_pair(trade["descr"]["pair"])
 
     if from_asset and to_asset:
-        pair = assets[from_asset]["altname"] + "-" + assets[to_asset]["altname"]
+        # Build string representation of trade with asset names
+        trade_str = (trade["descr"]["type"] + " " +
+                     trim_zeros(trade["vol"]) + " " +
+                     assets[from_asset]["altname"] + " @ price " +
+                     trim_zeros(trade["price"]) + " " +
+                     assets[to_asset]["altname"] + " on " +
+                     datetime_from_timestamp(trade["closetm"]))
     else:
-        pair = trade["descr"]["pair"]
-
-    # Build the string representation of the trade
-    trade_str = (trade["descr"]["type"] + " " +
-                 trim_zeros(trade["vol"]) + " " +
-                 pair + " @ price " +
-                 trim_zeros(trade["price"]) + " on " +
-                 datetime_from_timestamp(trade["closetm"]))
+        # Build string representation of trade with pair string
+        # We need this because who knows if the pair still exists
+        trade_str = (trade["descr"]["type"] + " " +
+                     trim_zeros(trade["vol"]) + " " +
+                     trade["descr"]["pair"] + " @ price " +
+                     trim_zeros(trade["price"]) + " on " +
+                     datetime_from_timestamp(trade["closetm"]))
 
     return trade_str
 
