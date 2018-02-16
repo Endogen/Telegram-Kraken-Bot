@@ -334,6 +334,9 @@ def trade_cmd(bot, update):
 
 # Save if BUY or SELL order and choose the currency to trade
 def trade_buy_sell(bot, update, chat_data):
+    # Clear data in case command is executed again without properly exiting first
+    clear_chat_data(chat_data)
+
     chat_data["buysell"] = update.message.text.lower()
 
     reply_msg = "Choose currency"
@@ -1060,7 +1063,6 @@ def value_currency(bot, update):
     return ConversationHandler.END
 
 
-# FIXME: Doesn't end the current conversation
 # Reloads keyboard with available commands
 @restrict_access
 def reload_cmd(bot, update):
@@ -1310,6 +1312,9 @@ def funding_cmd(bot, update):
 
 # Choose withdraw or deposit
 def funding_currency(bot, update, chat_data):
+    # Clear data in case command is executed again without properly exiting first
+    clear_chat_data(chat_data)
+
     chat_data["currency"] = update.message.text.upper()
 
     reply_msg = "What do you want to do?"
@@ -1545,6 +1550,9 @@ def settings_cmd(bot, update):
 
 # Change setting
 def settings_change(bot, update, chat_data):
+    # Clear data in case command is executed again without properly exiting first
+    clear_chat_data(chat_data)
+
     chat_data["setting"] = update.message.text.lower()
 
     # Don't allow to change setting 'user_id'
@@ -2090,8 +2098,8 @@ funding_handler = ConversationHandler(
         WorkflowEnum.WITHDRAW_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), funding_withdraw_confirm, pass_chat_data=True)]
     },
-    fallbacks=[CommandHandler('cancel', cancel, pass_chat_data=True)]
-)
+    fallbacks=[CommandHandler('cancel', cancel, pass_chat_data=True)],
+    allow_reentry=True)
 dispatcher.add_handler(funding_handler)
 
 
@@ -2103,8 +2111,8 @@ history_handler = ConversationHandler(
             [RegexHandler(comp("^(NEXT)$"), history_next),
              RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(history_handler)
 
 
@@ -2116,8 +2124,8 @@ chart_handler = ConversationHandler(
             [RegexHandler(comp("^(" + regex_coin_or() + ")$"), chart_currency),
              RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(chart_handler)
 
 
@@ -2133,8 +2141,8 @@ orders_handler = ConversationHandler(
             [RegexHandler(comp("^(CANCEL)$"), cancel),
              RegexHandler(comp("^[A-Z0-9]{6}-[A-Z0-9]{5}-[A-Z0-9]{6}$"), orders_close_order)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(orders_handler)
 
 
@@ -2168,8 +2176,8 @@ trade_handler = ConversationHandler(
         WorkflowEnum.TRADE_CONFIRM:
             [RegexHandler(comp("^(YES|NO)$"), trade_confirm, pass_chat_data=True)]
     },
-    fallbacks=[CommandHandler('cancel', cancel, pass_chat_data=True)]
-)
+    fallbacks=[CommandHandler('cancel', cancel, pass_chat_data=True)],
+    allow_reentry=True)
 dispatcher.add_handler(trade_handler)
 
 
@@ -2181,8 +2189,8 @@ price_handler = ConversationHandler(
             [RegexHandler(comp("^(" + regex_coin_or() + ")$"), price_currency),
              RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(price_handler)
 
 
@@ -2194,8 +2202,8 @@ value_handler = ConversationHandler(
             [RegexHandler(comp("^(" + regex_coin_or() + "|ALL)$"), value_currency),
              RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(value_handler)
 
 
@@ -2234,8 +2242,7 @@ bot_handler = ConversationHandler(
         settings_save_state()[0]: settings_save_state()[1],
         settings_confirm_state()[0]: settings_confirm_state()[1]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)])
 dispatcher.add_handler(bot_handler)
 
 
@@ -2247,8 +2254,7 @@ settings_handler = ConversationHandler(
         settings_save_state()[0]: settings_save_state()[1],
         settings_confirm_state()[0]: settings_confirm_state()[1]
     },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    fallbacks=[CommandHandler('cancel', cancel)])
 dispatcher.add_handler(settings_handler)
 
 
