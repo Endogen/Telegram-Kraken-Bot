@@ -2242,7 +2242,8 @@ bot_handler = ConversationHandler(
         settings_save_state()[0]: settings_save_state()[1],
         settings_confirm_state()[0]: settings_confirm_state()[1]
     },
-    fallbacks=[CommandHandler('cancel', cancel)])
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(bot_handler)
 
 
@@ -2254,7 +2255,8 @@ settings_handler = ConversationHandler(
         settings_save_state()[0]: settings_save_state()[1],
         settings_confirm_state()[0]: settings_confirm_state()[1]
     },
-    fallbacks=[CommandHandler('cancel', cancel)])
+    fallbacks=[CommandHandler('cancel', cancel)],
+    allow_reentry=True)
 dispatcher.add_handler(settings_handler)
 
 
