@@ -791,7 +791,7 @@ def orders_cmd(bot, update):
             order_desc = trim_zeros(order_details["descr"]["order"])
             update.message.reply_text(bold(order_id + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
     else:
-        update.message.reply_text(bold("No open orders"), parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text(emo_fi + " " + bold("No open orders"), parse_mode=ParseMode.MARKDOWN)
         return ConversationHandler.END
 
     reply_msg = "What do you want to do?"
