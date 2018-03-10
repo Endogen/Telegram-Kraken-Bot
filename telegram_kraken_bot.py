@@ -56,7 +56,7 @@ logger = logging.getLogger()
 date = datetime.datetime.now().strftime(date_format)
 
 # Add a file handlers to the logger if enabled
-if config["log_to_file"]:
+if config["log_level"] > 0:
     # If log directory doesn't exist, create it
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -154,7 +154,7 @@ class KeyboardEnum(Enum):
 # Log an event and save it in a file with current date as name
 def log(severity, msg):
     # Add file handler to logger if enabled
-    if config["log_to_file"]:
+    if config["log_level"] > 0:
         now = datetime.datetime.now().strftime(date_format)
 
         # If current date not the same as initial one, create new FileHandler
@@ -1760,10 +1760,7 @@ def check_order_exec(bot, job):
 
 # Start periodical job to check if new bot version is available
 def monitor_updates():
-    if config["update_check"]:
-        # Save time in seconds from config
-        update_time = config["update_time"]
-
+    if config["update_check"] > 0:
         # Check if current bot version is the latest
         def version_check(bot, job):
             status_code, msg = get_update_state()
@@ -1774,7 +1771,7 @@ def monitor_updates():
                 bot.send_message(chat_id=config["user_id"], text=msg)
 
         # Add Job to JobQueue to run periodically
-        job_queue.run_repeating(version_check, update_time, first=0)
+        job_queue.run_repeating(version_check, config["update_check"], first=0)
 
 
 # TODO: Complete sanity check
