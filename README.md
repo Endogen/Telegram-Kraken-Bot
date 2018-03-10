@@ -70,8 +70,7 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __log\_to\_file__: If `true`, debug-output that usually goes to the console will be saved in file `debug.log`. Only enable this if you're searching for a bug because the logfiles can get pretty big
 - __log_level__: Has to be an __integer__. Choose the log-level depending on this: DEBUG = `10`, INFO = `20`, WARNING = `30`, ERROR = `40`, CRITICAL = `50`
 - __history_items__: Number of executed trades to display simultaneously
-- __retries__: If `true`, then issued Kraken API requests will be retried if they return any kind of server error. In most cases this is very helpfull since at the second or third time the request will most likely make it through. See also option `retries_counter` to set the number of retries
-- __retries_counter__: Number of times a Kraken API call will be retried if option `retries` is enabled
+- __retries__: If bigger then `0`, then Kraken API calls will be retried the specified number of times if they return any kind of error. In most cases this is very helpful since at the second or third time the request will most likely make it through
 - __single_price__: If `true`, no need to choose a coin in `/price` command. Only one message will be send with current prices for all coins that are configured in setting `used_pairs`
 - __single_chart__: If `true`, no need to choose a coin in `/chart` command. Only one message will be send with links to all coins that are configured in setting `used_pairs`
 - __webhook_enabled__: _Not used yet_
