@@ -224,7 +224,7 @@ def kraken_api(method, data=None, private=False, retries=None):
                 return {"error": [ex_name + ":" + str(ex)]}
         # Retrying on error not enabled, return error from last Kraken request
         else:
-            return {"error": [ex_name + ":" + str(ex)]}  # FIXME: Error will not be shown?
+            return {"error": [ex_name + ":" + str(ex)]}
 
 
 # Decorator to restrict access if user is not the same as in config
@@ -2269,8 +2269,8 @@ else:
 monitor_updates()
 
 # Periodically monitor status changes of open orders
-if config["check_trade"]:
-    job_queue.run_repeating(check_order_exec, config["check_trade_time"])
+if config["check_trade"] > 0:
+    job_queue.run_repeating(check_order_exec, config["check_trade"])
 
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
