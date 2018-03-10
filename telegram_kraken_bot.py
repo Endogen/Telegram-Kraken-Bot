@@ -1717,15 +1717,8 @@ def check_order_exec(bot, job):
     # Send request for open orders to Kraken
     res_data = kraken_api("OpenOrders", private=True)
 
-    err_prefix = "Check order execution:\n"
-
-    # If Kraken replied with an error, show it
-    if res_data["error"]:
-        error = btfy(res_data["error"][0])
-        log(logging.ERROR, error)
-        if config["send_error"]:
-            msg = err_prefix + emo_er + " " + error
-            updater.bot.send_message(chat_id=config["user_id"], text=msg)
+    error_prefix = "Check order execution:\n"
+    if handle_api_error(res_data, None, error_prefix, config["send_error"]):
         return
 
     query_order_req = {"txid": ""}
@@ -1743,12 +1736,7 @@ def check_order_exec(bot, job):
         query_orders_res = kraken_api("QueryOrders", data=query_order_req, private=True)
 
         # If Kraken replied with an error, return without notification
-        if query_orders_res["error"]:
-            error = btfy(query_orders_res["error"][0])
-            log(logging.ERROR, error)
-            if config["send_error"]:
-                msg = err_prefix + emo_er + " " + error
-                updater.bot.send_message(chat_id=config["user_id"], text=msg)
+        if handle_api_error(query_orders_res, None, error_prefix, config["send_error"]):
             return
 
         for order, info in query_orders_res["result"].items():
@@ -2029,12 +2017,19 @@ def regex_settings_or():
     return settings_regex_or[:-1]
 
 
-def handle_api_error(response, update, additional_msg=""):
+def handle_api_error(response, update, msg_prefix="", send_msg=True):
     if response["error"]:
-        error = btfy(additional_msg + response["error"][0])
-        update.message.reply_text(error)
+        error = btfy(msg_prefix + response["error"][0])
         log(logging.ERROR, error)
+
+        if send_msg:
+            if update:
+                update.message.reply_text(error)
+            else:
+                updater.bot.send_message(chat_id=config["user_id"], text=error)
+
         return True
+
     return False
 
 
