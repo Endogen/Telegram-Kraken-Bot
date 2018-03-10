@@ -301,8 +301,8 @@ def balance_cmd(bot, update):
         if trim_zeros(currency_value) is not "0":
             msg += bold(assets[currency_key]["altname"] + ": " + trim_zeros(currency_value) + "\n")
 
-            available_value = trim_zeros("{0:.8f}".format(float(available_value)))
-            currency_value = trim_zeros("{0:.8f}".format(float(currency_value)))
+            available_value = trim_zeros(float(available_value))
+            currency_value = trim_zeros(float(currency_value))
 
             # If orders exist for this asset, show available volume too
             if currency_value == available_value:
@@ -575,7 +575,7 @@ def trade_vol_all(bot, update, chat_data):
                     avail_buy_from_cur = float(avail_buy_from_cur) - (float(order_volume) * float(coin_price))
 
         # Calculate volume depending on available trade-to balance and round it to 8 digits
-        chat_data["volume"] = "{0:.8f}".format(avail_buy_from_cur / float(chat_data["price"]))
+        chat_data["volume"] = trim_zeros(avail_buy_from_cur / float(chat_data["price"]))
 
         # If available volume is 0, return without creating an order
         if chat_data["volume"] == "0.00000000":
@@ -611,7 +611,7 @@ def trade_vol_all(bot, update, chat_data):
                         available_volume = str(float(available_volume) - float(order_volume))
 
         # Get volume from balance and round it to 8 digits
-        chat_data["volume"] = "{0:.8f}".format(float(available_volume))
+        chat_data["volume"] = trim_zeros(float(available_volume))
 
         # If available volume is 0, return without creating an order
         if chat_data["volume"] == "0.00000000":
@@ -628,7 +628,7 @@ def trade_vol_all(bot, update, chat_data):
 def trade_volume_asset(bot, update, chat_data):
     amount = float(update.message.text.replace(",", "."))
     price_per_unit = float(chat_data["price"])
-    chat_data["volume"] = "{0:.8f}".format(amount / price_per_unit)
+    chat_data["volume"] = trim_zeros(amount / price_per_unit)
 
     # Make sure that the order size is at least the minimum order limit
     if chat_data["currency"] in limits:
@@ -653,7 +653,7 @@ def trade_volume_asset(bot, update, chat_data):
 
 # Calculate the volume depending on entered volume type 'VOLUME'
 def trade_volume(bot, update, chat_data):
-    chat_data["volume"] = "{0:.8f}".format(float(update.message.text.replace(",", ".")))
+    chat_data["volume"] = trim_zeros(float(update.message.text.replace(",", ".")))
 
     # Make sure that the order size is at least the minimum order limit
     if chat_data["currency"] in limits:
@@ -710,11 +710,11 @@ def trade_show_conf(update, chat_data):
     # If fiat currency, then show 2 digits after decimal place
     if chat_data["two"].startswith("Z"):
         # Calculate total value of order
-        total_value = "{0:.2f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
+        total_value = trim_zeros(float(chat_data["volume"]) * float(chat_data["price"]), 2)
     # Else, show 8 digits after decimal place
     else:
         # Calculate total value of order
-        total_value = "{0:.8f}".format(float(chat_data["volume"]) * float(chat_data["price"]))
+        total_value = trim_zeros(float(chat_data["volume"]) * float(chat_data["price"]))
 
     if chat_data["market_price"]:
         total_value_str = "(Value: ≈" + str(trim_zeros(total_value)) + " " + asset_two + ")"
@@ -1002,10 +1002,10 @@ def value_currency(bot, update):
             if data["altname"] == config["base_currency"]:
                 if asset.startswith("Z"):
                     # It's a fiat currency, show only 2 digits after decimal place
-                    total_fiat_value = "{0:.2f}".format(float(res_trade_balance["result"]["eb"]))
+                    total_fiat_value = trim_zeros(float(res_trade_balance["result"]["eb"]), 2)
                 else:
                     # It's not a fiat currency, show 8 digits after decimal place
-                    total_fiat_value = "{0:.8f}".format(float(res_trade_balance["result"]["eb"]))
+                    total_fiat_value = trim_zeros(float(res_trade_balance["result"]["eb"]))
 
         # Generate message to user
         msg = "Overall: " + total_fiat_value + " " + config["base_currency"]
@@ -1047,12 +1047,12 @@ def value_currency(bot, update):
 
         # If fiat currency, show 2 digits after decimal place
         if buy_from_cur_long.startswith("Z"):
-            value = "{0:.2f}".format(value)
-            last_trade_price = "{0:.2f}".format(float(last_price))
+            value = trim_zeros(value, 2)
+            last_trade_price = trim_zeros(float(last_price), 2)
         # ... else show 8 digits after decimal place
         else:
-            value = "{0:.8f}".format(value)
-            last_trade_price = "{0:.8f}".format(float(last_price))
+            value = trim_zeros(value)
+            last_trade_price = trim_zeros(float(last_price))
 
         msg = update.message.text.upper() + ": " + value + " " + buy_from_cur
 
@@ -1154,10 +1154,10 @@ def trades_cmd(bot, update):
 
             # It's a fiat currency
             if two.startswith("Z"):
-                total_value = "{0:.2f}".format(float(newest_trade["cost"]))
+                total_value = trim_zeros(float(newest_trade["cost"]), 2)
             # It's a digital currency
             else:
-                total_value = "{0:.8f}".format(float(newest_trade["cost"]))
+                total_value = trim_zeros(float(newest_trade["cost"]))
 
             reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2), resize_keyboard=True)
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " " + assets[two]["altname"] + ")"
@@ -1185,10 +1185,10 @@ def trades_next(bot, update):
 
             # It's a fiat currency
             if two.startswith("Z"):
-                total_value = "{0:.2f}".format(float(newest_trade["cost"]))
+                total_value = trim_zeros(float(newest_trade["cost"]), 2)
             # It's a digital currency
             else:
-                total_value = "{0:.8f}".format(float(newest_trade["cost"]))
+                total_value = trim_zeros(float(newest_trade["cost"]))
 
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " " + assets[two]["altname"] + ")"
             update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
@@ -1912,15 +1912,15 @@ def assets_in_pair(pair):
 
 
 # Remove trailing zeros to get clean values
-def trim_zeros(value_to_trim):
+def trim_zeros(value_to_trim, decimals=config["decimals"]):
     if isinstance(value_to_trim, float):
-        return ('%.8f' % value_to_trim).rstrip('0').rstrip('.')
+        return (("%." + str(decimals) + "f") % value_to_trim).rstrip("0").rstrip(".")
     elif isinstance(value_to_trim, str):
         str_list = value_to_trim.split(" ")
         for i in range(len(str_list)):
             old_str = str_list[i]
             if old_str.replace(".", "").isdigit():
-                new_str = str(('%.8f' % float(old_str)).rstrip('0').rstrip('.'))
+                new_str = str((("%." + str(decimals) + "f") % float(old_str)).rstrip("0").rstrip("."))
                 str_list[i] = new_str
         return " ".join(str_list)
     else:
