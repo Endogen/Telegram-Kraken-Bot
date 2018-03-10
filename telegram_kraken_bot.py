@@ -788,8 +788,9 @@ def orders_cmd(bot, update):
             # without requesting data from Kraken again
             orders.append({order_id: order_details})
 
+            order = "Order: " + order_id
             order_desc = trim_zeros(order_details["descr"]["order"])
-            update.message.reply_text(bold(order_id + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
+            update.message.reply_text(bold(order + "\n" + order_desc), parse_mode=ParseMode.MARKDOWN)
     else:
         update.message.reply_text(emo_fi + " " + bold("No open orders"), parse_mode=ParseMode.MARKDOWN)
         return ConversationHandler.END
