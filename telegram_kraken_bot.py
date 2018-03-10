@@ -114,7 +114,7 @@ class WorkflowEnum(Enum):
     VALUE_CURRENCY = auto()
     BOT_SUB_CMD = auto()
     CHART_CURRENCY = auto()
-    HISTORY_NEXT = auto()
+    TRADES_NEXT = auto()
     FUNDING_CURRENCY = auto()
     FUNDING_CHOOSE = auto()
     WITHDRAW_WALLET = auto()
@@ -210,10 +210,10 @@ def kraken_api(method, data=None, private=False, retries=None):
             return {"error": [msg]}
 
         # Is retrying on error enabled?
-        if config["retries"]:
+        if config["retries"] > 0:
             # It's the first call, start retrying
             if retries is None:
-                retries = config["retries_counter"]
+                retries = config["retries"]
                 return kraken_api(method, data, private, retries)
             # If 'retries' is bigger then 0, decrement it and retry again
             elif retries > 0:
@@ -224,7 +224,7 @@ def kraken_api(method, data=None, private=False, retries=None):
                 return {"error": [ex_name + ":" + str(ex)]}
         # Retrying on error not enabled, return error from last Kraken request
         else:
-            return {"error": [ex_name + ":" + str(ex)]}
+            return {"error": [ex_name + ":" + str(ex)]}  # FIXME: Error will not be shown?
 
 
 # Decorator to restrict access if user is not the same as in config
@@ -446,7 +446,7 @@ def trade_sell_all_confirm(bot, update):
 def trade_currency(bot, update, chat_data):
     chat_data["currency"] = update.message.text.upper()
 
-    asset_one, asset_two = assets_in_long_pair(pairs[chat_data["currency"]])
+    asset_one, asset_two = assets_in_pair(pairs[chat_data["currency"]])
     chat_data["one"] = asset_one
     chat_data["two"] = asset_two
 
@@ -1095,35 +1095,35 @@ def start_cmd(bot, update):
 # Returns a string representation of a trade. Looks like this:
 # sell 0.03752345 ETH-EUR @ limit 267.5 on 2017-08-22 22:18:22
 def get_trade_str(trade):
-    from_asset, to_asset = assets_in_short_pair(trade["descr"]["pair"])
+    from_asset, to_asset = assets_in_pair(trade["pair"])
 
     if from_asset and to_asset:
         # Build string representation of trade with asset names
-        trade_str = (trade["descr"]["type"] + " " +
+        trade_str = (trade["type"] + " " +
                      trim_zeros(trade["vol"]) + " " +
-                     assets[from_asset]["altname"] + " @ price " +
+                     assets[from_asset]["altname"] + " @ " +
                      trim_zeros(trade["price"]) + " " +
-                     assets[to_asset]["altname"] + " on " +
-                     datetime_from_timestamp(trade["closetm"]))
+                     assets[to_asset]["altname"] + "\n" +
+                     datetime_from_timestamp(trade["time"]))
     else:
         # Build string representation of trade with pair string
         # We need this because who knows if the pair still exists
-        trade_str = (trade["descr"]["type"] + " " +
+        trade_str = (trade["type"] + " " +
                      trim_zeros(trade["vol"]) + " " +
-                     trade["descr"]["pair"] + " @ price " +
-                     trim_zeros(trade["price"]) + " on " +
-                     datetime_from_timestamp(trade["closetm"]))
+                     trade["pair"] + " @ " +
+                     trim_zeros(trade["price"]) + "\n" +
+                     datetime_from_timestamp(trade["time"]))
 
     return trade_str
 
 
 # Shows executed trades with volume and price
 @restrict_access
-def history_cmd(bot, update):
-    update.message.reply_text(emo_wa + " Retrieving closed orders...")
+def trades_cmd(bot, update):
+    update.message.reply_text(emo_wa + " Retrieving executed trades...")
 
     # Send request to Kraken to get trades history
-    res_trades = kraken_api("ClosedOrders", private=True)
+    res_trades = kraken_api("TradesHistory", private=True)
 
     # If Kraken replied with an error, show it
     if handle_api_error(res_trades, update):
@@ -1134,13 +1134,12 @@ def history_cmd(bot, update):
     trades = list()
 
     # Add all trades to global list
-    for trade_id, trade_details in res_trades["result"]["closed"].items():
-        if trade_details["status"] == "closed":
-            trades.append(trade_details)
+    for trade_id, trade_details in res_trades["result"]["trades"].items():
+        trades.append(trade_details)
 
     if trades:
         # Sort global list with trades - on executed time
-        trades = sorted(trades, key=lambda k: k['closetm'], reverse=True)
+        trades = sorted(trades, key=lambda k: k['time'], reverse=True)
 
         buttons = [
             KeyboardButton(KeyboardEnum.NEXT.clean()),
@@ -1151,14 +1150,14 @@ def history_cmd(bot, update):
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            _, two = assets_in_short_pair(newest_trade["descr"]["pair"])
+            _, two = assets_in_pair(newest_trade["pair"])
 
             # It's a fiat currency
             if two.startswith("Z"):
-                total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+                total_value = "{0:.2f}".format(float(newest_trade["cost"]))
             # It's a digital currency
             else:
-                total_value = "{0:.8f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+                total_value = "{0:.8f}".format(float(newest_trade["cost"]))
 
             reply_mrk = ReplyKeyboardMarkup(build_menu(buttons, n_cols=2), resize_keyboard=True)
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " " + assets[two]["altname"] + ")"
@@ -1167,28 +1166,29 @@ def history_cmd(bot, update):
             # Remove the first item in the trades list
             trades.remove(newest_trade)
 
-        return WorkflowEnum.HISTORY_NEXT
+        return WorkflowEnum.TRADES_NEXT
     else:
         update.message.reply_text("No item in trade history", reply_markup=keyboard_cmds())
 
         return ConversationHandler.END
 
 
+# TODO: Show fee
 # Save if BUY, SELL or ALL trade history and choose how many entries to list
-def history_next(bot, update):
+def trades_next(bot, update):
     if trades:
         # Get number of first items in list (latest trades)
         for items in range(config["history_items"]):
             newest_trade = next(iter(trades), None)
 
-            one, two = assets_in_short_pair(newest_trade["descr"]["pair"])
+            one, two = assets_in_pair(newest_trade["pair"])
 
             # It's a fiat currency
             if two.startswith("Z"):
-                total_value = "{0:.2f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+                total_value = "{0:.2f}".format(float(newest_trade["cost"]))
             # It's a digital currency
             else:
-                total_value = "{0:.8f}".format(float(newest_trade["price"]) * float(newest_trade["vol"]))
+                total_value = "{0:.8f}".format(float(newest_trade["cost"]))
 
             msg = get_trade_str(newest_trade) + " (Value: " + total_value + " " + assets[two]["altname"] + ")"
             update.message.reply_text(bold(msg), parse_mode=ParseMode.MARKDOWN)
@@ -1196,7 +1196,7 @@ def history_next(bot, update):
             # Remove the first item in the trades list
             trades.remove(newest_trade)
 
-        return WorkflowEnum.HISTORY_NEXT
+        return WorkflowEnum.TRADES_NEXT
     else:
         msg = bold("Trade history is empty")
         update.message.reply_text(emo_fi + " " + msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
@@ -1683,7 +1683,7 @@ def keyboard_cmds():
         KeyboardButton("/price"),
         KeyboardButton("/value"),
         KeyboardButton("/chart"),
-        KeyboardButton("/history"),
+        KeyboardButton("/trades"),
         KeyboardButton("/funding"),
         KeyboardButton("/bot")
     ]
@@ -1898,7 +1898,7 @@ def datetime_from_timestamp(unix_timestamp):
 
 
 # From pair string (XXBTZEUR) get from-asset (XXBT) and to-asset (ZEUR)
-def assets_in_long_pair(pair):
+def assets_in_pair(pair):
     for asset, _ in assets.items():
         # If TRUE, we know that 'to_asset' exists in assets
         if pair.endswith(asset):
@@ -1910,23 +1910,6 @@ def assets_in_long_pair(pair):
                 return from_asset, to_asset
             else:
                 return None, to_asset
-
-    return None, None
-
-
-# From pair string (XBTEUR) get from-asset (XXBT) and to-asset (ZEUR)
-def assets_in_short_pair(pair):
-    # Search for second asset
-    for second_asset, from_data in assets.items():
-        if pair.endswith(from_data["altname"]):
-            short_from_asset = pair[:len(from_data["altname"])]
-
-            # Search for first asset
-            for first_asset, to_data in assets.items():
-                if short_from_asset == to_data["altname"]:
-                    return first_asset, second_asset
-
-            return None, second_asset
 
     return None, None
 
@@ -2108,17 +2091,17 @@ funding_handler = ConversationHandler(
 dispatcher.add_handler(funding_handler)
 
 
-# HISTORY conversation handler
-history_handler = ConversationHandler(
-    entry_points=[CommandHandler('history', history_cmd)],
+# TRADES conversation handler
+trades_handler = ConversationHandler(
+    entry_points=[CommandHandler('trades', trades_cmd)],
     states={
-        WorkflowEnum.HISTORY_NEXT:
-            [RegexHandler(comp("^(NEXT)$"), history_next),
+        WorkflowEnum.TRADES_NEXT:
+            [RegexHandler(comp("^(NEXT)$"), trades_next),
              RegexHandler(comp("^(CANCEL)$"), cancel)]
     },
     fallbacks=[CommandHandler('cancel', cancel)],
     allow_reentry=True)
-dispatcher.add_handler(history_handler)
+dispatcher.add_handler(trades_handler)
 
 
 # CHART conversation handler
