@@ -1712,39 +1712,36 @@ def coin_buttons():
     return buttons
 
 
-# Monitor status changes of previously created open orders
+# Monitor closed orders
 def check_order_exec(bot, job):
-    # Send request for open orders to Kraken
-    res_data = kraken_api("OpenOrders", private=True)
+    # Current datetime
+    datetime_now = datetime.datetime.now(datetime.timezone.utc)
+    # Datetime minus seconds since last check
+    datetime_last_check = datetime_now - datetime.timedelta(seconds=config["check_trade"])
+
+    # Send request for closed orders to Kraken
+    orders_req = {"start": datetime_last_check.timestamp(), "trades": True}
+    res_data = kraken_api("ClosedOrders", orders_req, private=True)
 
     error_prefix = "Check order execution:\n"
     if handle_api_error(res_data, None, error_prefix, config["send_error"]):
         return
 
-    query_order_req = {"txid": ""}
+    # Check if there are closed orders
+    if res_data["result"]["closed"]:
+        # Go through closed orders
+        for order_id, details in res_data["result"]["closed"].items():
+            if trim_zeros(details["vol_exec"]) is not "0":
+                # Create trade string
+                trade_str = details["descr"]["type"] + " " + \
+                            details["vol_exec"] + " " + \
+                            details["descr"]["pair"] + " @ " + \
+                            details["descr"]["ordertype"] + " " + \
+                            details["price"]
 
-    # Check if there are open orders
-    if res_data["result"]["open"]:
-        # Go through open orders and save transaction IDs
-        for order in res_data["result"]["open"]:
-            query_order_req["txid"] += str(order) + ", "
-
-        # Remove last ', ' characters
-        query_order_req["txid"] = query_order_req["txid"][:-2]
-
-        # Send request to get info on specific order
-        query_orders_res = kraken_api("QueryOrders", data=query_order_req, private=True)
-
-        # If Kraken replied with an error, return without notification
-        if handle_api_error(query_orders_res, None, error_prefix, config["send_error"]):
-            return
-
-        for order, info in query_orders_res["result"].items():
-            # Check if trade was executed. If so, send notification
-            if info["status"] == "closed":
-                usr_id = config["user_id"]
-                msg = " Trade executed:\n" + order + "\n" + trim_zeros(info["descr"]["order"])
-                updater.bot.send_message(chat_id=usr_id, text=bold(emo_no + msg), parse_mode=ParseMode.MARKDOWN)
+                usr = config["user_id"]
+                msg = " Trade executed: " + details["misc"] + "\n" + trim_zeros(trade_str)
+                updater.bot.send_message(chat_id=usr, text=bold(emo_no + msg), parse_mode=ParseMode.MARKDOWN)
 
 
 # Start periodical job to check if new bot version is available
@@ -2263,7 +2260,7 @@ monitor_updates()
 
 # Periodically monitor status changes of open orders
 if config["check_trade"] > 0:
-    job_queue.run_repeating(check_order_exec, config["check_trade"])
+    job_queue.run_repeating(check_order_exec, config["check_trade"], first=0)
 
 # Run the bot until you press Ctrl-C or the process receives SIGINT,
 # SIGTERM or SIGABRT. This should be used most of the time, since
