@@ -57,22 +57,21 @@ This file holds the configuration for your bot. You have to at least edit the va
 - __user_id__: Your Telegram user ID. The bot will only reply to messages from this user. If you don't know your user ID, send a message to Telegram bot `userinfobot` and he will reply your ID (use the ID, not the username)
 - __bot_token__: The token that identifies your bot. You will get this from Telegram bot `BotFather` when you create your bot. If you don't know how to register your bot, follow these [instructions](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
 - __base_currency__: Command `/value` will use the base currency and show you the current value in this currency. If you want to get the value of all your assets, this only works if all your assets can be traded to this currency. You can enter here any asset: `EUR`, `USD`, `XBT`, `ETH`, ...
-- __check_trade__: If `true` then every order (already existing or newly created) will be monitored by a background job and if the status changes to `closed` (which means that a trade was successfully executed) you will be notified by a message. See also setting `check_trade_time`
-- __check\_trade\_time__: Time in seconds to check for order status changes (setting `check_trade` has to be enabled)
+- __check_trade__: Time in seconds to check for order status changes. Value `0` disables the check. Every order (already existing or newly created - not only by this bot) will be monitored by a background job and if the status changes to `closed` (which means that a trade was successfully executed) you will be notified by a message.
 - __update_url__: URL to the latest GitHub version of the script. This is needed for the update functionality. Per default this points to my repository and if you don't have your own repo with some changes then you should use the default value
 - __update_hash__: Hash of the latest version of the script. __Please don't change this__. Will be set automatically after updating. There is not need to play around with this
-- __update_check__: If `true`, then periodic update-checks (see also option `update_time` for timespan) are performed. If there is a bot-update available you will be notified by a message
-- __update_time__: Time in seconds to check for bot-updates. `update_check` has to be enabled
+- __update_check__: Time in seconds to check for bot-updates. Value `0` disables the check. If there is a bot-update available you will be notified by a message
 - __send_error__: If `true`, then all errors that happen will trigger a message to the user. If `false`, only the important errors will be send and timeout errors of background jobs will not be send
 - __show\_access\_denied__: If `true`, the owner of the bot and any other user who tries to access the bot will both be notified. If `false`, no one will be notified. Set to `false` if you get spammed with `Access denied` messages from people that try to use your bot
 - __used_pairs__: List of pairs to use with the bot. You can choose from all available pairs at Kraken: `"XBT": "EUR"`, `"ETH": "EUR"`, `"XLM": "XBT"`, ...
 - __coin_charts__: Dictionary of all available currencies with their corresponding chart URLs. Feel free to add new ones or change the ones that are pre-configured if you like to use other charts
-- __log\_to\_file__: If `true`, debug-output that usually goes to the console will be saved in file `debug.log`. Only enable this if you're searching for a bug because the logfiles can get pretty big
-- __log_level__: Has to be an __integer__. Choose the log-level depending on this: DEBUG = `10`, INFO = `20`, WARNING = `30`, ERROR = `40`, CRITICAL = `50`
+- __log_level__: Value has to be an __integer__. Choose the log-level depending on this: `0` = Disabled, `10` = DEBUG, `20` = INFO, `30` = WARNING, `40` = ERROR, `50` = CRITICAL
+- __log\_to\_file__: Debug-output that usually goes to the console will be saved  in folder `log` in a log-file. Only enable this if you're searching for a bug because the logfiles can get pretty big.
 - __history_items__: Number of executed trades to display simultaneously
 - __retries__: If bigger then `0`, then Kraken API calls will be retried the specified number of times if they return any kind of error. In most cases this is very helpful since at the second or third time the request will most likely make it through
 - __single_price__: If `true`, no need to choose a coin in `/price` command. Only one message will be send with current prices for all coins that are configured in setting `used_pairs`
 - __single_chart__: If `true`, no need to choose a coin in `/chart` command. Only one message will be send with links to all coins that are configured in setting `used_pairs`
+- __decimals__: Number of decimal places that will be displayed. If you don't want to see small amounts in `/balance`, set this to `6` or smaller. If you use `8`, which is the maximum value and the one that Kraken uses internally, and you experience errors (while buying with volume `ALL` you could get an `Insufficient funds` error) set it to `7` or smaller
 - __webhook_enabled__: _Not used yet_
 - __webhook_listen__: _Not used yet_
 - __webhook_port__: _Not used yet_
