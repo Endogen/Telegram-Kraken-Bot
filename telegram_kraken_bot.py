@@ -153,6 +153,10 @@ class KeyboardEnum(Enum):
 
 # Log an event and save it in a file with current date as name if enabled
 def log(severity, msg):
+    # Check if logging is enabled
+    if config["log_level"] is 0:
+        return
+
     # Add file handler to logger if enabled
     if config["log_to_file"]:
         now = datetime.datetime.now().strftime(date_format)
@@ -172,6 +176,7 @@ def log(severity, msg):
             # Add file handler to logger
             logger.addHandler(new_hdlr)
 
+    # The actual logging
     logger.log(severity, msg)
 
 
