@@ -56,7 +56,7 @@ logger = logging.getLogger()
 date = datetime.datetime.now().strftime(date_format)
 
 # Add a file handler to the logger if enabled
-if config["log_level"] > 0:
+if config["log_to_file"]:
     # If log directory doesn't exist, create it
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -151,10 +151,10 @@ class KeyboardEnum(Enum):
         return self.name.replace("_", " ")
 
 
-# Log an event and save it in a file with current date as name
+# Log an event and save it in a file with current date as name if enabled
 def log(severity, msg):
     # Add file handler to logger if enabled
-    if config["log_level"] > 0:
+    if config["log_to_file"]:
         now = datetime.datetime.now().strftime(date_format)
 
         # If current date not the same as initial one, create new FileHandler
@@ -1009,8 +1009,8 @@ def value_currency(bot, update):
                     total_fiat_value = trim_zeros(float(res_trade_balance["result"]["eb"]))
 
         # Generate message to user
-        msg = "Overall: " + total_fiat_value + " " + config["base_currency"]
-        update.message.reply_text(bold(msg), reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
+        msg = e_fns + bold("Overall: " + total_fiat_value + " " + config["base_currency"])
+        update.message.reply_text(msg, reply_markup=keyboard_cmds(), parse_mode=ParseMode.MARKDOWN)
 
     # ONE COINS (balance of specific coin)
     else:
