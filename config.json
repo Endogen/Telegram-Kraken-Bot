@@ -1,14 +1,12 @@
 {
-    "user_id": "some_user_id",
+    "user_id": "some_user",
     "bot_token": "some_bot_token",
     "base_currency": "EUR",
-    "check_trade": true,
-    "check_trade_time": 30,
+    "check_trade": 30,
     "history_items": 3,
     "update_url": "https://raw.githubusercontent.com/endogen/Telegram-Kraken-Bot/master/telegram_kraken_bot.py",
     "update_hash": "some_hash",
-    "update_check": true,
-    "update_time": 86400,
+    "update_check": 86400,
     "send_error": false,
     "show_access_denied": true,
     "used_pairs": {
@@ -17,7 +15,10 @@
         "ETH": "EUR",
         "XMR": "EUR",
         "XRP": "EUR",
-        "XLM": "XBT"
+        "XLM": "XBT",
+        "GNO": "ETH",
+        "ICN": "XBT",
+        "EOS": "EUR"
     },
     "coin_charts": {
         "XBT": "https://tinyurl.com/y9p6g5a8",
@@ -28,12 +29,12 @@
         "XRP": "https://tinyurl.com/ya4wcy3h",
         "XLM": "https://tinyurl.com/y8aulzp7"
     },
-    "log_to_file": false,
-    "log_level": 10,
-    "retries": true,
-    "retries_counter": 2,
+    "log_level": 0,
+    "retries": 2,
     "single_price": true,
     "single_chart": true,
+    "single_order": true,
+    "decimals": 6,
     "webhook_enabled": false,
     "webhook_listen": "0.0.0.0",
     "webhook_port": 8443,
