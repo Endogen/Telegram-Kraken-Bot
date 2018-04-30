@@ -1,22 +1,23 @@
 #!/usr/bin/python3
 
-import json
-import logging
+import re
 import os
 import sys
+import json
 import time
-import threading
+import inspect
+import logging
 import datetime
+import threading
+from enum import Enum, auto
+
 import requests
 import krakenex
-import inspect
-import re
-
-from enum import Enum, auto
+from bs4 import BeautifulSoup
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from telegram.ext import Updater, CommandHandler, ConversationHandler, RegexHandler, MessageHandler
 from telegram.ext.filters import Filters
-from bs4 import BeautifulSoup
+
 
 # Emojis for messages
 e_err = "‼ "  # Error
