@@ -29,7 +29,7 @@ This Python script is a polling (not [webhook](https://github.com/python-telegra
     - Check state of Kraken API
 
 ## Files
-In the following list you will find detailed information all the files that the project consists of - and if they are necessary to run the bot or not.
+In the following list you will find detailed information about all the files that the project consists of - and if they are necessary to run the bot or not.
 
 - __.gitignore__: Only relevant if you use [git](https://git-scm.com) as your Source Code Management. If you put a filename in that file, then that file will not be commited to the repository. If you don't intend to code yourself, the file is _not needed_.
 - __\_config.yml__: Automatically genereated file from GitHub that holds the theme-name for the [project page](https://endogen.github.io/Telegram-Kraken-Bot). This file is _not needed_.
