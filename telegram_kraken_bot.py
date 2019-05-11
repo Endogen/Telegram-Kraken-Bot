@@ -1904,7 +1904,7 @@ def assets_in_pair(pair):
     return None, None
 
 
-# Remove trailing zeros to get clean values
+# Remove trailing zeros and cut decimal places to get clean values
 def trim_zeros(value_to_trim, decimals=config["decimals"]):
     if isinstance(value_to_trim, float):
         return (("%." + str(decimals) + "f") % value_to_trim).rstrip("0").rstrip(".")
@@ -1912,7 +1912,7 @@ def trim_zeros(value_to_trim, decimals=config["decimals"]):
         str_list = value_to_trim.split(" ")
         for i in range(len(str_list)):
             old_str = str_list[i]
-            if old_str.replace(".", "").isdigit():
+            if old_str.replace(".", "").replace(",", "").isdigit():
                 new_str = str((("%." + str(decimals) + "f") % float(old_str)).rstrip("0").rstrip("."))
                 str_list[i] = new_str
         return " ".join(str_list)
