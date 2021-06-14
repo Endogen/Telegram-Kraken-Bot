@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# coding: utf-8
 
 import re
 import os
@@ -1887,13 +1888,18 @@ def datetime_from_timestamp(unix_timestamp):
     return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
 
-# From pair string (XXBTZEUR) get from-asset (XXBT) and to-asset (ZEUR)
+# From pair string (XBTEUR) get from-asset (XBT) and to-asset (ZEUR)
 def assets_in_pair(pair):
     for asset, _ in assets.items():
+        altname = _.get("altname")
         # If TRUE, we know that 'to_asset' exists in assets
-        if pair.endswith(asset):
-            from_asset = pair[:len(asset)]
-            to_asset = pair[len(pair)-len(asset):]
+        if pair.endswith(altname):
+            from_asset = pair[:len(altname)]
+            to_asset = pair[len(pair)-len(altname):]
+            
+            # If TRUE, we assume its a fiat currency and adding Z to it.
+            if to_asset not in assets:
+                to_asset = ("Z" + to_asset)
 
             # If TRUE, we know that 'from_asset' exists in assets
             if from_asset in assets:
